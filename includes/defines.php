@@ -158,6 +158,7 @@ define('BUTTON_LINKS',                      4);
 define('BUTTON_FORUM',                      5);
 define('BUTTON_TALENT',                     6);
 define('BUTTON_EQUIP',                      7);
+define('BUTTON_RESYNC',                     8);
 
 // generic filter handler
 define('FILTER_CR_BOOLEAN',                 1);
@@ -189,6 +190,11 @@ define('NPCINFO_MODEL',                     0x2);
 define('NPCINFO_REP',                       0x4);
 
 define('ACHIEVEMENTINFO_PROFILE',           0x1);
+
+define('PROFILEINFO_GUILD',                 1);             // like &roster
+define('PROFILEINFO_ARENA_2S',              2);
+define('PROFILEINFO_ARENA_3S',              3);
+define('PROFILEINFO_ARENA_5S',              4);
 
 define('SPAWNINFO_ZONES',                   1);             // not a mask, mutually exclusive
 define('SPAWNINFO_SHORT',                   2);

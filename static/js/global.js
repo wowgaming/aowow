@@ -570,7 +570,8 @@ var PageTemplate = new function()
             var menuItem = [character.id, character.name, g_getProfileUrl(character), null,
             {
                 className: (character.pinned ? 'icon-star-right ' : '') + 'c' + character.classs,
-                tinyIcon: $WH.g_getProfileIcon(character.race, character.classs, character.gender, character.level, character.id, 'tiny')
+                // tinyIcon: $WH.g_getProfileIcon(character.race, character.classs, character.gender, character.level, character.id, 'tiny') // sarjuuk: char-Id should not be nessecary here
+                tinyIcon: $WH.g_getProfileIcon(character.race, character.classs, character.gender, character.level, 0, 'tiny')
             }];
 
             submenu.push(menuItem);
@@ -14718,7 +14719,8 @@ Listview.templates = {
                         i.style.padding = '0';
                         i.style.borderRight = 'none';
 
-                        $WH.ae(i, Icon.create($WH.g_getProfileIcon(profile.race, profile.classs, profile.gender, profile.level, profile.icon ? profile.icon : profile.id, 'medium'), 1, null, this.getItemLink(profile)));
+                        // $WH.ae(i, Icon.create($WH.g_getProfileIcon(profile.race, profile.classs, profile.gender, profile.level, profile.icon ? profile.icon : profile.id, 'medium'), 1, null, this.getItemLink(profile))); // sarjuuk . i dont know .. i dont know...
+                        $WH.ae(i, Icon.create($WH.g_getProfileIcon(profile.race, profile.classs, profile.gender, profile.level, profile.icon ? profile.icon : 0, 'medium'), 1, null, this.getItemLink(profile)));
                         $WH.ae(tr, i);
 
                         td.style.borderLeft = 'none';
@@ -14986,6 +14988,18 @@ Listview.templates = {
                 compute: function(profile, td) {
                     return profile.games - profile.wins;
                 },
+                sortFunc: function(a, b, col) {
+                    var
+                        lossA = a.games - a.wins,
+                        lossB = b.games - b.wins;
+
+                    if (lossA > lossB)
+                        return 1;
+                    if (lossA < lossB)
+                        return -1;
+
+                    return 0;
+                },
                 hidden: 1
             },
             {
@@ -15111,6 +15125,9 @@ Listview.templates = {
                     a.href = '?guild=' + profile.region + '.' + profile.realm + '.' + g_urlize(profile.guild);
                     $WH.ae(a, $WH.ct(profile.guild));
                     $WH.ae(td, a);
+                },
+                sortFunc: function(a, b, col) {
+                    return $WH.strcmp(a.guild, b.guild);
                 }
             }
         ],
@@ -16637,14 +16654,14 @@ var Icon = {
     sizes: ['small', 'medium', 'large'],
     sizes2: [18, 36, 56],
     premiumOffsets: [[-56, -36], [-56, 0], [0, 0]],
-        premiumBorderClasses: ['-premium', '-gold', '', '-premiumred', '-red'],
-        STANDARD_BORDER: 2,
-        privilegeBorderClasses: {
-            uncommon: '-q2',
-            rare: '-q3',
-            epic: '-q4',
-            legendary: '-q5'
-        },
+    premiumBorderClasses: ['-premium', '-gold', '', '-premiumred', '-red'],
+    STANDARD_BORDER: 2,
+    privilegeBorderClasses: {
+        uncommon: '-q2',
+        rare: '-q3',
+        epic: '-q4',
+        legendary: '-q5'
+    },
     create: function(name, size, UNUSED, url, num, qty, noBorder, rel) {
         var
             icon  = $WH.ce('div'),

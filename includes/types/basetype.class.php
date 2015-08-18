@@ -665,6 +665,30 @@ trait spawnHelper
     }
 }
 
+trait profilerHelper
+{
+    public static $type      = 0;                           // arena teams dont actually have one
+    public static $brickFile = 'profile';                   // profile is multipurpose
+
+    private function selectRealms($fi)
+    {
+        $this->dbNames = [];
+
+        foreach(Util::getRealms() as $idx => $r)
+        {
+            if (!empty($fi['sv']) && $r['name'] != $fi['sv'])
+                continue;
+
+            if (!empty($fi['rg']) && $r['region'] != $fi['rg'])
+                continue;
+
+            $this->dbNames[$idx] = 'Characters';
+        }
+
+        return !!$this->dbNames;
+    }
+}
+
 /*
     roight!
         just noticed, that the filters on pages originally pointed to ?filter=<pageName>

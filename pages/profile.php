@@ -48,18 +48,16 @@ class ProfilePage extends GenericPage
         }
         else if (count($_) == 3)
         {
-            // todo: some query to validate existence of char
-            if ($foo = DB::Aowow()->selectCell('SELECT 2161862'))
-                $this->profileId = $foo;
-            else
+            // names MUST be ucFirst. Since we don't expect partial matches, search this way
+            $this->subject = new ProfileList(array(['name', Util::ucFirst(urldecode($_[2]))]), ['sv' => $_[1]]);
+            if ($this->subject->error)
                 $this->notFound();
 
+            $this->profileId = $this->subject->getField('guid');
             $this->profile = $_;
         }
         else if ($_ || !isset($_GET['new']))
             $this->notFound();
-
-        $this->subject = new ProfileList(/*stuff*/);
     }
 
     protected function generateContent()
@@ -86,17 +84,17 @@ class ProfilePage extends GenericPage
         if ($asError)
             return $x."});";
 
-        @include('datasets/ProfilerExampleChar');           // tmp char data
-
-        $name       = $character['name'];
-        $guild      = $character['guild'];
-        $gRankName  = $character['guildrank'];
-        $lvl        = $character['level'];
-        $ra         = $character['race'];
-        $cl         = $character['classs'];
-        $gender     = $character['gender'];
-        $desc       = $character['description'];
-        $title      = (new TitleList(array(['id', $character['title']])))->getField($gender ? 'female' : 'male', true);
+        $name       = $this->subject->getField('name');
+        $guild      = $this->subject->getField('guild');
+        $gRankName  = $this->subject->getField('guildrank');
+        $lvl        = $this->subject->getField('level');
+        $ra         = $this->subject->getField('race');
+        $cl         = $this->subject->getField('class');
+        $gender     = $this->subject->getField('gender');
+        // $desc       = $this->subject->getField('description');
+        $title      = '';
+        if ($_ = $this->subject->getField('chosenTitle'))
+            $title = (new TitleList(array(['bitIdx', $_])))->getField($gender ? 'female' : 'male', true);
 
         if ($this->isCustom)
             $name .= ' (Custom Profile)';

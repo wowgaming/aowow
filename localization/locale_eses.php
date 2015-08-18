@@ -108,15 +108,6 @@ $lang = array(
         'chooseClass'   => "Escoge una clase",
         'chooseFamily'  => "Escoge una familia de mascota",
 
-        // profiler
-        'realm'         => "Reino",
-        'region'        => "Región",
-        'viewCharacter' => "View Character",
-        '_cpHead'       => "Perfiles de Personaje",
-        '_cpHint'       => "l <b>Gestor de perfiles</b> te permite editar tu personaje, encontrar mejoras de equipo, comprobar tu gearscore, ¡y más!",
-        '_cpHelp'       => "Para comenzar, sigue los pasos abajo indicados. Si quieres más información, revisa nuestra amplia <a href=\"?help=profiler\">página de ayuda</a>.",
-        '_cpFooter'     => "Si quieres una búsqueda más refinada, prueba con nuestras opciones de <a href=\"?profiles\">búsqueda avanzada</a>. También puedes crear un <a href=\"?profile&amp;new\">perfil nuevo personalizado</a>.",
-
         // help
         'help'          => "Ayuda",
         'helpTopics'    => array(
@@ -143,6 +134,26 @@ $lang = array(
         'genericError'  => "Ha ocurrido un error; refresca la página e inténtalo de nuevo. Si el error persiste manda un correo a <a href='#contact'>feedback</a>", # LANG.genericerror
         'bannedRating'  => "Has sido baneado y no podrás valorar comentarios.", # LANG.tooltip_banned_rating
         'tooManyVotes'  => "Has alcanzado el límite diario de votos. Vuelve mañana.", # LANG.tooltip_too_many_votes
+    ),
+    'profiler' => array(
+        'realm'         => "Reino",
+        'region'        => "Región",
+        'viewCharacter' => "View Character",
+        'profiler'      => "Perfiles de Personaje",
+        '_cpHint'       => "l <b>Gestor de perfiles</b> te permite editar tu personaje, encontrar mejoras de equipo, comprobar tu gearscore, ¡y más!",
+        '_cpHelp'       => "Para comenzar, sigue los pasos abajo indicados. Si quieres más información, revisa nuestra amplia <a href=\"?help=profiler\">página de ayuda</a>.",
+        '_cpFooter'     => "Si quieres una búsqueda más refinada, prueba con nuestras opciones de <a href=\"?profiles\">búsqueda avanzada</a>. También puedes crear un <a href=\"?profile&amp;new\">perfil nuevo personalizado</a>.",
+
+        'resync'        => "Resincronizar",
+        'guildRoster'   => "Lista de miembros de hermandad para &lt;%s&gt",
+        'arenaRoster'   => "Personajes del Equipo de Arena para &lt;%s&gt",
+        'arenaTeams'    => "Equipos de Arena",
+        'guilds'        => "Hermandades",
+
+        'atCaptain'     => "Capitán de equipo de arena",
+
+        'firstUseTitle' => "%s de %s",
+        'notFound'      => "[not found and stuff.]"
     ),
     'screenshot' => array(
         'submission'    => "Enviar una captura de pantalla",

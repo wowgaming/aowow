@@ -72,6 +72,77 @@ trait ListPage
     }
 }
 
+trait ProfilerPage
+{
+    protected $region      = '';
+    protected $realm       = '';
+    protected $battlegroup = '';                            // not implementedm since no pserver supports it
+    protected $subjectName = '';
+
+    protected function getSubjectFromUrl($str)
+    {
+        // cat[0] is always region
+        // cat[1] is realm or bGroup (must be realm if cat[2] is set)
+        // cat[2] is arena-team, guild or player
+        $cat = explode('.', $str);
+        if ($cat[0] && count($cat) < 4 && $cat[0] === 'eu' || $cat[0] === 'us')
+        {
+            $this->region = $cat[0];
+
+            // if ($cat[1] == Util::urlize(CFG_BATTLEGROUP))
+                // $this->battlegroup = CFG_BATTLEGROUP;
+            if (isset($cat[1]))
+            {
+                foreach (Util::getRealms() as $r)
+                {
+                    if (Util::urlize($r['name']) == $cat[1])
+                    {
+                        $this->realm = $r['name'];
+                        if (isset($cat[2]))
+                        {
+                            // arena team names can only contain spaces and letters
+                            $cat[2] = str_replace('-', ' ', $cat[2]);
+                            $this->subjectName = urldecode($cat[2]);
+                        }
+
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    protected function initialSync()
+    {
+        $this->prepareContent();
+
+        $this->notFound = array(
+            'title' => sprintf(Lang::profiler('firstUseTitle'), $this->subjectName, $this->realm),
+            'msg'   => ''
+        );
+        $this->hasComContent = false;
+        Util::arraySumByKey($this->mysql, DB::Aowow()->getStatistics(), DB::World()->getStatistics());
+
+        if (isset($this->tabId))
+            $this->pageTemplate['activeTab'] = $this->tabId;
+
+        $this->display('text-page-generic');
+        exit();
+    }
+
+    protected function generatePath()
+    {
+        if ($this->region)
+        {
+            $this->path[] = $this->region;
+
+            if ($this->realm)
+                $this->path[] = Util::urlize($this->realm);
+            // else
+                // $this->path[] = Util::urlize(CFG_BATTLEGROUP);
+        }
+    }
+}
 
 class GenericPage
 {
@@ -204,7 +275,7 @@ class GenericPage
     /* Prepare Page */
     /****************/
 
-    private function prepareContent()                       // get from cache ?: run generators
+    protected function prepareContent()                     // get from cache ?: run generators
     {
         if (!$this->loadCache())
         {

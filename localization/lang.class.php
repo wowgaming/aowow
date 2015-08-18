@@ -9,6 +9,7 @@ class Lang
     private static $mail;
     private static $game;
     private static $maps;
+    private static $profiler;
     private static $screenshot;
 
     // types
@@ -45,6 +46,12 @@ class Lang
         // *cough* .. reuse-hack
         self::$item['cat'][2] = [self::$item['cat'][2], self::$spell['weaponSubClass']];
         self::$item['cat'][2][1][14] .= ' ('.self::$item['cat'][2][0].')';
+
+        // not localized .. for whatever reason
+        self::$profiler['regions'] = array(
+            'eu' => "Europe",
+            'us' => "US & Oceanic"
+        );
     }
 
     // todo: make static props private and access through this

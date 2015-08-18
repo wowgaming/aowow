@@ -158,6 +158,36 @@ class AjaxHandler
         return $result;
     }
 
+    private function handleArenaTeam()
+    {
+        if (!$this->params)
+            return null;
+
+        switch ($this->params[0])
+        {
+            case 'resync':
+            case 'status':
+                return $this->profile_handleResync($this->params[0] == 'resync');
+            default:
+                return null;
+        }
+    }
+
+    private function handleGuild()
+    {
+        if (!$this->params)
+            return null;
+
+        switch ($this->params[0])
+        {
+            case 'resync':
+            case 'status':
+                return $this->profile_handleResync($this->params[0] == 'resync');
+            default:
+                return null;
+        }
+    }
+
     private function handleProfile()
     {
         if (!$this->params)
@@ -863,7 +893,7 @@ class AjaxHandler
                     2: armory gone
 
                 [
-                    processId,
+                    queueSize?,
                     [StatusCode, timeToRefresh, iCount, errorCode, iNResyncs],
                     [<anotherStatus>]...
                 ]

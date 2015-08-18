@@ -232,7 +232,7 @@ function pr_updateStatus(page, div, id, request, tryAgain)
                             div.innerHTML += ' ' + LANG.pr_queue_noprocess;
                         }
 
-                        div.innerHTML += '<a id="close-profiler-notification" class="announcement-close" href="javascript:;" onclick="$(\'.profiler-message\').remove(); return false;">';
+                        div.innerHTML += '<a id="close-profiler-notification" class="announcement-close" href="javascript:;" onclick="$(\'.profiler-message\').hide(); return false;">';
                         div.innerHTML += '<br />' + (status < 3 && !refresh && !nresyncs ? LANG.pr_queue_addqueue : (status > 2 ? $WH.sprintf(LANG['pr_queue_status' + status], LANG['pr_error_armory' + errcode], profile) : $WH.sprintf(LANG['pr_queue_status' + status], count, duration, profile)));
                         div.style.backgroundImage = '';
 
@@ -277,7 +277,7 @@ function pr_resyncRoster(id, mode)
     div.style.display = '';
 
     new Ajax(
-        '/' + mode + '=resync&id=' + id + '&profile',
+        '?' + mode + '=resync&id=' + id + '&profile',
         {
             method: 'POST',
             onSuccess: function(xhr, opt)
@@ -304,26 +304,31 @@ function pr_initRosterListview() {
             if (!b && this.data.length < 15) {
                 return
             }
-            var a = $WH.ce("input");
-            a.type = "button";
-            a.value = LANG.button_resync;
-            a.onclick = (function () {
-                var e = this.getCheckedRows();
-                if (!e.length) {
-                    alert(LANG.message_nocharacterselected)
-                } else {
-                    var d = "";
-                    $WH.array_walk(e, function (f) {
-                        d += f.id + ","
+            var btn = $WH.ce('input');
+            btn.type    = 'button';
+            btn.value   = LANG.button_resync;
+            btn.onclick = (function () {
+                var rows = this.getCheckedRows();
+                if (!rows.length) {
+                    alert(LANG.message_nocharacterselected);
+                }
+                else {
+                    var buff = '';
+                    $WH.array_walk(rows, function (x) {
+                        buff += x.id + ',';
                     });
-                    d = $WH.rtrim(d, ",");
-                    if (d != "") {
-                        new Ajax("?profile=resync&id=" + d)
-                    } (Listview.cbSelect.bind(this, false))();
-                    alert(LANG.message_characterresync)
+
+                    buff = $WH.rtrim(buff, ',');
+                    if (buff != '') {
+                        new Ajax('?profile=resync&id=' + buff);
+                    }
+
+                    (Listview.cbSelect.bind(this, false))();
+                    alert(LANG.message_characterresync);
                 }
             }).bind(this);
-            $WH.ae(c, a)
+
+            $WH.ae(c, btn);
         }
     }
 }

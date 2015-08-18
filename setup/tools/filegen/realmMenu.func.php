@@ -42,8 +42,11 @@ if (!CLI)
         $subUS = [];
         $set   = 0x0;
         $menu  = [
-            ['us', 'US & Oceanic', null,[[Util::urlize(CFG_BATTLEGROUP), CFG_BATTLEGROUP, null, &$subUS]]],
-            ['eu', 'Europe',       null,[[Util::urlize(CFG_BATTLEGROUP), CFG_BATTLEGROUP, null, &$subEU]]]
+            // skip usage of battlegroup
+            // ['us', Lang::profiler('regions', 'us'), null,[[Util::urlize(CFG_BATTLEGROUP), CFG_BATTLEGROUP, null, &$subUS]]],
+            // ['eu', Lang::profiler('regions', 'eu'), null,[[Util::urlize(CFG_BATTLEGROUP), CFG_BATTLEGROUP, null, &$subEU]]]
+            ['us', Lang::profiler('regions', 'us'), null, &$subUS],
+            ['eu', Lang::profiler('regions', 'eu'), null, &$subEU]
         ];
 
         foreach (Util::getRealms() as $row)

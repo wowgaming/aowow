@@ -31,9 +31,9 @@ if (!CLI)
         $realms = Util::getRealms();
         if (!$realms)
             CLISetup::log(' - realms: Auth-DB not set up .. static data g_realms will be empty', CLISetup::LOG_WARN);
-        else
-            foreach ($realms as &$r)
-                $r['battlegroup'] = CFG_BATTLEGROUP;
+        // else
+            // foreach ($realms as &$r)
+                // $r['battlegroup'] = CFG_BATTLEGROUP;
 
         $toFile = "var g_realms = ".Util::toJSON($realms).";";
         $file   = 'datasets/realms';

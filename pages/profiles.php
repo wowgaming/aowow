@@ -25,93 +25,173 @@ new Listview({
 //  tabId 1: Tools    g_initHeader()
 class ProfilesPage extends GenericPage
 {
-    protected $tpl    = 'profiles';
-    protected $js     = ['filters.js', 'profile_all.js', 'profile.js'];
-    protected $css    = [['path' => 'profiler.css']];
-    protected $tabId  = 1;
-    protected $path   = [1, 5, 0];
-    protected $realm  = '';                                 // not sure about the use
-    protected $region = '';                                 // seconded..
+    protected $tpl      = 'profiles';
+    protected $js       = ['filters.js', 'profile_all.js', 'profile.js'];
+    protected $css      = [['path' => 'Profiler.css']];
+    protected $tabId    = 1;
+    protected $path     = [1, 5, 0];
+    protected $region   = '';                               // seconded..
+    protected $realm    = '';                               // not sure about the use
+
+    protected $sumChars = 0;
 
     public function __construct($pageCall, $pageParam)
     {
-        @include('datasets/ProfilerExampleChar');           // tmp char data
-        $this->character = $character;
+        $cat = explode('.', $pageParam);
+        if ($cat[0] && count($cat) < 3 && $cat[0] === 'eu' || $cat[0] === 'us')
+        {
+            $this->region = $cat[0];
 
-        // soo ..
-        // we require a list and filter-handler for profiles
+            // if ($cat[1] == Util::urlize(CFG_BATTLEGROUP))
+                // $this->realm = CFG_BATTLEGROUP;
+
+            if (isset($cat[1]))
+            {
+                foreach (Util::getRealms() as $r)
+                {
+                    if (Util::urlize($r['name']) == $cat[1])
+                    {
+                        $this->realm = $r['name'];
+                        break;
+                    }
+                }
+            }
+        }
+
+        $this->filterObj = new ProfileListFilter();
+
+        // clean search if possible
+        $form = $this->filterObj->getForm('form');
+        if (!empty($form['rg']))
+        {
+            $url = '?profiles='.$form['rg'];
+            if (!empty($form['sv']))
+                $url .= '.'.Util::urlize($form['sv']);
+
+            if ($_ = $this->filterObj->urlize(['sv' => '', 'rg' => '']))
+                $url .= '&filter='.$_;
+
+            header('Location: '.$url , true, 302);
+        }
+
+        foreach (Util::getRealms() as $idx => $r)
+        {
+            if ($this->region && $r['region'] != $this->region)
+                continue;
+
+            if ($this->realm && $r['name'] != $this->realm)
+                continue;
+
+            $this->sumChars += DB::Characters($idx)->selectCell('SELECT count(*) FROM characters WHERE deleteInfos_Name IS NULL');
+        }
 
         parent::__construct($pageCall, $pageParam);
+
+        $this->name   = Util::ucFirst(Lang::game('profiles'));
+        $this->subCat = $pageParam ? '='.$pageParam : '';
     }
 
     protected function generateTitle()
     {
         $this->title[] = Util::ucFirst(Lang::game('profiles'));
+
+        // -> battlegroup
+        // -> server
+        // -> region
+        // Alonsus - Cruelty / Crueldad - Europe - Profiles - World of Warcraft
+        // Norgannon - German - Europe - Profile - World of Warcraft
+
+        // direkt unter </form>
+        // &roster=1 => Guild
+        // &roster=[2-4] => Arena Team
+        // <div class="text"><h2 style="padding-top: 0;">sprintf($guildRoster/$arenaRoster, $name)</h2></div>
     }
 
     protected function generatePath()
     {
-        $this->path[] = $this->character['region'][0];
-        $this->path[] = $this->character['battlegroup'][0];
-        $this->path[] = $this->character['realm'][0];
+        if ($this->region)
+        {
+            $this->path[] = $this->region;
+
+            if ($this->realm)
+            {
+                $this->path[] = Util::urlize(CFG_BATTLEGROUP);
+                if ($this->realm != CFG_BATTLEGROUP)
+                    $this->path[] = Util::urlize($this->realm);
+            }
+        }
     }
 
     protected function generateContent()
     {
         $this->addJS('?data=weight-presets.realms&locale='.User::$localeId.'&t='.$_SESSION['dataKey']);
 
-
-        $tDistrib = $this->getTalentDistribution($this->character['talents']['builds'][$this->character['talents']['active']]['talents']);
-        $exampleRow = array(
-            'id'                => 0,
-            'name'              => $this->character['name'],
-            'achievementpoints' => $this->character['achievementpoints'],
-            'guild'             => $this->character['guild'], // 0 if none
-            'guildRank'         => -1,
-            'realm'             => $this->character['realm'][0],
-            'realmname'         => $this->character['realm'][1],
-            'battlegroup'       => $this->character['battlegroup'][0],
-            'battlegroupname'   => $this->character['battlegroup'][0],
-            'region'            => $this->character['region'][0],
-            'level'             => $this->character['level'],
-            'race'              => $this->character['race'],
-            'gender'            => $this->character['gender'],
-            'classs'            => $this->character['classs'],
-            'faction'           => $this->character['faction'],
-            'talenttree1'       => $tDistrib[0],
-            'talenttree2'       => $tDistrib[1],
-            'talenttree3'       => $tDistrib[2],
-            'talentspec'        => $this->character['talents']['active']
+        $conditions = array(
+            ['deleteInfos_Name', null]
         );
 
-        // description:'{$curr.description|escape:"javascript"}',
-        // icon:'{$curr.icon|escape:"javascript"}',
-        // published:1,
-        // pinned:1,
-        // deleted:1,
+        // if (!User::isInGroup(U_GROUP_EMPLOYEE))
+            // $conditions[] = [['cuFlags', CUSTOM_EXCLUDE_FOR_LISTVIEW, '&'], 0];
 
-        // dont send ID for real chars unless they have some kind of custom avatar
-        // on second thought .. ids are required for resync, but the function that generates the icon is faulty
+        // if ($this->category)
+            // $conditions[] = ['typeCat', (int)$this->category[0]];
+
+        // recreate form selection
+        $this->filter = $this->filterObj->getForm('form');
+        $this->filter['query'] = isset($_GET['filter']) ? $_GET['filter'] : null;
+        $this->filter['fi']    =  $this->filterObj->getForm();
+
+        if ($_ = $this->filterObj->getConditions())
+            $conditions[] = $_;
+
+        $data   = [];
+        $params = array(
+            'id'          => 'characters',
+            'name'        => '$LANG.tab_characters',
+            'hideCount'   => 1,
+            // 'roster'      => 3,
+            'visibleCols' => "$['race', 'classs', 'level', 'talents', 'achievementpoints']",
+            'onBeforeCreate' => '$pr_initRosterListview'        // $_GET['roster'] = 1|2|3|4 .. 2,3,4 arenateam-size (4 => 5-man), 1 guild .. it puts a resync button on the lv...
+        );
+
+        if ($_ = $this->filterObj->getForm('extraCols', true))
+        {
+            $xc = [];
+            foreach ($_ as $skId)
+                $xc[] = "Listview.funcBox.createSimpleCol('Skill + ".$skId."', g_spell_skills[".$skId."], '7%', 'skill + ".$skId."')";
+
+            $params['extraCols'] = '$['.implode(', ', $xc).']';
+        }
+
+        $miscParams = [];
+        if ($this->realm)
+            $miscParams['sv'] = $this->realm;
+        if ($this->region)
+            $miscParams['rg'] = $this->region;
+
+        $profiles = new ProfileList($conditions, $miscParams);
+        if (!$profiles->error)
+        {
+            $data = $profiles->getListviewData();
+
+            // create note if search limit was exceeded
+            if (0 /* filter were applied */)
+            {
+                $params['note'] = sprintf(Util::$tryFilteringString, 'LANG.lvnote_charactersfound2', $this->sumChars, $profiles->getMatches());
+                $params['_truncated'] = 1;
+            }
+            else
+                $params['note'] = sprintf(Util::$tryFilteringString, 'LANG.lvnote_charactersfound', $this->sumChars, 0);
+
+            if ($this->filterObj->error)
+                $params['_errors'] = '$1';
+        }
 
         $this->lvTabs[] = array(
             'file'   => 'profile',
-            'data'   => [$exampleRow],
-            'params' => [
-                'id'          => 'characters',
-                'name'        => '$LANG.tab_characters',
-                'hideCount'   => 1,
-                '_truncated'  => 1,
-                'roster'      => 3,
-                'visibleCols' => "$['race','classs','level','talents','achievementpoints']",
-                'note'        => '$$WH.sprintf(LANG.lvnote_charactersfound, \'20,592,390\', 200) + LANG.dash + LANG.lvnote_tryfiltering.replace(\'<a>\', \'<a href="javascript:;" onclick="fi_toggle()">\')',
-                'onBeforeCreate' => '$pr_initRosterListview'        // $_GET['roster'] = 1|2|3|4 .. 2,3,4 arenateam-size (4 => 5-man), 1 guild .. it puts a resync button on the lv...
-            ]
+            'data'   => $data,
+            'params' => $params
         );
-
-
-
-        $this->filter = ['query' => 1, 'fi' => []];
-
 
         Lang::sort('game', 'cl');
         Lang::sort('game', 'ra');

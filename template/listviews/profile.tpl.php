@@ -1,3 +1,51 @@
+<?php
+if (isset($params['id']) && $params['id'] == 'arena-teams'):
+?>
+Listview.extraCols.members = {
+    id: 'members',
+    name: LANG.members,
+    after: 'name',
+    sortable: false,
+    type: 'text',
+    compute: function(profile, td) {
+        if (profile.members) {
+            var
+                mbs = profile.members,
+                d   = $WH.ce('div');
+
+            d.style.width = (26 * mbs.length) + 'px';
+            d.style.margin = '0 auto';
+
+            for (var i = 0, len = mbs.length; i < len; ++i) {
+                var icon = Icon.create('class_' + g_file_classes[mbs[i][1]], 0, null, '?profile=' + profile.region + '.' + profile.realm + '.' + g_urlize(mbs[i][0], true));
+
+                if (mbs[i][2])
+                    icon.className += ' iconsmall-gold';
+
+                icon.style.cssFloat = icon.style.styleFloat = 'left';
+                $WH.ae(d, icon);
+            }
+
+            $WH.ae(td, d);
+        }
+    },
+    getVisibleText: function(profile) {
+        if (profile.members) {
+            var
+                buff = '',
+                mbs = profile.members;
+
+            for (var i = 0, len = mbs.length; i < len; ++i)
+                buff += mbs[i][0] + ' ' + g_chr_classes[mbs[i][1]] + ' ';
+
+            return buff.rtrim();
+        }
+    }
+};
+
+<?php
+endif;
+?>
 new Listview({
     template:'profile',
 <?php
@@ -13,46 +61,5 @@ new Listview({
         endif;
     endforeach;
 ?>
-    data:<?php echo json_encode(array_values($data), JSON_NUMERIC_CHECK); ?>
+    data:<?php echo Util::toJSON(array_values($data), JSON_UNESCAPED_UNICODE); ?>
 });
-
-<?php
-    Util::addNote(U_GROUP_NONE, 'Profile-listview NYI');
-/* data:
-{
-    id:{$curr.id},
-    name:'{$curr.name|escape:"javascript"}',
-    race:{$curr.race},
-    classs:{$curr.class},
-    gender:{$curr.gender},
-    level:{$curr.level},
-    faction:{$curr.faction},
-    talenttree1:{$curr.tree[0]},
-    talenttree2:{$curr.tree[1]},
-    talenttree3:{$curr.tree[2]},
-    talentspec:{$curr.spec},
-    achievementpoints:{$curr.acvPts},
-    guild:'{$curr.guildName|escape:"javascript"}', {* 0 if none *}
-    guildrank:{$curr.guildRank},
-    {if isset($curr.description)}
-        description:'{$curr.description|escape:"javascript"}',
-    {/if}
-    {if isset($curr.icon)}
-        icon:'{$curr.icon|escape:"javascript"}',
-    {/if}
-    {if isset($curr.published)}
-        published:1,
-    {/if}
-    {if isset($curr.pinned)}
-        pinned:1,
-    {/if}
-    {if isset($curr.deleted)}
-        deleted:1,
-    {/if}
-    realm:'{$curr.realmInternal|escape:"javascript"}',
-    realmname:'{$curr.realmName|escape:"javascript"}',
-    battlegroup:'{$curr.bgInternal|escape:"javascript"}',
-    battlegroupname:'{$curr.bgName|escape:"javascript"}',
-    region:'{$curr.region|escape:"javascript"}'
-}
-*/

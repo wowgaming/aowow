@@ -108,15 +108,6 @@ $lang = array(
         'chooseClass'   => "Choisissez une classe",
         'chooseFamily'  => "Choisissez un familier",
 
-        // profiler
-        'realm'         => "Royaume",
-        'region'        => "Région",
-        'viewCharacter' => "Voir Personnage",
-        '_cpHead'       => "Profiler de Personnage",
-        '_cpHint'       => "Le <b>Profiler de Personnage</b> vous permets de modifier votre personnage, trouver des améliorations d'équipement, vérifier votre score d'équipement et plus!",
-        '_cpHelp'       => "Pour débuter, suivez simplement les étapes ci-dessous. Si vous voulez plus d'information, lisez notre <a href=\"?help=profiler\">page d'aide</a> détaillée.",
-        '_cpFooter'     => "Si vous voulez une recherche plus raffinée, essayez nos options de <a href=\"?profiles\">recherche avancée</a>. Vous pouvez aussi créer un <a href=\"?profile&amp;new\">nouveau profile personnalisé</a>.",
-
         // help
         'help'          => "Aide",
         'helpTopics'    => array(
@@ -143,6 +134,26 @@ $lang = array(
         'genericError'  => "Une erreur est survenue; Actualisez la page et essayez à nouveau. Si l'erreur persiste, envoyez un email à <a href='#contact'>feedback</a>", # LANG.genericerror
         'bannedRating'  => "Vous avez été banni du score des commentaires.", # LANG.tooltip_banned_rating
         'tooManyVotes'  => "Vous avez voté trop souvent aujourd'hui! Revenez demain.", # LANG.tooltip_too_many_votes
+    ),
+    'profiler' => array(
+        'realm'         => "Royaume",
+        'region'        => "Région",
+        'viewCharacter' => "Voir Personnage",
+        'profiler'      => "Profiler de Personnage",
+        '_cpHint'       => "Le <b>Profiler de Personnage</b> vous permets de modifier votre personnage, trouver des améliorations d'équipement, vérifier votre score d'équipement et plus!",
+        '_cpHelp'       => "Pour débuter, suivez simplement les étapes ci-dessous. Si vous voulez plus d'information, lisez notre <a href=\"?help=profiler\">page d'aide</a> détaillée.",
+        '_cpFooter'     => "Si vous voulez une recherche plus raffinée, essayez nos options de <a href=\"?profiles\">recherche avancée</a>. Vous pouvez aussi créer un <a href=\"?profile&amp;new\">nouveau profile personnalisé</a>.",
+
+        'resync'        => "Resynchronisation",
+        'guildRoster'   => "Liste des membres pour la guilde de  &lt;%s&gt",
+        'arenaRoster'   => "[Arena Team Roster for &lt;%s&gt]",     // string probably lost
+        'arenaTeams'    => "Équipes d'Aréna",
+        'guilds'        => "Guildes",
+
+        'atCaptain'     => "Capitaine d'équipe",
+
+        'firstUseTitle' => "%s de %s",
+        'notFound'      => "[not found and stuff.]"
     ),
     'screenshot' => array(
         'submission'    => "Envoi d'une capture d'écran",

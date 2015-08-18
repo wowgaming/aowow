@@ -22,8 +22,8 @@ switch ($pageCall)
     case 'account':                                         // account management [nyi]
     case 'achievement':
     case 'achievements':
-    // case 'arena-team':
-    // case 'arena-teams':
+    case 'arena-team':
+    case 'arena-teams':
     case 'class':
     case 'classes':
     case 'currency':
@@ -37,8 +37,8 @@ switch ($pageCall)
     case 'events':
     case 'faction':
     case 'factions':
-    // case 'guild':
-    // case 'guilds':
+    case 'guild':
+    case 'guilds':
     case 'item':
     case 'items':
     case 'itemset':
@@ -75,13 +75,23 @@ switch ($pageCall)
     case 'video':
     case 'zone':
     case 'zones':
-        if (in_array($pageCall, ['admin', 'account', 'profile']))
+        if (in_array($pageCall, ['admin', 'account', 'profile', 'arena-team', 'guild']))
         {
             if (($_ = (new AjaxHandler($pageParam))->handle($pageCall)) !== null)
             {
                 header('Content-type: application/x-javascript; charset=utf-8');
                 die((string)$_);
             }
+        }
+
+        // ucwords with delimitier returns null .. would have been appropriate here :/
+        if (strpos($pageCall, '-'))
+        {
+            $buff = '';
+            foreach (explode('-', $pageCall) as $part)
+                $buff .= ucFirst($part);
+
+            $pageCall = $buff;
         }
 
         $_ = ($altClass ?: $pageCall).'Page';
