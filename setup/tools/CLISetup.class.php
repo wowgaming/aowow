@@ -23,6 +23,7 @@ class CLISetup
     const LOG_INFO      = 3;
 
     private static $win           = true;
+    private static $hasReadline   = false;
     private static $logFile       = '';
     private static $logHandle     = null;
 
@@ -44,7 +45,8 @@ class CLISetup
 
     public static function init()
     {
-        self::$win = substr(PHP_OS, 0, 3) == 'WIN';
+        self::$win         = substr(PHP_OS, 0, 3) == 'WIN';
+        self::$hasReadline = function_exists('readline_callback_handler_install');
 
         if ($_ = getopt('d', ['log::',   'locales::', 'mpqDataDir::', 'delete']))
         {
@@ -98,13 +100,13 @@ class CLISetup
         $setupDirs = glob('setup/*');
         foreach ($setupDirs as $sd)
         {
-            if (substr(self::$srcDir, -1) == '/')
-                self::$srcDir = substr(self::$srcDir, 0, -1);
+            if (mb_substr(self::$srcDir, -1) == '/')
+                self::$srcDir = mb_substr(self::$srcDir, 0, -1);
 
-            if (substr($sd, -1) == '/')
-                $sd = substr($sd, 0, -1);
+            if (mb_substr($sd, -1) == '/')
+                $sd = mb_substr($sd, 0, -1);
 
-            if (strtolower($sd) == strtolower(self::$srcDir))
+            if (Util::lower($sd) == Util::lower(self::$srcDir))
             {
                 self::$srcDir = $sd.'/';
                 break;
@@ -145,8 +147,8 @@ class CLISetup
         $_ = strtolower(str_replace('\\', '/', $file));
 
         // remove trailing slash
-        if (substr($_, -1, 1) == '/')
-            $_ = substr($_, 0, -1);
+        if (mb_substr($_, -1, 1) == '/')
+            $_ = mb_substr($_, 0, -1);
 
         if (isset(self::$mpqFiles[$_]))
         {
@@ -342,8 +344,8 @@ class CLISetup
 
     public static function readInput(&$fields, $singleChar = false)
     {
-        // prevent default output on *nix (readline doen't exist for WIN)
-        if (!self::$win)
+        // prevent default output if able
+        if (self::$hasReadline)
             readline_callback_handler_install('', function() { });
 
         foreach ($fields as $name => $data)
@@ -366,13 +368,16 @@ class CLISetup
                     $char  = stream_get_contents(STDIN, 1);
                     $keyId = ord($char);
 
-                    if ($keyId == self::CHR_TAB)            // ignore this one
+                    // ignore this one
+                    if ($keyId == self::CHR_TAB)
                         continue;
 
-                    if ($keyId == self::CHR_CR)             // also ignore this bastard!
+                    // WIN sends \r\n as sequence, ignore one
+                    if ($keyId == self::CHR_CR && self::$win)
                         continue;
 
-                    if ($keyId == self::CHR_ESC)            // will not be send on WIN .. other ways of returning from setup? (besides ctrl + c)
+                    // will not be send on WIN .. other ways of returning from setup? (besides ctrl + c)
+                    if ($keyId == self::CHR_ESC)
                     {
                         echo chr(self::CHR_BELL);
                         return false;
@@ -382,7 +387,7 @@ class CLISetup
                         if (!$charBuff)
                             continue;
 
-                        $charBuff = substr($charBuff, 0, -1);
+                        $charBuff = mb_substr($charBuff, 0, -1);
                         echo chr(self::CHR_BACK)." ".chr(self::CHR_BACK);
                     }
                     else if ($keyId == self::CHR_LF)
@@ -393,10 +398,10 @@ class CLISetup
                     else if (!$validPattern || preg_match($validPattern, $char))
                     {
                         $charBuff .= $char;
-                        if (!$isHidden && !self::$win)      // see note above
+                        if (!$isHidden && self::$hasReadline)
                             echo $char;
 
-                        if ($singleChar && !self::$win)     // see note above
+                        if ($singleChar && self::$hasReadline)
                         {
                             $fields[$name] = $charBuff;
                             break;
