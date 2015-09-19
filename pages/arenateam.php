@@ -1,7 +1,7 @@
 <?php
 
 if (!defined('AOWOW_REVISION'))
-    die('invalid access');
+    die('illegal access');
 
 
 // menuId 5: Profiler g_initPath()
@@ -10,11 +10,12 @@ class ArenaTeamPage extends GenericPage
 {
     use ProfilerPage;
 
+
+    protected $tabId    = 1;
+    protected $path     = [1, 5, 3];
     protected $tpl      = 'arena-team';
     protected $js       = ['profile_all.js', 'profile.js'];
     protected $css      = [['path' => 'Profiler.css']];
-    protected $tabId    = 1;
-    protected $path     = [1, 5, 3];
 
     public function __construct($pageCall, $pageParam)
     {

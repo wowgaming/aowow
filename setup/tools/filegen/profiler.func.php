@@ -95,7 +95,7 @@ if (!CLI)
                 // sum points
                 $buff .= "\ng_achievement_points = [".$sumPoints."];\n";
 
-                if (!CLISetup::writeFile('datasets/'.User::$localeString.'/p-achievements', $buff))
+                if (!CLISetup::writeFile('datasets/'.User::$localeString.'/achievements', $buff))
                     $success = false;
             }
 

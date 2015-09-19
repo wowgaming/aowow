@@ -139,6 +139,7 @@ class AjaxHandler
                 case 'talents':
                     if ($_ = $this->get('class'))
                         $set .= "-".intVal($_);
+                case 'achievements':
                 case 'pet-talents':
                 case 'glyphs':
                 case 'gems':
@@ -209,7 +210,7 @@ class AjaxHandler
                 return '';
             case 'avatar':
                 if ($this->profile_handleAvatar())          // sets an image header
-                die();                                      // so it has to die here or another header will be set
+                    die();                                  // so it has to die here or another header will be set
             case 'resync':
             case 'status':
                 return $this->profile_handleResync($this->params[0] == 'resync');
@@ -893,12 +894,30 @@ class AjaxHandler
                     2: armory gone
 
                 [
-                    queueSize?,
-                    [StatusCode, timeToRefresh, iCount, errorCode, iNResyncs],
+                    nQueueProcesses,
+                    [statusCode, timeToRefresh, curQueuePos, errorCode, nResyncTries],
                     [<anotherStatus>]...
                 ]
             */
-            return '[0, [4, 10000, 1, 2]]';
+            $response = [(int)!!CFG_PROFILER_QUEUE];        // in theory you could have multiple queues but lets be frank .. you will NEVER be under THAT kind of load for it to be relevant
+            if (!$this->get('id'))
+                $response[] = [PR_QUEUE_STATUS_ENDED, 0, 0, PR_QUEUE_ERROR_CHAR];
+            else
+            {
+                $charGUIDs  = explode(',', $this->get('id'));
+                $charStatus = DB::Aowow()->select('SELECT typeId AS ARRAY_KEY, status, realm FROM ?_profiler_sync WHERE `type` = ?d AND typeId IN (?a)', TYPE_PROFILE, $charGUIDs);
+                $queue      = DB::Aowow()->selectCol('SELECT typeId FROM ?_profiler_sync WHERE `type` = ?d AND status = ?d AND requestTime < UNIX_TIMESTAMP() ORDER BY requestTime ASC', TYPE_PROFILE, PR_QUEUE_STATUS_WAITING);
+                foreach ($charGUIDs as $guid)
+                {
+                    if (empty($charStatus[$guid]))         // whelp, thats some error..
+                        $response[] = [PR_QUEUE_STATUS_ERROR, 0, 0, PR_QUEUE_ERROR_UNK];
+                    else if ($charStatus[$guid]['status'] == PR_QUEUE_STATUS_ERROR)
+                        $response[] = [PR_QUEUE_STATUS_ERROR, 0, 0, $charStatus[$guid]['errCode']];
+                    else
+                        $response[] = [$charStatus[$guid]['status'], CFG_PROFILER_RESYNC_PING, array_search($guid, $queue) + 1, 0, 1];
+                }
+            }
+            return Util::toJSON($response);
         }
     }
 
@@ -956,16 +975,135 @@ class AjaxHandler
         // and some onLoad-hook to .. load it registerProfile($data)
         // everything else goes through data.php .. strangely enough
 
-        $char = new ProfileList(array(['id', $this->get('id')])); // or string or whatever
+        $pBase = DB::Aowow()->selectRow('SELECT *, UNIX_TIMESTAMP(lastupdated) AS lastupdated FROM ?_profiler_profiles WHERE id = ?d', $this->get('id'));
+        if (!$pBase)
+            return 'alert("whoops!");';
 
-        // modify model from auras with profile_getModelForForm
+        $rData = [];
+        foreach (Util::getRealms() as $rId => $rData)
+            if ($rId == $pBase['realm'])
+                break;
+
+        $spec1 = explode(' ', $pBase['spec1']);
+        $spec2 = explode(' ', $pBase['spec2']);
+
+        $profile = array(
+            'id'                => $pBase['id'],
+            'name'              => $pBase['name'],
+            'region'            => [$rData['region'], Lang::profiler('regions', $rData['region'])],
+            'battlegroup'       => [Util::urlize(CFG_BATTLEGROUP), CFG_BATTLEGROUP],
+            'realm'             => [Util::urlize($rData['name']), $rData['name']],
+            'level'             => $pBase['level'],
+            'classs'            => $pBase['class'],
+            'race'              => $pBase['race'],
+            'faction'           => Util::sideByRaceMask(1 << ($pBase['race'] - 1), true),
+            'gender'            => $pBase['gender'],
+            'skincolor'         => $pBase['skincolor'],
+            'hairstyle'         => $pBase['hairstyle'],
+            'haircolor'         => $pBase['haircolor'],
+            'facetype'          => $pBase['facetype'],
+            'features'          => $pBase['features'],
+            'published'         => !!($pBase['cuFlags'] & PROFILE_CU_PUBLISHED),
+            'pinned'            => !!($pBase['cuFlags'] & PROFILE_CU_PINNED),
+            'inventory'         => [],
+            'nomodel'           => $pBase['nomodelMask'],
+            'title'             => $pBase['title'],
+            'playedtime'        => $pBase['playedtime'],
+            'lastupdated'       => $pBase['lastupdated'] * 1000,
+            'talents'           => array(
+                'builds' => array(
+                    ['talents' => array_shift($spec1) . array_shift($spec1) . array_shift($spec1), 'glyphs' => implode(':', $spec1)],
+                    ['talents' => array_shift($spec2) . array_shift($spec2) . array_shift($spec2), 'glyphs' => implode(':', $spec2)]
+                ),
+                'active' => $pBase['activespec']
+            ),
+
+            // completion lists: [subjectId => amount/timestamp/1]
+            'skills'            => [],                      // skillId => [curVal, maxVal]
+            'reputation'        => [],                      // factionId => curVal
+            'titles'            => [],                      // titleId => 1
+            'spells'            => [],                      // spellId => 1; recipes, pets, mounts
+            'achievements'      => [],                      // achievementId => timestamp
+            'quests'            => [],                      // questId => 1
+            'achievementpoints' => 0,                       // max you have
+
+            // UNKNOWN
+            'statistics'        => [],                      // UNK all statistics?      [achievementId => killCount]
+            'activity'          => [],                      // UNK recent achievements? [achievementId => killCount]
+            'bookmarks'         => [2],                     // UNK pinned or claimed userId => profileIds..?
+        );
+
+        /* $profile[]
+            'source'            => 2,                       // source: used if you create a profile from a genuine character. It inherites region, realm and bGroup
+            'sourcename'        => 'SourceCharName',        //  >   if these three are false we get a 'genuine' profile [0 for genuine characters..?]
+            'user'              => 1,                       //  >   'genuine' is the parameter for _isArmoryProfile(allowCustoms)   ['' for genuine characters..?]
+            'username'          => 'TestUser',              //  >   also, if 'source' <> 0, the char-icon is requestet via profile.php?avatar
+            'guild'             => 'GuildName',             // only on chars; id or null
+            'description'       => 'this is a profile',     // only on custom profiles
+            'arenateams'        => [],                      // [size(2|3|5) => DisplayName]; DisplayName gets urlized to use as link
+
+            'customs'           => [],                      // custom profiles created from this char; profileId => [name, ownerId, iconString(optional)]
+            'auras'             => [],                      // custom list of buffs, debuffs [spellId]
+
+            // UNKNOWN
+            'glyphs'            => [],                      // not really used .. i guess..?
+            'pets'              => array(                   // UNK
+                [],                                         // one array per pet, structure UNK
+            ),
+        */
+
+        $completion = DB::Aowow()->select('SELECT type AS ARRAY_KEY, typeId AS ARRAY_KEY2, cur, max FROM ?_profiler_completion WHERE id = ?d', $pBase['id']);
+        foreach ($completion as $type => $data)
+        {
+            switch ($type)
+            {
+                case TYPE_FACTION:                          // factionId => amount
+                    $profile['reputation'] = array_combine(array_keys($data), array_column($data, 'cur'));
+                    break;
+                case TYPE_TITLE:
+                    foreach ($data as &$d)
+                        $d = 1;
+
+                    $profile['titles'] = $data;
+                    break;
+                case TYPE_QUEST:
+                    foreach ($data as &$d)
+                        $d = 1;
+
+                    $profile['quests'] = $data;
+                    break;
+                case TYPE_SPELL:
+                    foreach ($data as &$d)
+                        $d = 1;
+
+                    $profile['spells'] = $data;
+                    break;
+                case TYPE_ACHIEVEMENT:
+                    $profile['achievements']      = array_combine(array_keys($data), array_column($data, 'cur'));
+                    $profile['achievementpoints'] = DB::Aowow()->selectCell('SELECT SUM(points) FROM ?_achievement WHERE id IN (?a)', array_keys($data));
+                    break;
+                case TYPE_SKILL:
+                    foreach ($data as &$d)
+                        $d = [$d['cur'], $d['max']];
+
+                    $profile['skills'] = $data;
+                    break;
+
+            }
+
+        }
+
+        // modify model from auras with profile_getModelForForm?
 
         $buff = '';
 
-        if ($it = array_column($char->getField('inventory'), 0))
+        if ($items = DB::Aowow()->select('SELECT * FROM ?_profiler_items WHERE id = ?d', $pBase['id']))
         {
-            $itemz = new ItemList(array(['id', $it, CFG_SQL_LIMIT_NONE]));
+            $itemz = new ItemList(array(['id', array_column($items, 'item')], CFG_SQL_LIMIT_NONE));
             $data  = $itemz->getListviewData(ITEMINFO_JSON | ITEMINFO_SUBITEMS);
+
+            foreach ($items as $i)
+                $profile['inventory'][$i['slot']] = [$i['item'], $i['subItem'], $i['permEnchant'], $i['tempEnchant'], $i['gem1'], $i['gem2'], $i['gem3'], $i['gem4']];
 
             // get and apply inventory
             foreach ($itemz->iterate() as $iId => $__)
@@ -974,31 +1112,31 @@ class AjaxHandler
             $buff .= "\n";
         }
 
-        if ($au = $char->getField('auras'))
-        {
-            $auraz = new SpellList(array(['id', $char->getField('auras')], CFG_SQL_LIMIT_NONE));
-            $dataz = $auraz->getListviewData();
-            $modz  = $auraz->getProfilerMods();
+        // if ($au = $char->getField('auras'))
+        // {
+            // $auraz = new SpellList(array(['id', $char->getField('auras')], CFG_SQL_LIMIT_NONE));
+            // $dataz = $auraz->getListviewData();
+            // $modz  = $auraz->getProfilerMods();
 
-            // get and apply aura-mods
-            foreach ($dataz as $id => $data)
-            {
-                $mods = [];
-                if (!empty($modz[$id]))
-                {
-                    foreach ($modz[$id] as $k => $v)
-                    {
-                        if (is_array($v))
-                            $mods[] = $v;
-                        else if ($str = @Util::$itemMods[$k])
-                            $mods[$str] = $v;
-                    }
-                }
+            // // get and apply aura-mods
+            // foreach ($dataz as $id => $data)
+            // {
+                // $mods = [];
+                // if (!empty($modz[$id]))
+                // {
+                    // foreach ($modz[$id] as $k => $v)
+                    // {
+                        // if (is_array($v))
+                            // $mods[] = $v;
+                        // else if ($str = @Util::$itemMods[$k])
+                            // $mods[$str] = $v;
+                    // }
+                // }
 
-                $buff .= 'g_spells.add('.$id.", {id:".$id.", name:'".Util::jsEscape(substr($data['name'], 1))."', icon:'".$data['icon']."', modifier:".Util::toJSON($mods)."});\n";
-            }
-            $buff .= "\n";
-        }
+                // $buff .= 'g_spells.add('.$id.", {id:".$id.", name:'".Util::jsEscape(substr($data['name'], 1))."', icon:'".$data['icon']."', modifier:".Util::toJSON($mods)."});\n";
+            // }
+            // $buff .= "\n";
+        // }
 
         /* depending on progress-achievements
             // required by progress in JScript move to handleLoad()?
@@ -1006,35 +1144,10 @@ class AjaxHandler
         */
 
         // load available titles
-        Util::loadStaticFile('p-titles-'.$char->getField('gender'), $buff, true);
-
-        // load available achievements
-        if (!Util::loadStaticFile('p-achievements', $buff, true))
-        {
-            $buff .= "\n\ng_achievement_catorder = [];";
-            $buff .= "\n\ng_achievement_points = [0];";
-        }
-
-        // excludes; structure UNK type => [maskBit => [typeIds]] ?
-        /*
-            g_user.excludes = [type:[typeIds]]
-            g_user.includes = [type:[typeIds]]
-            g_user.excludegroups = groupMask        // requires g_user.settings != null
-
-            maskBit are matched against fieldId from excludeGroups
-            id: 1, label: LANG.dialog_notavail
-            id: 2, label: LANG.dialog_tcg
-            id: 4, label: LANG.dialog_collector
-            id: 8, label: LANG.dialog_promo
-            id: 16, label: LANG.dialog_nonus
-            id: 96, label: LANG.dialog_faction
-            id: 896, label: LANG.dialog_profession
-            id: 1024, label: LANG.dialog_noexalted
-        */
-        // $buff .= "\n\ng_excludes = {};";
+        Util::loadStaticFile('p-titles-'.$pBase['gender'], $buff, true);
 
         // add profile to buffer
-        $buff .= "\n\n\$WowheadProfiler.registerProfile(".Util::toJSON($char->getEntry(2)).");"; // can't use JSON_NUMERIC_CHECK or the talent-string becomes a float
+        $buff .= "\n\n\$WowheadProfiler.registerProfile(".Util::toJSON($profile, JSON_UNESCAPED_UNICODE).");"; // can't use JSON_NUMERIC_CHECK or the talent-string becomes a float
 
         return $buff."\n";
     }

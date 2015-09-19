@@ -8,7 +8,7 @@ if (!defined('AOWOW_REVISION'))
 //  tabId 1: Tools    g_initHeader()
 class ArenaTeamsPage extends GenericPage
 {
-    use ProfilerPage;
+    use TrProfiler;
 
     protected $tpl      = 'arena-teams';
     protected $js       = ['filters.js', 'profile_all.js', 'profile.js'];

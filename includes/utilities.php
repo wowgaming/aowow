@@ -695,7 +695,7 @@ class Util
     );
 
     public static $configCats               = array(
-        'Site', 'Caching', 'Account', 'Session', 'Site Reputation', 'Other'
+        'Site', 'Caching', 'Account', 'Session', 'Site Reputation', 'Other', 'Profiler'
     );
 
     public static $tcEncoding               = '0zMcmVokRsaqbdrfwihuGINALpTjnyxtgevElBCDFHJKOPQSUWXYZ123456789';
@@ -878,21 +878,21 @@ class Util
         return 0;
     }
 
-    public static function sideByRaceMask($race)
+    public static function sideByRaceMask($race, $asTeam = false)
     {
         // Any
         if (!$race || ($race & RACE_MASK_ALL) == RACE_MASK_ALL)
-            return SIDE_BOTH;
+            return $asTeam ? TEAM_NEUTRAL : SIDE_BOTH;
 
         // Horde
         if ($race & RACE_MASK_HORDE && !($race & RACE_MASK_ALLIANCE))
-            return SIDE_HORDE;
+            return $asTeam ? TEAM_HORDE : SIDE_HORDE;
 
         // Alliance
         if ($race & RACE_MASK_ALLIANCE && !($race & RACE_MASK_HORDE))
-            return SIDE_ALLIANCE;
+            return $asTeam ? TEAM_ALLIANCE : SIDE_ALLIANCE;
 
-        return SIDE_BOTH;
+        return $asTeam ? TEAM_NEUTRAL : SIDE_BOTH;
     }
 
     public static function getReputationLevelForPoints($pts)
@@ -1614,6 +1614,42 @@ class Util
         }
 
         return self::$realms;
+    }
+
+    public static function scheduleResync($type, $realmId, $guid)
+    {
+        $newId = 0;
+
+        switch ($type)
+        {
+            case TYPE_PROFILE:
+                DB::Aowow()->query('INSERT IGNORE INTO ?_profiler_profiles (realm, realmGUID) VALUES (?d, ?d)', $realmId, $guid);
+                $newId = DB::Aowow()->selectCell('SELECT id FROM ?_profiler_profiles WHERE realm = ?d AND realmGUID = ?d', $realmId, $guid);
+
+                if ($rData = DB::Aowow()->selectRow('SELECT requestTime AS time, status FROM ?_profiler_sync WHERE realm = ?d AND realmGUID = ?d AND `type` = ?d AND typeId = ?d AND status <> ?d', $realmId, $guid, $type, $newId, PR_QUEUE_STATUS_WORKING))
+                {
+                    // not on already scheduled - recalc time and set status to PR_QUEUE_STATUS_WAITING
+                    if ($rData['status'] != PR_QUEUE_STATUS_WAITING)
+                    {
+                        $newTime = max($rData['time'] + CFG_PROFILER_RESYNC_DELAY, time());
+                        DB::Aowow()->query('UPDATE ?_profiler_sync SET requestTime = ?d, status = ?d, errorCode = 0 WHERE realm = ?d AND realmGUID = ?d AND `type` = ?d AND typeId = ?d', $newTime, PR_QUEUE_STATUS_WAITING, $realmId, $guid, $type, $newId);
+                    }
+                }
+                else
+                    DB::Aowow()->query('REPLACE INTO ?_profiler_sync (realm, realmGUID, `type`, typeId, requestTime, status, errorCode) VALUES (?d, ?d, ?d, ?d, UNIX_TIMESTAMP(), ?d, 0)', $realmId, $guid, $type, $newId, PR_QUEUE_STATUS_WAITING);
+
+                break;
+            case TYPE_GUILD:
+
+                break;
+            case TYPE_ARENA_TEAM:
+
+                break;
+            default:
+                trigger_error('scheduling resync for unknown type #'.$type.' omiting..', E_USER_WARNING);
+        }
+
+        return $newId;
     }
 }
 

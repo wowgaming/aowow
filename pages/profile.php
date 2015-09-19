@@ -4,30 +4,28 @@ if (!defined('AOWOW_REVISION'))
     die('illegal access');
 
 
+// menuId 5: Profiler g_initPath()
+//  tabId 1: Tools    g_initHeader()
 class ProfilePage extends GenericPage
 {
-    protected $type         = 0;
-    protected $typeId       = 0;
-    protected $path         = [1, 5, 1];
-    protected $tabId        = 1;
-    protected $tpl          = 'profile';
-    protected $gDataKey     = true;
-    protected $js           = ['filters.js', 'TalentCalc.js', 'swfobject.js', 'profile_all.js', 'profile.js', 'Profiler.js'];
-    protected $css          = array(
+    use TrProfiler;
+
+    protected $gDataKey  = true;
+    protected $tabId     = 1;
+    protected $path      = [1, 5, 1];
+    protected $tpl       = 'profile';
+    protected $js        = ['filters.js', 'TalentCalc.js', 'swfobject.js', 'profile_all.js', 'profile.js', 'Profiler.js'];
+    protected $css       = array(
         ['path' => 'talentcalc.css'],
         ['path' => 'Profiler.css']
     );
-    protected $profileId = 0;
 
     private   $isCustom  = false;
     private   $profile   = null;
 
     public function __construct($pageCall, $pageParam)
     {
-        $_ = strlen($pageParam) ? explode('.', $pageParam) : null;
-        $this->getCategoryFromUrl($pageParam);
-
-        $this->typeId &= $this->profileId;
+        $params = explode('.', $pageParam);
 
         parent::__construct($pageCall, $pageParam);
 
@@ -35,37 +33,57 @@ class ProfilePage extends GenericPage
         if ($this->mode == CACHE_TYPE_TOOLTIP && isset($_GET['domain']))
             Util::powerUseLocale($_GET['domain']);
 
-        if (count($_) == 1 && intVal($_[0]))
+        if (count($params) == 1 && intVal($params[0]))
         {
             // todo: some query to validate existence of char
             if ($foo = DB::Aowow()->selectCell('SELECT 2161862'))
-                $this->profileId = $foo;
+                $this->subjectGUID = $foo;
             else
                 $this->notFound();
 
             $this->isCustom  = true;
-            $this->profile = intVal($_[0]);
+            $this->profile = intVal($params[0]);
         }
-        else if (count($_) == 3)
+        else if (count($params) == 3)
         {
-            // names MUST be ucFirst. Since we don't expect partial matches, search this way
-            $this->subject = new ProfileList(array(['name', Util::ucFirst(urldecode($_[2]))]), ['sv' => $_[1]]);
-            if ($this->subject->error)
+
+            $this->getSubjectFromUrl($pageParam);
+            if (!$this->subjectName)
                 $this->notFound();
 
-            $this->profileId = $this->subject->getField('guid');
-            $this->profile = $_;
+            // names MUST be ucFirst. Since we don't expect partial matches, search this way
+
+            // 3 possibilities
+            // 1) already synced to aowow
+            if ($this->subjectGUID = DB::Aowow()->selectCell('SELECT id FROM ?_profiler_profiles WHERE realm = ?d AND name = ?', $this->realmId, Util::ucFirst($this->subjectName)))
+            {
+                $this->subject = new ProfileList(array(['name', Util::ucFirst($this->subjectName)]), ['sv' => $params[1]]);
+                if ($this->subject->error)
+                    $this->notFound();
+
+                // $this->subjectGUID = $this->subject->getField('guid');
+                $this->profile = $params;
+
+            }
+            // 2) not yet synced but exists on realm
+            else if ($guid = DB::Characters($this->realmId)->selectCell('SELECT guid FROM characters WHERE name = ?', Util::ucFirst($this->subjectName)))
+            {
+                $newId = Util::scheduleResync(TYPE_PROFILE, $this->realmId, $guid);
+                $this->doResync = ['profile', $newId];
+                $this->initialSync();
+            }
+            // 3) does not exist at all
+            else
+                $this->notFound();
         }
-        else if ($_ || !isset($_GET['new']))
+        else if ($params || !isset($_GET['new']))
             $this->notFound();
     }
 
     protected function generateContent()
     {
-        $this->addJS('?data=enchants.gems.glyphs.itemsets.pets.pet-talents.quick-excludes.realms.statistics.weight-presets&locale='.User::$localeId.'&t='.$_SESSION['dataKey']);
-
-        $this->region  = 'eu';
-        $this->realm   = 'Realm Name';
+        // + .titles ?
+        $this->addJS('?data=enchants.gems.glyphs.itemsets.pets.pet-talents.quick-excludes.realms.statistics.weight-presets.achievements&locale='.User::$localeId.'&t='.$_SESSION['dataKey']);
     }
 
     protected function generatePath()

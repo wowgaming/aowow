@@ -11,6 +11,14 @@ $this->brick('pageTemplate');
 
 if (isset($this->notFound)):
 ?>
+<?php
+    if (!empty($this->doResync)):
+?>
+            <div id="roster-status" class="profiler-message clear"></div>
+<?php
+    endif;
+?>
+
             <div class="pad3"></div>
 
             <div class="inputbox">
@@ -20,7 +28,7 @@ if (isset($this->notFound)):
     if (!empty($this->doResync)):
 ?>
                 <script type="text/javascript">//<![CDATA[
-                    pr_updateStatus('<?=$this->doResync[0]; ?>', $WH.ge('inputbox-error'), <?=$this->doResync[1]; ?>, 1);
+                    pr_updateStatus('<?=$this->doResync[0]; ?>', $WH.ge('roster-status'), <?=$this->doResync[1]; ?>, 1);
                     pr_setRegionRealm($WH.gE($WH.ge('topbar'), 'form')[0], '<?=$this->region; ?>', '<?=$this->realm; ?>');
                 //]]></script>
 <?php

@@ -25,6 +25,8 @@ new Listview({
 //  tabId 1: Tools    g_initHeader()
 class ProfilesPage extends GenericPage
 {
+    use TrProfiler;
+
     protected $tpl      = 'profiles';
     protected $js       = ['filters.js', 'profile_all.js', 'profile.js'];
     protected $css      = [['path' => 'Profiler.css']];

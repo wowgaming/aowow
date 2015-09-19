@@ -72,41 +72,54 @@ trait ListPage
     }
 }
 
-trait ProfilerPage
+trait TrProfiler
 {
     protected $region      = '';
     protected $realm       = '';
+    protected $realmId     = 0;
     protected $battlegroup = '';                            // not implementedm since no pserver supports it
     protected $subjectName = '';
+    protected $subjectGUID = 0;
 
     protected function getSubjectFromUrl($str)
     {
+        if (!$str)
+            return;
+
         // cat[0] is always region
         // cat[1] is realm or bGroup (must be realm if cat[2] is set)
         // cat[2] is arena-team, guild or player
         $cat = explode('.', $str);
-        if ($cat[0] && count($cat) < 4 && $cat[0] === 'eu' || $cat[0] === 'us')
+
+        if (count($cat) > 3)
+            return;
+
+        if ($cat[0] !== 'eu' && $cat[0] !== 'us')
+            return;
+
+        if (isset($cat[2]) && mb_strlen($cat[2]) < 3)
+            return;
+
+        $this->region = $cat[0];
+
+        // if ($cat[1] == Util::urlize(CFG_BATTLEGROUP))
+            // $this->battlegroup = CFG_BATTLEGROUP;
+        if (isset($cat[1]))
         {
-            $this->region = $cat[0];
-
-            // if ($cat[1] == Util::urlize(CFG_BATTLEGROUP))
-                // $this->battlegroup = CFG_BATTLEGROUP;
-            if (isset($cat[1]))
+            foreach (Util::getRealms() as $rId => $r)
             {
-                foreach (Util::getRealms() as $r)
+                if (Util::urlize($r['name']) == $cat[1])
                 {
-                    if (Util::urlize($r['name']) == $cat[1])
+                    $this->realm   = $r['name'];
+                    $this->realmId = $rId;
+                    if (isset($cat[2]))
                     {
-                        $this->realm = $r['name'];
-                        if (isset($cat[2]))
-                        {
-                            // arena team names can only contain spaces and letters
-                            $cat[2] = str_replace('-', ' ', $cat[2]);
-                            $this->subjectName = urldecode($cat[2]);
-                        }
-
-                        break;
+                        // profiler items can only contain spaces and letters
+                        $cat[2] = str_replace('-', ' ', $cat[2]);
+                        $this->subjectName = urldecode($cat[2]);
                     }
+
+                    break;
                 }
             }
         }
@@ -402,8 +415,8 @@ class GenericPage
                 'mode'   => 1,
                 'status' => 1,
                 'name'   => 'internal error',
-                'style'  => 'padding-left: 40px; background-image: url('.STATIC_URL.'/images/announcements/warn-small.png); background-size: 15px 15px; background-position: 12px center; border: dashed 2px #C03030;',
-                'text'   => '[span id=inputbox-error]'.implode("[br]", $_).'[/span]',
+                'style'  => 'color: #ff3333; font-weight: bold; font-size: 14px; padding-left: 40px; background-image: url('.STATIC_URL.'/images/announcements/warn-small.png); background-size: 15px 15px; background-position: 12px center; border: dashed 2px #C03030;',
+                'text'   => '[span]'.implode("[br]", $_).'[/span]',
             );
         }
 

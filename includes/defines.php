@@ -28,6 +28,9 @@ define('TYPE_CURRENCY',                     17);
 define('TYPE_USER',                         500);
 define('TYPE_EMOTE',                        501);
 define('TYPE_ENCHANTMENT',                  502);
+define('TYPE_PROFILE',                      503);
+define('TYPE_GUILD',                        504);
+define('TYPE_ARENA_TEAM',                   505);
 
 define('CACHE_TYPE_NONE',                   0);             // page will not be cached
 define('CACHE_TYPE_PAGE',                   1);
@@ -258,6 +261,9 @@ define('QUEST_CU_SEASONAL',                 0x08);
 define('QUEST_CU_SKIP_LOG',                 0x10);
 define('QUEST_CU_AUTO_ACCEPT',              0x20);
 define('QUEST_CU_PVP_ENABLED',              0x40);
+
+define('PROFILE_CU_PUBLISHED',              0x01);
+define('PROFILE_CU_PINNED',                 0x02);
 
 define('MAX_LEVEL',                         80);
 define('WOW_BUILD',                         12340);
@@ -840,4 +846,14 @@ define('CND_DISTANCE_TO',     35);                          // distance to targe
 define('CND_ALIVE',           36);                          // target is alive:         NULL,           NULL,       NULL
 define('CND_HP_VAL',          37);                          // targets absolute health: amount,         operator,   NULL
 define('CND_HP_PCT',          38);                          // targets relative health: amount,         operator,   NULL
+
+// profiler queue interactions
+define('PR_QUEUE_STATUS_ENDED',   0);
+define('PR_QUEUE_STATUS_WAITING', 1);
+define('PR_QUEUE_STATUS_WORKING', 2);
+define('PR_QUEUE_STATUS_READY',   3);
+define('PR_QUEUE_STATUS_ERROR',   4);
+define('PR_QUEUE_ERROR_UNK',      0);
+define('PR_QUEUE_ERROR_CHAR',     1);
+define('PR_QUEUE_ERROR_ARMORY',   2);
 ?>
