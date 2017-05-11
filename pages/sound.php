@@ -11,7 +11,6 @@ class SoundPage extends GenericPage
     use DetailPage;
 
     protected $type          = TYPE_SOUND;
-    protected $typeId        = 0;
     protected $tpl           = 'sound';
     protected $path          = [0, 19];
     protected $tabId         = 0;
@@ -27,10 +26,11 @@ class SoundPage extends GenericPage
         // special case
         if (!$id && isset($_GET['playlist']))
         {
-            $this->special = true;
-            $this->name    = Lang::sound('cat', 1000);
-            $this->cat     = 1000;
-            $this->typeId  = -1000;
+            $this->special       = true;
+            $this->name          = Lang::sound('cat', 1000);
+            $this->cat           = 1000;
+            $this->articleUrl    = 'sound&playlist';
+            $this->hasComContent = false;
         }
         // regular case
         else
@@ -286,7 +286,7 @@ class SoundPage extends GenericPage
         $ssActionLists = DB::World()->selectCol('SELECT entryorguid FROM smart_scripts WHERE action_type = 4 AND action_param1 = ?d AND source_type = 9', $this->typeId);
         $smartScripts  = DB::World()->selectCol($ssQuery, $this->typeId, $ssActionLists ?: DBSIMPLE_SKIP, $ssActionLists, $ssActionLists, $ssActionLists, $ssActionLists, $ssActionLists, $ssActionLists, $ssActionLists, $ssActionLists);
 
-        $creatureIds = DB::World()->selectCol('SELECT entry FROM creature_text ct LEFT JOIN broadcast_text bct ON bct.ID = ct.BroadCastTextId WHERE bct.SoundId = ?d OR ct.sound = ?d', $this->typeId, $this->typeId);
+        $creatureIds = DB::World()->selectCol('SELECT ct.CreatureID FROM creature_text ct LEFT JOIN broadcast_text bct ON bct.ID = ct.BroadCastTextId WHERE bct.SoundId = ?d OR ct.Sound = ?d', $this->typeId, $this->typeId);
         foreach ($smartScripts as $source => $ids)
         {
             switch($source)

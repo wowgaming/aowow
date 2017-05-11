@@ -139,7 +139,7 @@ class NpcPage extends GenericPage
         // Classification
         if ($_ = $this->subject->getField('rank'))          //  != NPC_RANK_NORMAL
         {
-            $str = $_typeFlags & 0x4 ? '[span class=icon-boss]'.Lang::npc('rank', $_).'[/span]' : Lang::npc('rank', $_);
+            $str = $this->subject->isBoss() ? '[span class=icon-boss]'.Lang::npc('rank', $_).'[/span]' : Lang::npc('rank', $_);
             $infobox[] = Lang::npc('classification').Lang::main('colon').$str;
         }
 
@@ -363,7 +363,7 @@ class NpcPage extends GenericPage
         {
             $skill = 0;
             $mask  = 0x0;
-            foreach (Util::$skillLineMask[-1] as $idx => $pair)
+            foreach (Game::$skillLineMask[-1] as $idx => $pair)
             {
                 if ($pair[0] != $_)
                     continue;
@@ -478,7 +478,7 @@ class NpcPage extends GenericPage
                         {
                             $this->extendGlobalIds(TYPE_SKILL, $_);
                             if (!isset($extra[0]))
-                                $extra[0] = 'Listview.extraCols.condition';
+                                $extra[0] = '$Listview.extraCols.condition';
 
                             $data[$sId]['condition'][0][$this->typeId][] = [[CND_SKILL, $_, $train['reqSkillValue']]];
                         }
@@ -486,7 +486,7 @@ class NpcPage extends GenericPage
                         if ($_ = $train['reqLevel'])
                         {
                             if (!isset($extra[1]))
-                                $extra[1] = "Listview.funcBox.createSimpleCol('reqLevel', LANG.tooltip_reqlevel, '7%', 'reqLevel')";
+                                $extra[1] = "\$Listview.funcBox.createSimpleCol('reqLevel', LANG.tooltip_reqlevel, '7%', 'reqLevel')";
 
                             $data[$sId]['reqLevel'] = $_;
                         }
@@ -529,7 +529,7 @@ class NpcPage extends GenericPage
                 {
                     $this->extendGlobalData($sc[1]);
 
-                    $extraCols[] = 'Listview.extraCols.condition';
+                    $extraCols[] = '$Listview.extraCols.condition';
 
                     foreach ($lvData as $id => &$row)
                         foreach ($sc[0] as $srcType => $cndData)
@@ -968,25 +968,25 @@ class NpcPage extends GenericPage
         $quotes   = [];
         $quoteSrc = DB::World()->select('
             SELECT
-                ct.groupid AS ARRAY_KEY, ct.id as ARRAY_KEY2, ct.`type`,
+                ct.GroupID AS ARRAY_KEY, ct.ID as ARRAY_KEY2, ct.`Type`,
                 ct.TextRange AS `range`,
-                IFNULL(bct.`Language`, ct.`language`) AS lang,
-                IFNULL(NULLIF(bct.MaleText, ""), IFNULL(NULLIF(bct.FemaleText, ""), IFNULL(ct.`text`, ""))) AS text_loc0,
-                IFNULL(NULLIF(lbct.MaleText_loc2, ""), IFNULL(NULLIF(lbct.FemaleText_loc2, ""), IFNULL(lct.text_loc2, ""))) AS text_loc2,
-                IFNULL(NULLIF(lbct.MaleText_loc3, ""), IFNULL(NULLIF(lbct.FemaleText_loc3, ""), IFNULL(lct.text_loc3, ""))) AS text_loc3,
-                IFNULL(NULLIF(lbct.MaleText_loc6, ""), IFNULL(NULLIF(lbct.FemaleText_loc6, ""), IFNULL(lct.text_loc6, ""))) AS text_loc6,
-                IFNULL(NULLIF(lbct.MaleText_loc8, ""), IFNULL(NULLIF(lbct.FemaleText_loc8, ""), IFNULL(lct.text_loc8, ""))) AS text_loc8,
-                IF(bct.SoundId > 0, bct.SoundId, ct.sound) AS soundId
+                IFNULL(bct.`Language`, ct.`Language`) AS lang,
+                IFNULL(NULLIF(bct.MaleText, ""), IFNULL(NULLIF(bct.FemaleText, ""), IFNULL(ct.`Text`, ""))) AS text_loc0,
+               {IFNULL(NULLIF(bctl.MaleText, ""), IFNULL(NULLIF(bctl.FemaleText, ""), IFNULL(ctl.Text, ""))) AS text_loc?d,}
+                IF(bct.SoundId > 0, bct.SoundId, ct.Sound) AS soundId
             FROM
                 creature_text ct
-            LEFT JOIN
-                locales_creature_text lct ON ct.entry = lct.entry AND ct.groupid = lct.groupid AND ct.id = lct.id
+           {LEFT JOIN
+                creature_text_locale ctl ON ct.CreatureID = ctl.CreatureID AND ct.GroupID = ctl.GroupID AND ct.ID = ctl.ID AND ctl.Locale = ?}
             LEFT JOIN
                 broadcast_text bct ON ct.BroadcastTextId = bct.ID
-            LEFT JOIN
-                locales_broadcast_text lbct ON ct.BroadcastTextId = lbct.ID
+           {LEFT JOIN
+                broadcast_text_locale bctl ON ct.BroadcastTextId = bctl.ID AND bctl.locale = ?}
             WHERE
-                ct.entry = ?d',
+                ct.CreatureID = ?d',
+            User::$localeId ?: DBSIMPLE_SKIP,
+            User::$localeId ? Util::$localeStrings[User::$localeId] : DBSIMPLE_SKIP,
+            User::$localeId ? Util::$localeStrings[User::$localeId] : DBSIMPLE_SKIP,
             $this->typeId
         );
 
@@ -1003,7 +1003,7 @@ class NpcPage extends GenericPage
                     continue;
 
                 // fixup .. either set %s for emotes or dont >.<
-                if (in_array($t['type'], [2, 16]) && strpos($msg, '%s') === false)
+                if (in_array($t['Type'], [2, 16]) && strpos($msg, '%s') === false)
                     $msg = '%s '.$msg;
 
                 // fixup: bad case-insensivity
@@ -1012,11 +1012,11 @@ class NpcPage extends GenericPage
                 $line = array(
                     'range' => $t['range'],
                     'type'  => 2,                           // [type: 0, 12] say: yellow-ish
-                    'lang'  => !empty($t['language']) ? Lang::game('languages', $t['language']) : null,
+                    'lang'  => !empty($t['lang']) ? Lang::game('languages', $t['lang']) : null,
                     'text'  => sprintf(Util::parseHtmlText(htmlentities($msg)), $this->name),
                 );
 
-                switch ($t['type'])
+                switch ($t['Type'])
                 {
                     case  1:                                // yell:
                     case 14: $line['type'] = 1; break;      // - dark red

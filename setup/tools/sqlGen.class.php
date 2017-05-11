@@ -21,9 +21,9 @@ if (!CLI)
 
 class SqlGen
 {
-    const MODE_NORMAL   = 0;
-    const MODE_FIRSTRUN = 1;
-    const MODE_UPDATE   = 2;
+    const MODE_NORMAL   = 1;
+    const MODE_FIRSTRUN = 2;
+    const MODE_UPDATE   = 3;
 
     private static $tables = array(                         // [dbcName, saveDbc, AowowDeps, TCDeps]
         'achievementcategory'      => ['achievement_category',          false, null, null],
@@ -57,17 +57,17 @@ class SqlGen
         'itemenchantment'          => [null, null, null,                             ['spell_enchant_proc_data']],
         'achievement'              => [null, null, ['icons'],                        ['dbc_achievement', 'disables']],
         'creature'                 => [null, null, null,                             ['creature_template', 'creature_template_locale', 'creature_classlevelstats', 'instance_encounters']],
-        'currencies'               => [null, null, null,                             ['item_template', 'locales_item']],
+        'currencies'               => [null, null, null,                             ['item_template', 'item_template_locale']],
         'events'                   => [null, null, null,                             ['game_event', 'game_event_prerequisite']],
         'objects'                  => [null, null, null,                             ['gameobject_template', 'gameobject_template_locale', 'gameobject_questitem']],
         'pet'                      => [null, null, ['icons'],                        ['creature_template', 'creature']],
-        'quests'                   => [null, null, null,                             ['quest_template', 'quest_template_addon', 'locales_quest', 'game_event', 'game_event_seasonal_questrelation', 'disables']],
+        'quests'                   => [null, null, null,                             ['quest_template', 'quest_template_addon', 'quest_template_locale', 'game_event', 'game_event_seasonal_questrelation', 'disables']],
         'quests_startend'          => [null, null, null,                             ['creature_queststarter', 'creature_questender', 'game_event_creature_quest', 'gameobject_queststarter', 'gameobject_questender', 'game_event_gameobject_quest', 'item_template']],
         'spell'                    => [null, null, ['icons'],                        ['skill_discovery_template', 'item_template', 'creature_template', 'creature_template_addon', 'smart_scripts', 'npc_trainer', 'disables', 'spell_ranks', 'spell_dbc']],
         'spelldifficulty'          => [null, null, null,                             ['spelldifficulty_dbc']],
         'taxi' /* nodes + paths */ => [null, null, null,                             ['creature_template', 'creature']],
         'titles'                   => [null, null, null,                             ['quest_template', 'game_event_seasonal_questrelation', 'game_event', 'achievement_reward']],
-        'items'                    => [null, null, ['icons'],                        ['item_template', 'locales_item', 'spell_group', 'game_event']],
+        'items'                    => [null, null, ['icons'],                        ['item_template', 'item_template_locale', 'spell_group', 'game_event']],
         'spawns' /* + waypoints */ => [null, null, null,                             ['creature', 'creature_addon', 'gameobject', 'gameobject_template', 'vehicle_accessory', 'vehicle_accessory_template', 'script_waypoint', 'waypoints', 'waypoint_data']],
         'zones'                    => [null, null, null,                             ['access_requirement']],
         'itemset'                  => [null, null, ['spell'],                        ['item_template', 'game_event']],
@@ -78,6 +78,7 @@ class SqlGen
     public  static $cliOpts   = [];
     private static $shortOpts = 'h';
     private static $longOpts  = ['sql::', 'help', 'sync:']; // general
+    private static $mode      = 0;
 
     public static $subScripts = [];
 
@@ -109,6 +110,8 @@ class SqlGen
             CLISetup::log('No valid locale specified. Check your config or --locales parameter, if used', CLISetup::LOG_ERROR);
             exit;
         }
+
+        self::$mode = $mode;
     }
 
     private static function handleCLIOpts(&$doTbls)
@@ -200,6 +203,11 @@ class SqlGen
         else
             CLISetup::log(sprintf(ERR_MISSING_INCL, $tableName, 'setup/tools/sqlgen/'.$tableName.'.func.php'), CLISetup::LOG_ERROR);
 
+    }
+
+    public static function getMode()
+    {
+        return self::$mode;
     }
 }
 
