@@ -8,7 +8,7 @@ if (!defined('AOWOW_REVISION'))
 //  tabId 0: Database g_initHeader()
 class ItemPage extends genericPage
 {
-    use DetailPage;
+    use TrDetailPage;
 
     protected $type          = TYPE_ITEM;
     protected $typeId        = 0;
@@ -144,6 +144,13 @@ class ItemPage extends genericPage
             if ($si != 3)
                 $infobox[] = Lang::main('side').Lang::main('colon').'[span class=icon-'.($si == 1 ? 'alliance' : 'horde').']'.Lang::game('si', $si).'[/span]';
 
+        // icon
+        if ($_ = $this->subject->getField('iconId'))
+        {
+            $infobox[] = Util::ucFirst(lang::game('icon')).Lang::main('colon').'[icondb='.$_.' name=true]';
+            $this->extendGlobalIds(TYPE_ICON, $_);
+        }
+
         // consumable / not consumable
         if (!$_slot)
         {
@@ -185,45 +192,54 @@ class ItemPage extends genericPage
             $each     = $this->subject->getField('stackable') > 1 ? '[color=q0] ('.Lang::item('each').')[/color]' : null;
             $handled  = [];
             $costList = [];
-            foreach ($vendors as $npcId => $data)
+            foreach ($vendors as $npcId => $entries)
             {
-                $tokens   = [];
-                $currency = [];
-
-                if (!is_array($data))
-                    continue;
-
-                foreach ($data as $c => $qty)
+                foreach ($entries as $data)
                 {
-                    if (is_string($c))
-                    {
-                        unset($data[$c]);                   // unset miscData to prevent having two vendors /w the same cost being cached, because of different stock or rating-requirements
+                    $tokens   = [];
+                    $currency = [];
+
+                    if (!is_array($data))
                         continue;
+
+                    foreach ($data as $c => $qty)
+                    {
+                        if (is_string($c))
+                        {
+                            unset($data[$c]);               // unset miscData to prevent having two vendors /w the same cost being cached, because of different stock or rating-requirements
+                            continue;
+                        }
+
+                        if ($c < 0)                         // currency items (and honor or arena)
+                        {
+                            $currency[] = -$c.','.$qty;
+                            $this->extendGlobalIds(TYPE_CURRENCY, -$c);
+                        }
+                        else if ($c > 0)                    // plain items (item1,count1,item2,count2,...)
+                        {
+                            $tokens[$c] = $c.','.$qty;
+                            $this->extendGlobalIds(TYPE_ITEM, $c);
+                        }
                     }
 
-                    if ($c < 0)                             // currency items (and honor or arena)
-                        $currency[] = -$c.','.$qty;
-                    else if ($c > 0)                        // plain items (item1,count1,item2,count2,...)
-                        $tokens[$c] = $c.','.$qty;
+                    // display every cost-combination only once
+                    if (in_array(md5(serialize($data)), $handled))
+                        continue;
+
+                    $handled[] = md5(serialize($data));
+
+                    $cost = isset($data[0]) ? '[money='.$data[0] : '[money';
+
+                    if ($tokens)
+                        $cost .= ' items='.implode(',', $tokens);
+
+                    if ($currency)
+                        $cost .= ' currency='.implode(',', $currency);
+
+                    $cost .= ']';
+
+                    $costList[] = $cost;
                 }
-
-                // display every cost-combination only once
-                if (in_array(md5(serialize($data)), $handled))
-                    continue;
-
-                $handled[] = md5(serialize($data));
-
-                $cost = isset($data[0]) ? '[money='.$data[0] : '[money';
-
-                if ($tokens)
-                    $cost .= ' items='.implode(',', $tokens);
-
-                if ($currency)
-                    $cost .= ' currency='.implode(',', $currency);
-
-                $cost .= ']';
-
-                $costList[] = $cost;
             }
 
             if (count($costList) == 1)
@@ -261,7 +277,7 @@ class ItemPage extends genericPage
 
         // avg auction buyout
         if (in_array($this->subject->getField('bonding'), [0, 2, 3]))
-            if ($_ = Util::getBuyoutForItem($this->typeId))
+            if ($_ = Profiler::getBuyoutForItem($this->typeId))
                 $infobox[] = '[tooltip=tooltip_buyoutprice]'.Lang::item('buyout.').'[/tooltip]'.Lang::main('colon').'[money='.$_.']'.$each;
 
         // avg money contained
@@ -336,7 +352,7 @@ class ItemPage extends genericPage
             $this->addCSS(['path' => 'Book.css']);
         }
 
-        $this->headIcons  = [$this->subject->getField('iconString'), $this->subject->getField('stackable')];
+        $this->headIcons  = [$this->subject->getField('iconString', true, true), $this->subject->getField('stackable')];
         $this->infobox    = $infobox ? '[ul][li]'.implode('[/li][li]', $infobox).'[/li][/ul]' : null;
         $this->tooltip    = $this->subject->renderTooltip(true);
         $this->redButtons = array(
@@ -397,7 +413,7 @@ class ItemPage extends genericPage
                     Lang::item('_transfer'),
                     $altItem->id,
                     $altItem->getField('quality'),
-                    $altItem->getField('iconString'),
+                    $altItem->getField('iconString', true, true),
                     $altItem->getField('name', true),
                     $pendant > 0 ? 'alliance' : 'horde',
                     $pendant > 0 ? Lang::game('si', 1) : Lang::game('si', 2)
@@ -441,7 +457,7 @@ class ItemPage extends genericPage
         {
             $this->extendGlobalData($lootTabs->jsGlobals);
 
-            foreach ($lootTabs->iterate() as $idx => list($file, $tabData))
+            foreach ($lootTabs->iterate() as $idx => [$file, $tabData])
             {
                 if (!$tabData['data'])
                     continue;
@@ -475,7 +491,7 @@ class ItemPage extends genericPage
                     if (!$lv['quest'])
                         continue;
 
-                    $sf[4] = array_merge($sf[4], ['Listview.extraCols.condition']);
+                    $sf[4] = array_merge($sf[4], ['$Listview.extraCols.condition']);
 
                     $reqQuest[$lv['id']] = 0;
 
@@ -661,6 +677,9 @@ class ItemPage extends genericPage
             ]
         );
 
+        if ($_ = $this->subject->getField('itemset'))
+            $conditions[1][] = ['AND', ['slot', $_slot], ['itemset', $_]];
+
         $saItems = new ItemList($conditions);
         if (!$saItems->error)
         {
@@ -760,7 +779,9 @@ class ItemPage extends genericPage
                 {
                     $currency = [];
                     $tokens   = [];
-                    foreach ($vendors[$k] as $id => $qty)
+
+                    // note: can only display one entry per row, so only use first entry of each vendor
+                    foreach ($vendors[$k][0] as $id => $qty)
                     {
                         if (is_string($id))
                             continue;
@@ -771,16 +792,10 @@ class ItemPage extends genericPage
                             $currency[] = [-$id, $qty];
                     }
 
-                    if ($currency)
-                        $this->extendGlobalIds(TYPE_CURRENCY, array_column($currency, 0));
+                    $row['stock'] = $vendors[$k][0]['stock'];
+                    $row['cost']  = [empty($vendors[$k][0][0]) ? 0 : $vendors[$k][0][0]];
 
-                    if ($tokens)
-                        $this->extendGlobalIds(TYPE_ITEM, array_column($tokens, 0));
-
-                    $row['stock'] = $vendors[$k]['stock'];
-                    $row['cost']  = [empty($vendors[$k][0]) ? 0 : $vendors[$k][0]];
-
-                    if ($e = $vendors[$k]['event'])
+                    if ($e = $vendors[$k][0]['event'])
                     {
                         if (count($extraCols) == 3)
                             $extraCols[] = '$Listview.extraCols.condition';
@@ -903,10 +918,21 @@ class ItemPage extends genericPage
         }
 
         // tab: Shared cooldown
-        $cdCats = [];
+        $cdCats    = [];
+        $useSpells = [];
         for ($i = 1; $i < 6; $i++)
+        {
+            // as defined on item
             if ($this->subject->getField('spellId'.$i) > 0 && $this->subject->getField('spellCategory'.$i) > 0)
                 $cdCats[] = $this->subject->getField('spellCategory'.$i);
+
+            // as defined in spell
+            if ($this->subject->getField('spellId'.$i) > 0)
+                $useSpells[] = $this->subject->getField('spellId'.$i);
+        }
+        if ($useSpells)
+            if ($_ = DB::Aowow()->selectCol('SELECT category FROM ?_spell WHERE id IN (?a) AND recoveryCategory > 0', $useSpells))
+                $cdCats += $_;
 
         if ($cdCats)
         {
@@ -921,6 +947,11 @@ class ItemPage extends genericPage
                     ['spellCategory5', $cdCats],
                 ]
             );
+
+            if ($spellsByCat = DB::Aowow()->selectCol('SELECT id FROM ?_spell WHERE category IN (?a)', $cdCats))
+                for ($i = 1; $i < 6; $i++)
+                    $conditions[1][] = ['spellId'.$i, $spellsByCat];
+
             $cdItems = new ItemList($conditions);
             if (!$cdItems->error)
             {
@@ -933,7 +964,6 @@ class ItemPage extends genericPage
                 $this->extendGlobalData($cdItems->getJSGlobals(GLOBALINFO_SELF));
             }
         }
-
 
         // tab: sounds
         $soundIds = [];
@@ -1023,7 +1053,7 @@ class ItemPage extends genericPage
             $x = $this->subject->getField('class') == 2 ? Lang::spell('weaponSubClass') : Lang::item('cat', $this->subject->getField('class'), 1);
             $xml->addChild('subclass')->addCData(is_array($x) ? (is_array($x[$this->subject->getField('subClass')]) ? $x[$this->subject->getField('subClass')][0] : $x[$this->subject->getField('subClass')]) : null)->addAttribute('id', $this->subject->getField('subClass'));
             // icon + displayId
-            $xml->addChild('icon', $this->subject->getField('iconString'))->addAttribute('displayId', $this->subject->getField('displayId'));
+            $xml->addChild('icon', $this->subject->getField('iconString', true, true))->addAttribute('displayId', $this->subject->getField('displayId'));
             // inventorySlot
             $xml->addChild('inventorySlot', Lang::item('inventoryType', $this->subject->getField('slot')))->addAttribute('id', $this->subject->getField('slot'));
             // tooltip
@@ -1115,7 +1145,7 @@ class ItemPage extends genericPage
                         $splNode = $cbNode->addChild('spell');
                         $splNode->addAttribute('id', $sId);
                         $splNode->addAttribute('name', $spellSource->getField('name', true));
-                        $splNode->addAttribute('icon', $this->subject->getField('iconString'));
+                        $splNode->addAttribute('icon', $this->subject->getField('iconString', true, true));
                         $splNode->addAttribute('minCount', $spellSource->getField('effect'.$idx.'BasePoints') + 1);
                         $splNode->addAttribute('maxCount', $spellSource->getField('effect'.$idx.'BasePoints') + $spellSource->getField('effect'.$idx.'DieSides'));
 

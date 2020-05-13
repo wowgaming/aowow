@@ -40,32 +40,33 @@ if (!CLI)
 */
 class DBC
 {
-    private $_formats = array(                                  // locales block for copy pasta: sxssxxsxsxxxxxxxx | xxxxxxxxxxxxxxxxx
-        'achievement'                   => 'niiisxssxxsxsxxxxxxxxsxssxxsxsxxxxxxxxiiiiisxssxxsxsxxxxxxxxii',
-        'achievement_category'          => 'nisxssxxsxsxxxxxxxxx',
-        'achievement_criteria'          => 'niiiiiiiisxssxxsxsxxxxxxxxiixii',
-        'areatable'                     => 'niixixxiiixsxssxxsxsxxxxxxxxixxxxxxx',
-        'areatrigger'                   => 'niffxxxxxx',
+    private $_formats = array(                                  // locales block for copy pasta: sxsssxsxsxxxxxxxx | xxxxxxxxxxxxxxxxx
+        'achievement'                   => 'niiisxsssxsxsxxxxxxxxsxsssxsxsxxxxxxxxiiiiisxsssxsxsxxxxxxxxii',
+        'achievement_category'          => 'nisxsssxsxsxxxxxxxxx',
+        'achievement_criteria'          => 'niiiiiiiisxsssxsxsxxxxxxxxiixii',
+        'areatable'                     => 'niixixxiiixsxsssxsxsxxxxxxxxixxxxxxx',
+        'areatrigger'                   => 'niffxxxxxf',
         'battlemasterlist'              => 'niixxxxxxixxxxxxxxxxxxxxxxxxixii',
         'charbaseinfo'                  => 'bb',
         'charstartoutfit'               => 'nbbbXiiiiiiiiiiiiiiiiiiiixxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
-        'chartitles'                    => 'nxsxssxxsxsxxxxxxxxsxssxxsxsxxxxxxxxi',
-        'chrclasses'                    => 'nxixsxssxxsxsxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxsxixi',
-        'chrraces'                      => 'niixxxxixxxsxisxssxxsxsxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxi',
+        'chartitles'                    => 'nxsxsssxsxsxxxxxxxxsxsssxsxsxxxxxxxxi',
+        'chrclasses'                    => 'nxixsxsssxsxsxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxsxixi',
+        'chrraces'                      => 'niixxxxixxxsxisxsssxsxsxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxi',
         'creaturedisplayinfo'           => 'niiixxssssxxixxx',
         'creaturedisplayinfoextra'      => 'nxxxxxxxxxxxxxxxxxxxs',
-        'creaturefamily'                => 'nxxxxixiiisxssxxsxsxxxxxxxxs',
+        'creaturefamily'                => 'nxxxxixiiisxsssxsxsxxxxxxxxs',
         'creaturemodeldata'             => 'nxxxxxxxxxxxxixxxxxxxxxxxxxx',
         'creaturesounddata'             => 'niiiixiiiiiiiiixxxxixxxxixiiiiixxiiiix',
         'currencytypes'                 => 'niix',
         'dungeonmap'                    => 'niiffffi',
         'durabilitycosts'               => 'niiiiiiiiixiiiiiiiiiiixiiiixix',
         'durabilityquality'             => 'nf',
+        'dungeonencounter'              => 'niiiisxsssxsxsxxxxxxxxx',
         'emotes'                        => 'nxixxxx',
         'emotestext'                    => 'nsiixxxixixxxxxxxxx',
-        'emotestextdata'                => 'nsxssxxsxsxxxxxxxx',
+        'emotestextdata'                => 'nsxsssxsxsxxxxxxxx',
         'emotestextsound'               => 'niiii',
-        'faction'                       => 'nixxxxxxxxxxxxixxxiffixsxssxxsxsxxxxxxxxxxxxxxxxxxxxxxxxx',
+        'faction'                       => 'niiiiiiiiiiiiiixxxiffixsxsssxsxsxxxxxxxxxxxxxxxxxxxxxxxxx',
         'factiontemplate'               => 'nixiiiiiiiiiii',
         'gemproperties'                 => 'nixxi',
         'glyphproperties'               => 'niii',
@@ -79,20 +80,20 @@ class DBC
         'gtregenmpperspt'               => 'f',
         'gtregenhpperspt'               => 'f',
         'holidays'                      => 'nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxixxxxxxxxxxiisxix',
-        'holidaydescriptions'           => 'nsxssxxsxsxxxxxxxx',
-        'holidaynames'                  => 'nsxssxxsxsxxxxxxxx',
+        'holidaydescriptions'           => 'nsxsssxsxsxxxxxxxx',
+        'holidaynames'                  => 'nsxsssxsxsxxxxxxxx',
         'itemdisplayinfo'               => 'nssxxsxxxxxiixxxxxxxxxxxx',
         'itemgroupsounds'               => 'niixx',
         'itemextendedcost'              => 'niiiiiiiiiiiiiix',
-        'itemlimitcategory'             => 'nsxssxxsxsxxxxxxxxii',
-        'itemrandomproperties'          => 'nsiiiiisxssxxsxsxxxxxxxx',
-        'itemrandomsuffix'              => 'nsxssxxsxsxxxxxxxxsiiiiiiiiii',
-        'itemset'                       => 'nsxssxxsxsxxxxxxxxxxxxxxxxxxxxxxxxxiiiiiiiiiiiiiiiiii',
+        'itemlimitcategory'             => 'nsxsssxsxsxxxxxxxxii',
+        'itemrandomproperties'          => 'nsiiiiisxsssxsxsxxxxxxxx',
+        'itemrandomsuffix'              => 'nsxsssxsxsxxxxxxxxsiiiiiiiiii',
+        'itemset'                       => 'nsxsssxsxsxxxxxxxxxxxxxxxxxxxxxxxxxiiiiiiiiiiiiiiiiii',
         'itemsubclass'                  => 'iixxxxxxxixxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
-        'lfgdungeons'                   => 'nsxssxxsxsxxxxxxxxiiiiiiixiixixixxxxxxxxxxxxxxxxx',
+        'lfgdungeons'                   => 'nsxsssxsxsxxxxxxxxiiiiiiixiixixixxxxxxxxxxxxxxxxx',
         'lock'                          => 'niiiiixxxiiiiixxxiiiiixxxxxxxxxxx',
-        'mailtemplate'                  => 'nsxssxxsxsxxxxxxxxsxssxxsxsxxxxxxxx',
-        'map'                           => 'nsixisxssxxsxsxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxiffxixi',
+        'mailtemplate'                  => 'nsxsssxsxsxxxxxxxxsxsssxsxsxxxxxxxx',
+        'map'                           => 'nsixisxsssxsxsxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxiffxixi',
         'mapdifficulty'                 => 'niixxxxxxxxxxxxxxxxxxis',
         'material'                      => 'nxxii',
         'npcsounds'                     => 'niiix',
@@ -103,33 +104,33 @@ class DBC
         'randproppoints'                => 'niiiiiiiiiiiiiii',
         'scalingstatdistribution'       => 'niiiiiiiiiiiiiiiiiiiii',
         'scalingstatvalues'             => 'xniiiiiiiiiiiiiiiiiiiiii',
-        'skillline'                     => 'nixsxssxxsxsxxxxxxxxsxssxxsxsxxxxxxxxixxxxxxxxxxxxxxxxxx',
+        'skillline'                     => 'nixsxsssxsxsxxxxxxxxsxsssxsxsxxxxxxxxixxxxxxxxxxxxxxxxxx',
         'skilllineability'              => 'niiiixxixiiixx',
         'skillraceclassinfo'            => 'niiiiixx',
         'soundambience'                 => 'nii',
         'soundemitters'                 => 'nffxxxxiix',
         'soundentries'                  => 'nisssssssssssxxxxxxxxxxsxixxxx',
-        'spell'                         => 'niiiuuuuuuuuixixxxixxxxxxxxxiiixxxxiiiiiiiiiiiixxiiiiiiiiiiiiiiiiiiiiiiiiiiiifffiiiiiiiiiiiiiiiiiiiiifffiiiiiiiiiiiiiiifffiiiiiiiiiiiiixsxssxxsxsxxxxxxxxsxssxxsxsxxxxxxxxsxssxxsxsxxxxxxxxsxssxxsxsxxxxxxxxiiiiiiiiiixxfffxxxiixiixifffii',
+        'spell'                         => 'niiiuuuuuuuuixixixixxxxxxxxxiiixxxxiiiiiiiiiiiixxiiiiiiiiiiiiiiiiiiiiiiiiiiiifffiiiiiiiiiiiiiiiiiiiiifffiiiiiiiiiiiiiiifffiiiiiiiiiiiiixsxsssxsxsxxxxxxxxsxsssxsxsxxxxxxxxsxsssxsxsxxxxxxxxsxsssxsxsxxxxxxxxiiiiiiiiiixxfffxxxiixiixifffii',
         'spellcasttimes'                => 'nixx',
         'spelldescriptionvariables'     => 'ns',
         'spelldifficulty'               => 'xiiii',
         'spellduration'                 => 'nixx',
-        'spellfocusobject'              => 'nsxssxxsxsxxxxxxxx',
+        'spellfocusobject'              => 'nsxsssxsxsxxxxxxxx',
         'spellicon'                     => 'ns',
-        'spellitemenchantment'          => 'niiiiiiixxxiiisxssxxsxsxxxxxxxxxxxiiii',
+        'spellitemenchantment'          => 'niiiiiiixxxiiisxsssxsxsxxxxxxxxxxxiiii',
         'spellitemenchantmentcondition' => 'nbbbbbxxxxxbbbbbbbbbbiiiiiXXXXX',
         'spellradius'                   => 'nfxf',
-        'spellrange'                    => 'nffffisxssxxsxsxxxxxxxxxxxxxxxxxxxxxxxxx',
+        'spellrange'                    => 'nffffisxsssxsxsxxxxxxxxxxxxxxxxxxxxxxxxx',
         'spellrunecost'                 => 'niiii',
-        'spellshapeshiftform'           => 'nxsxssxxsxsxxxxxxxxiixxiixxiiiiiiii',
+        'spellshapeshiftform'           => 'nxsxsssxsxsxxxxxxxxiixxiixxiiiiiiii',
         'spellvisual'                   => 'niiiiiixxxxiixiixxxxxxiiiixxxxxx',
         'spellvisualkit'                => 'nxxxxxxxxxxxxxxixxxxxxxxxxxxxxxxxxxxxx',
         'talent'                        => 'niiiiiiiixxxxixxixxixii',
-        'talenttab'                     => 'nsxssxxsxsxxxxxxxxiiiiis',
-        'taxinodes'                     => 'niffxsxssxxsxsxxxxxxxxxx',
+        'talenttab'                     => 'nsxsssxsxsxxxxxxxxiiiiis',
+        'taxinodes'                     => 'niffxsxsssxsxsxxxxxxxxxx',
         'taxipath'                      => 'niix',
         'taxipathnode'                  => 'niiiffxxxxx',
-        'totemcategory'                 => 'nsxssxxsxsxxxxxxxxiu',
+        'totemcategory'                 => 'nsxsssxsxsxxxxxxxxiu',
         'vocaluisounds'                 => 'nxiiixx',
         'weaponimpactsounds'            => 'nixiiiiiiiiiiiiiiiiiiii',
         'weaponswingsounds2'            => 'nixi',
@@ -142,31 +143,32 @@ class DBC
     );
 
     private $_fields = array(
-        'achievement'                   => 'id,faction,map,previous,name_loc0,name_loc2,name_loc3,name_loc6,name_loc8,description_loc0,description_loc2,description_loc3,description_loc6,description_loc8,category,points,orderInGroup,flags,iconId,reward_loc0,reward_loc2,reward_loc3,reward_loc6,reward_loc8,reqCriteriaCount,refAchievement',
-        'achievement_category'          => 'id,parentCategory,name_loc0,name_loc2,name_loc3,name_loc6,name_loc8',
-        'achievement_criteria'          => 'id,refAchievementId,type,value1,value2,value3,value4,value5,value6,name_loc0,name_loc2,name_loc3,name_loc6,name_loc8,completionFlags,groupFlags,timeLimit,order',
-        'areatable'                     => 'id,mapId,areaTable,flags,soundAmbience,zoneMusic,zoneIntroMusic,name_loc0,name_loc2,name_loc3,name_loc6,name_loc8,factionGroupMask',
-        'areatrigger'                   => 'id,mapId,posY,posX',
+        'achievement'                   => 'id,faction,map,previous,name_loc0,name_loc2,name_loc3,name_loc4,name_loc6,name_loc8,description_loc0,description_loc2,description_loc3,description_loc4,description_loc6,description_loc8,category,points,orderInGroup,flags,iconId,reward_loc0,reward_loc2,reward_loc3,reward_loc4,reward_loc6,reward_loc8,reqCriteriaCount,refAchievement',
+        'achievement_category'          => 'id,parentCategory,name_loc0,name_loc2,name_loc3,name_loc4,name_loc6,name_loc8',
+        'achievement_criteria'          => 'id,refAchievementId,type,value1,value2,value3,value4,value5,value6,name_loc0,name_loc2,name_loc3,name_loc4,name_loc6,name_loc8,completionFlags,groupFlags,timeLimit,order',
+        'areatable'                     => 'id,mapId,areaTable,flags,soundAmbience,zoneMusic,zoneIntroMusic,name_loc0,name_loc2,name_loc3,name_loc4,name_loc6,name_loc8,factionGroupMask',
+        'areatrigger'                   => 'id,mapId,posY,posX,orientation',
         'battlemasterlist'              => 'id,mapId,moreMapId,areaType,maxPlayers,minLevel,maxLevel',
         'charbaseinfo'                  => 'raceId,classId',
         'charstartoutfit'               => 'id,raceId,classId,gender,item1,item2,item3,item4,item5,item6,item7,item8,item9,item10,item11,item12,item13,item14,item15,item16,item17,item18,item19,item20',
-        'chartitles'                    => 'id,male_loc0,male_loc2,male_loc3,male_loc6,male_loc8,female_loc0,female_loc2,female_loc3,female_loc6,female_loc8,bitIdx',
-        'chrclasses'                    => 'id,powerType,name_loc0,name_loc2,name_loc3,name_loc6,name_loc8,fileString,flags,expansion',
-        'chrraces'                      => 'id,flags,factionId,baseLanguage,fileString,side,name_loc0,name_loc2,name_loc3,name_loc6,name_loc8,expansion',
+        'chartitles'                    => 'id,male_loc0,male_loc2,male_loc3,male_loc4,male_loc6,male_loc8,female_loc0,female_loc2,female_loc3,female_loc4,female_loc6,female_loc8,bitIdx',
+        'chrclasses'                    => 'id,powerType,name_loc0,name_loc2,name_loc3,name_loc4,name_loc6,name_loc8,fileString,flags,expansion',
+        'chrraces'                      => 'id,flags,factionId,baseLanguage,fileString,side,name_loc0,name_loc2,name_loc3,name_loc4,name_loc6,name_loc8,expansion',
         'creaturedisplayinfo'           => 'id,modelId,creatureSoundId,extraInfoId,skin1,skin2,skin3,iconString,npcSoundId',
         'creaturedisplayinfoextra'      => 'id,textureString',
-        'creaturefamily'                => 'id,skillLine1,petFoodMask,petTalentType,categoryEnumID,name_loc0,name_loc2,name_loc3,name_lo6,name_loc8,iconString',
+        'creaturefamily'                => 'id,skillLine1,petFoodMask,petTalentType,categoryEnumID,name_loc0,name_loc2,name_loc3,name_loc4,name_loc6,name_loc8,iconString',
         'creaturemodeldata'             => 'id,creatureSoundId',
         'creaturesounddata'             => 'id,exertion,exertionCritical,injury,injuryCritical,death,stun,stand,footstepTerrainId,aggro,wingFlap,wingGlide,alert,fidget,customAttack,loop,jumpStart,jumpEnd,petAttack,petOrder,petDismiss,birth,spellcast,submerge,submerged',
         'currencytypes'                 => 'id,itemId,category',
         'dungeonmap'                    => 'id,mapId,floor,minY,maxY,minX,maxX,areaId',
         'durabilitycosts'               => 'id,w0,w1,w2,w3,w4,w5,w6,w7,w8,w10,w11,w12,w13,w14,w15,w16,w17,w18,w19,w20,a1,a2,a3,a4,a6',
         'durabilityquality'             => 'id,mod',
+        'dungeonencounter'              => 'id,map,mode,order,bit,name_loc0,name_loc2,name_loc3,name_loc4,name_loc6,name_loc8',
         'emotes'                        => 'id,animationId',
         'emotestext'                    => 'id,command,emoteId,targetId,noTargetId,selfId',
         'emotestextsound'               => 'id,emotesTextId,raceId,gender,soundId',
-        'emotestextdata'                => 'id,text_loc0,text_loc2,text_loc3,text_loc6,text_loc8',
-        'faction'                       => 'id,repIdx,repFlags1,parentFaction,spilloverRateIn,spilloverRateOut,spilloverMaxRank,name_loc0,name_loc2,name_loc3,name_loc6,name_loc8',
+        'emotestextdata'                => 'id,text_loc0,text_loc2,text_loc3,text_loc4,text_loc6,text_loc8',
+        'faction'                       => 'id,repIdx,baseRepRaceMask1,baseRepRaceMask2,baseRepRaceMask3,baseRepRaceMask4,baseRepClassMask1,baseRepClassMask2,baseRepClassMask3,baseRepClassMask4,baseRepValue1,baseRepValue2,baseRepValue3,baseRepValue4,repFlags1,parentFaction,spilloverRateIn,spilloverRateOut,spilloverMaxRank,name_loc0,name_loc2,name_loc3,name_loc4,name_loc6,name_loc8',
         'factiontemplate'               => 'id,factionId,ourMask,friendlyMask,hostileMask,enemyFactionId1,enemyFactionId2,enemyFactionId3,enemyFactionId4,friendFactionId1,friendFactionId2,friendFactionId3,friendFactionId4',
         'gemproperties'                 => 'id,enchantmentId,colorMask',
         'glyphproperties'               => 'id,spellId,typeFlags,iconId',
@@ -180,20 +182,20 @@ class DBC
         'gtregenmpperspt'               => 'ratio',
         'gtregenhpperspt'               => 'ratio',
         'holidays'                      => 'id,looping,nameId,descriptionId,textureString,scheduleType',
-        'holidaydescriptions'           => 'id,description_loc0,description_loc2,description_loc3,description_loc6,description_loc8',
-        'holidaynames'                  => 'id,name_loc0,name_loc2,name_loc3,name_loc6,name_loc8',
+        'holidaydescriptions'           => 'id,description_loc0,description_loc2,description_loc3,description_loc4,description_loc6,description_loc8',
+        'holidaynames'                  => 'id,name_loc0,name_loc2,name_loc3,name_loc4,name_loc6,name_loc8',
         'itemdisplayinfo'               => 'id,leftModelName,rightModelName,inventoryIcon1,spellVisualId,groupSoundId',
         'itemgroupsounds'               => 'id,pickUpSoundId,dropDownSoundId',
         'itemextendedcost'              => 'id,reqHonorPoints,reqArenaPoints,reqArenaSlot,reqItemId1,reqItemId2,reqItemId3,reqItemId4,reqItemId5,itemCount1,itemCount2,itemCount3,itemCount4,itemCount5,reqPersonalRating',
-        'itemlimitcategory'             => 'id,name_loc0,name_loc2,name_loc3,name_loc6,name_loc8,count,isGem',
-        'itemrandomproperties'          => 'id,nameINT,enchantId1,enchantId2,enchantId3,enchantId4,enchantId5,name_loc0,name_loc2,name_loc3,name_loc6,name_loc8',
-        'itemrandomsuffix'              => 'id,name_loc0,name_loc2,name_loc3,name_loc6,name_loc8,nameINT,enchantId1,enchantId2,enchantId3,enchantId4,enchantId5,allocationPct1,allocationPct2,allocationPct3,allocationPct4,allocationPct5',
-        'itemset'                       => 'id,name_loc0,name_loc2,name_loc3,name_loc6,name_loc8,spellId1,spellId2,spellId3,spellId4,spellId5,spellId6,spellId7,spellId8,itemCount1,itemCount2,itemCount3,itemCount4,itemCount5,itemCount6,itemCount7,itemCount8,reqSkillId,reqSkillLevel',
+        'itemlimitcategory'             => 'id,name_loc0,name_loc2,name_loc3,name_loc4,name_loc6,name_loc8,count,isGem',
+        'itemrandomproperties'          => 'id,nameINT,enchantId1,enchantId2,enchantId3,enchantId4,enchantId5,name_loc0,name_loc2,name_loc3,name_loc4,name_loc6,name_loc8',
+        'itemrandomsuffix'              => 'id,name_loc0,name_loc2,name_loc3,name_loc4,name_loc6,name_loc8,nameINT,enchantId1,enchantId2,enchantId3,enchantId4,enchantId5,allocationPct1,allocationPct2,allocationPct3,allocationPct4,allocationPct5',
+        'itemset'                       => 'id,name_loc0,name_loc2,name_loc3,name_loc4,name_loc6,name_loc8,spellId1,spellId2,spellId3,spellId4,spellId5,spellId6,spellId7,spellId8,itemCount1,itemCount2,itemCount3,itemCount4,itemCount5,itemCount6,itemCount7,itemCount8,reqSkillId,reqSkillLevel',
         'itemsubclass'                  => 'class,subClass,weaponSize',
-        'lfgdungeons'                   => 'id,name_loc0,name_loc2,name_loc3,name_loc6,name_loc8,levelMin,levelMax,targetLevel,targetLevelMin,targetLevelMax,mapId,difficulty,type,faction,expansion,groupId',
+        'lfgdungeons'                   => 'id,name_loc0,name_loc2,name_loc3,name_loc4,name_loc6,name_loc8,levelMin,levelMax,targetLevel,targetLevelMin,targetLevelMax,mapId,difficulty,type,faction,expansion,groupId',
         'lock'                          => 'id,type1,type2,type3,type4,type5,properties1,properties2,properties3,properties4,properties5,reqSkill1,reqSkill2,reqSkill3,reqSkill4,reqSkill5',
-        'mailtemplate'                  => 'id,subject_loc0,subject_loc2,subject_loc3,subject_loc6,subject_loc8,text_loc0,text_loc2,text_loc3,text_loc6,text_loc8',
-        'map'                           => 'id,nameINT,areaType,isBG,name_loc0,name_loc2,name_loc3,name_loc6,name_loc8,parentMapId,parentX,parentY,expansion,maxPlayers',
+        'mailtemplate'                  => 'id,subject_loc0,subject_loc2,subject_loc3,subject_loc4,subject_loc6,subject_loc8,text_loc0,text_loc2,text_loc3,text_loc4,text_loc6,text_loc8',
+        'map'                           => 'id,nameINT,areaType,isBG,name_loc0,name_loc2,name_loc3,name_loc4,name_loc6,name_loc8,parentMapId,parentX,parentY,expansion,maxPlayers',
         'mapdifficulty'                 => 'id,mapId,difficulty,nPlayer,nPlayerString',
         'material'                      => 'id,sheatheSoundId,unsheatheSoundId',
         'npcsounds'                     => 'id,greetSoundId,byeSoundId,angrySoundId',
@@ -204,33 +206,33 @@ class DBC
         'randproppoints'                => 'id,epic1,epic2,epic3,epic4,epic5,rare1,rare2,rare3,rare4,rare5,uncommon1,uncommon2,uncommon3,uncommon4,uncommon5',
         'scalingstatdistribution'       => 'id,statMod1,statMod2,statMod3,statMod4,statMod5,statMod6,statMod7,statMod8,statMod9,statMod10,modifier1,modifier2,modifier3,modifier4,modifier5,modifier6,modifier7,modifier8,modifier9,modifier10,maxLevel',
         'scalingstatvalues'             => 'id,shoulderMultiplier,trinketMultiplier,weaponMultiplier,rangedMultiplier,clothShoulderArmor,leatherShoulderArmor,mailShoulderArmor,plateShoulderArmor,weaponDPS1H,weaponDPS2H,casterDPS1H,casterDPS2H,rangedDPS,wandDPS,spellPower,primBudged,tertBudged,clothCloakArmor,clothChestArmor,leatherChestArmor,mailChestArmor,plateChestArmor',
-        'skillline'                     => 'id,categoryId,name_loc0,name_loc2,name_loc3,name_loc6,name_loc8,description_loc0,description_loc2,description_loc3,description_loc6,description_loc8,iconId',
+        'skillline'                     => 'id,categoryId,name_loc0,name_loc2,name_loc3,name_loc4,name_loc6,name_loc8,description_loc0,description_loc2,description_loc3,description_loc4,description_loc6,description_loc8,iconId',
         'skilllineability'              => 'id,skillLineId,spellId,reqRaceMask,reqClassMask,reqSkillLevel,acquireMethod,skillLevelGrey,skillLevelYellow',
         'skillraceclassinfo'            => 'id,skillLine,raceMask,classMask,flags,reqLevel',
         'soundambience'                 => 'id,soundIdDay,soundIdNight',
         'soundemitters'                 => 'id,posY,posX,soundId,mapId',
         'soundentries'                  => 'id,type,name,file1,file2,file3,file4,file5,file6,file7,file8,file9,file10,path,flags',
-        'spell'                         => 'id,category,dispelType,mechanic,attributes0,attributes1,attributes2,attributes3,attributes4,attributes5,attributes6,attributes7,stanceMask,stanceMaskNot,spellFocus,castTimeId,recoveryTime,recoveryTimeCategory,procChance,procCharges,maxLevel,baseLevel,spellLevel,durationId,powerType,powerCost,powerCostPerLevel,powerPerSecond,powerPerSecondPerLevel,rangeId,stackAmount,tool1,tool2,reagent1,reagent2,reagent3,reagent4,reagent5,reagent6,reagent7,reagent8,reagentCount1,reagentCount2,reagentCount3,reagentCount4,reagentCount5,reagentCount6,reagentCount7,reagentCount8,equippedItemClass,equippedItemSubClassMask,equippedItemInventoryTypeMask,effect1Id,effect2Id,effect3Id,effect1DieSides,effect2DieSides,effect3DieSides,effect1RealPointsPerLevel,effect2RealPointsPerLevel,effect3RealPointsPerLevel,effect1BasePoints,effect2BasePoints,effect3BasePoints,effect1Mechanic,effect2Mechanic,effect3Mechanic,effect1ImplicitTargetA,effect2ImplicitTargetA,effect3ImplicitTargetA,effect1ImplicitTargetB,effect2ImplicitTargetB,effect3ImplicitTargetB,effect1RadiusId,effect2RadiusId,effect3RadiusId,effect1AuraId,effect2AuraId,effect3AuraId,effect1Periode,effect2Periode,effect3Periode,effect1ValueMultiplier,effect2ValueMultiplier,effect3ValueMultiplier,effect1ChainTarget,effect2ChainTarget,effect3ChainTarget,effect1CreateItemId,effect2CreateItemId,effect3CreateItemId,effect1MiscValue,effect2MiscValue,effect3MiscValue,effect1MiscValueB,effect2MiscValueB,effect3MiscValueB,effect1TriggerSpell,effect2TriggerSpell,effect3TriggerSpell,effect1PointsPerComboPoint,effect2PointsPerComboPoint,effect3PointsPerComboPoint,effect1SpellClassMaskA,effect2SpellClassMaskA,effect3SpellClassMaskA,effect1SpellClassMaskB,effect2SpellClassMaskB,effect3SpellClassMaskB,effect1SpellClassMaskC,effect2SpellClassMaskC,effect3SpellClassMaskC,spellVisualId1,spellVisualId2,iconId,iconIdActive,name_loc0,name_loc2,name_loc3,name_loc6,name_loc8,rank_loc0,rank_loc2,rank_loc3,rank_loc6,rank_loc8,description_loc0,description_loc2,description_loc3,description_loc6,description_loc8,buff_loc0,buff_loc2,buff_loc3,buff_loc6,buff_loc8,powerCostPercent,startRecoveryCategory,startRecoveryTime,maxTargetLevel,spellFamilyId,spellFamilyFlags1,spellFamilyFlags2,spellFamilyFlags3,maxAffectedTargets,damageClass,effect1DamageMultiplier,effect2DamageMultiplier,effect3DamageMultiplier,toolCategory1,toolCategory2,schoolMask,runeCostId,powerDisplayId,effect1BonusMultiplier,effect2BonusMultiplier,effect3BonusMultiplier,spellDescriptionVariable,spellDifficulty',
+        'spell'                         => 'id,category,dispelType,mechanic,attributes0,attributes1,attributes2,attributes3,attributes4,attributes5,attributes6,attributes7,stanceMask,stanceMaskNot,targets,spellFocus,castTimeId,recoveryTime,recoveryTimeCategory,procChance,procCharges,maxLevel,baseLevel,spellLevel,durationId,powerType,powerCost,powerCostPerLevel,powerPerSecond,powerPerSecondPerLevel,rangeId,stackAmount,tool1,tool2,reagent1,reagent2,reagent3,reagent4,reagent5,reagent6,reagent7,reagent8,reagentCount1,reagentCount2,reagentCount3,reagentCount4,reagentCount5,reagentCount6,reagentCount7,reagentCount8,equippedItemClass,equippedItemSubClassMask,equippedItemInventoryTypeMask,effect1Id,effect2Id,effect3Id,effect1DieSides,effect2DieSides,effect3DieSides,effect1RealPointsPerLevel,effect2RealPointsPerLevel,effect3RealPointsPerLevel,effect1BasePoints,effect2BasePoints,effect3BasePoints,effect1Mechanic,effect2Mechanic,effect3Mechanic,effect1ImplicitTargetA,effect2ImplicitTargetA,effect3ImplicitTargetA,effect1ImplicitTargetB,effect2ImplicitTargetB,effect3ImplicitTargetB,effect1RadiusId,effect2RadiusId,effect3RadiusId,effect1AuraId,effect2AuraId,effect3AuraId,effect1Periode,effect2Periode,effect3Periode,effect1ValueMultiplier,effect2ValueMultiplier,effect3ValueMultiplier,effect1ChainTarget,effect2ChainTarget,effect3ChainTarget,effect1CreateItemId,effect2CreateItemId,effect3CreateItemId,effect1MiscValue,effect2MiscValue,effect3MiscValue,effect1MiscValueB,effect2MiscValueB,effect3MiscValueB,effect1TriggerSpell,effect2TriggerSpell,effect3TriggerSpell,effect1PointsPerComboPoint,effect2PointsPerComboPoint,effect3PointsPerComboPoint,effect1SpellClassMaskA,effect2SpellClassMaskA,effect3SpellClassMaskA,effect1SpellClassMaskB,effect2SpellClassMaskB,effect3SpellClassMaskB,effect1SpellClassMaskC,effect2SpellClassMaskC,effect3SpellClassMaskC,spellVisualId1,spellVisualId2,iconId,iconIdActive,name_loc0,name_loc2,name_loc3,name_loc4,name_loc6,name_loc8,rank_loc0,rank_loc2,rank_loc3,rank_loc4,rank_loc6,rank_loc8,description_loc0,description_loc2,description_loc3,description_loc4,description_loc6,description_loc8,buff_loc0,buff_loc2,buff_loc3,buff_loc4,buff_loc6,buff_loc8,powerCostPercent,startRecoveryCategory,startRecoveryTime,maxTargetLevel,spellFamilyId,spellFamilyFlags1,spellFamilyFlags2,spellFamilyFlags3,maxAffectedTargets,damageClass,effect1DamageMultiplier,effect2DamageMultiplier,effect3DamageMultiplier,toolCategory1,toolCategory2,schoolMask,runeCostId,powerDisplayId,effect1BonusMultiplier,effect2BonusMultiplier,effect3BonusMultiplier,spellDescriptionVariable,spellDifficulty',
         'spellcasttimes'                => 'id,baseTime',
         'spelldescriptionvariables'     => 'id,vars',
         'spellduration'                 => 'id,baseTime',
         'spelldifficulty'               => 'normal10,normal25,heroic10,heroic25',
-        'spellfocusobject'              => 'id,name_loc0,name_loc2,name_loc3,name_loc6,name_loc8',
+        'spellfocusobject'              => 'id,name_loc0,name_loc2,name_loc3,name_loc4,name_loc6,name_loc8',
         'spellicon'                     => 'id,iconPath',
-        'spellitemenchantment'          => 'id,charges,type1,type2,type3,amount1,amount2,amount3,object1,object2,object3,name_loc0,name_loc2,name_loc3,name_loc6,name_loc8,conditionId,skillLine,skillLevel,requiredLevel',
+        'spellitemenchantment'          => 'id,charges,type1,type2,type3,amount1,amount2,amount3,object1,object2,object3,name_loc0,name_loc2,name_loc3,name_loc4,name_loc6,name_loc8,conditionId,skillLine,skillLevel,requiredLevel',
         'spellitemenchantmentcondition' => 'id,color1,color2,color3,color4,color5,comparator1,comparator2,comparator3,comparator4,comparator5,cmpColor1,cmpColor2,cmpColor3,cmpColor4,cmpColor5,value1,value2,value3,value4,value5',
         'spellradius'                   => 'id,radiusMin,radiusMax',
-        'spellrange'                    => 'id,rangeMinHostile,rangeMinFriend,rangeMaxHostile,rangeMaxFriend,rangeType,name_loc0,name_loc2,name_loc3,name_loc6,name_loc8',
+        'spellrange'                    => 'id,rangeMinHostile,rangeMinFriend,rangeMaxHostile,rangeMaxFriend,rangeType,name_loc0,name_loc2,name_loc3,name_loc4,name_loc6,name_loc8',
         'spellrunecost'                 => 'id,costBlood,costUnholy,costFrost,runicPowerGain',
-        'spellshapeshiftform'           => 'id,name_loc0,name_loc2,name_loc3,name_loc6,name_loc8,flags,creatureType,displayIdA,displayIdH,spellId1,spellId2,spellId3,spellId4,spellId5,spellId6,spellId7,spellId8',
+        'spellshapeshiftform'           => 'id,name_loc0,name_loc2,name_loc3,name_loc4,name_loc6,name_loc8,flags,creatureType,displayIdA,displayIdH,spellId1,spellId2,spellId3,spellId4,spellId5,spellId6,spellId7,spellId8',
         'spellvisual'                   => 'id,precastKitId,castKitId,impactKitId,stateKitId,statedoneKitId,channelKitId,missileSoundId,animationSoundId,casterImpactKitId,targetImpactKitId,missileTargetingKitId,instantAreaKitId,impactAreaKitId,persistentAreaKitId',
         'spellvisualkit'                => 'id,soundId',
         'talent'                        => 'id,tabId,row,column,rank1,rank2,rank3,rank4,rank5,reqTalent,reqRank,talentSpell,petCategory1,petCategory2',
-        'talenttab'                     => 'id,name_loc0,name_loc2,name_loc3,name_loc6,name_loc8,iconId,raceMask,classMask,creatureFamilyMask,tabNumber,textureFile',
-        'taxinodes'                     => 'id,mapId,posX,posY,name_loc0,name_loc2,name_loc3,name_loc6,name_loc8',
+        'talenttab'                     => 'id,name_loc0,name_loc2,name_loc3,name_loc4,name_loc6,name_loc8,iconId,raceMask,classMask,creatureFamilyMask,tabNumber,textureFile',
+        'taxinodes'                     => 'id,mapId,posX,posY,name_loc0,name_loc2,name_loc3,name_loc4,name_loc6,name_loc8',
         'taxipath'                      => 'id,startNodeId,endNodeId',
         'taxipathnode'                  => 'id,pathId,nodeIdx,mapId,posX,posY',
-        'totemcategory'                 => 'id,name_loc0,name_loc2,name_loc3,name_loc6,name_loc8,category,categoryMask',
+        'totemcategory'                 => 'id,name_loc0,name_loc2,name_loc3,name_loc4,name_loc6,name_loc8,category,categoryMask',
         'vocaluisounds'                 => 'id,raceId,soundIdMale,soundIdFemale',
         'weaponimpactsounds'            => 'id,subClass,hit1,hit2,hit3,hit4,hit5,hit6,hit7,hit8,hit9,hit10,crit1,crit2,crit3,crit4,crit5,crit6,crit7,crit8,crit9,crit10',
         'weaponswingsounds2'            => 'id,weaponSize,soundId',
@@ -263,18 +265,18 @@ class DBC
         $file = strtolower($file);
         if (empty($this->_fields[$file]) || empty($this->_formats[$file]))
         {
-            CLISetup::log('no structure known for '.$file.'.dbc, aborting.', CLISetup::LOG_ERROR);
+            CLI::write('no structure known for '.$file.'.dbc, aborting.', CLI::LOG_ERROR);
             return;
         }
 
         $this->fields    = explode(',', $this->_fields[$file]);
         $this->format    = $this->_formats[$file];
         $this->file      = $file;
-        $this->localized = !!strstr($this->format, 'sxssxxsxsxxxxxxxx');
+        $this->localized = !!strstr($this->format, 'sxsssxsxsxxxxxxxx');
 
         if (count($this->fields) != strlen(str_ireplace('x', '', $this->format)))
         {
-            CLISetup::log('known field types ['.count($this->fields).'] and names ['.strlen(str_ireplace('x', '', $this->format)).'] do not match for '.$file.'.dbc, aborting.', CLISetup::LOG_ERROR);
+            CLI::write('known field types ['.count($this->fields).'] and names ['.strlen(str_ireplace('x', '', $this->format)).'] do not match for '.$file.'.dbc, aborting.', CLI::LOG_ERROR);
             return;
         }
 
@@ -299,7 +301,7 @@ class DBC
             if ($foundMask & (1 << $locId))
                 continue;
 
-            $fullPath = CLISetup::nicePath($this->file.'.dbc', CLISetup::$srcDir, $locStr, 'DBFilesClient');
+            $fullPath = CLI::nicePath($this->file.'.dbc', CLISetup::$srcDir, $locStr, 'DBFilesClient');
             if (!CLISetup::fileExists($fullPath))
                 continue;
 
@@ -310,7 +312,7 @@ class DBC
 
         if (!$this->fileRefs)
         {
-            CLISetup::log('no suitable files found for '.$file.'.dbc, aborting.', CLISetup::LOG_ERROR);
+            CLI::write('no suitable files found for '.$file.'.dbc, aborting.', CLI::LOG_ERROR);
             return;
         }
 
@@ -319,19 +321,19 @@ class DBC
         $x = array_unique(array_column($headers, 'recordCount'));
         if (count($x) != 1)
         {
-            CLISetup::log('some DBCs have differenct record counts ('.implode(', ', $x).' respectively). cannot merge!', CLISetup::LOG_ERROR);
+            CLI::write('some DBCs have differenct record counts ('.implode(', ', $x).' respectively). cannot merge!', CLI::LOG_ERROR);
             return;
         }
         $x = array_unique(array_column($headers, 'fieldCount'));
         if (count($x) != 1)
         {
-            CLISetup::log('some DBCs have differenct field counts ('.implode(', ', $x).' respectively). cannot merge!', CLISetup::LOG_ERROR);
+            CLI::write('some DBCs have differenct field counts ('.implode(', ', $x).' respectively). cannot merge!', CLI::LOG_ERROR);
             return;
         }
         $x = array_unique(array_column($headers, 'recordSize'));
         if (count($x) != 1)
         {
-            CLISetup::log('some DBCs have differenct record sizes ('.implode(', ', $x).' respectively). cannot merge!', CLISetup::LOG_ERROR);
+            CLI::write('some DBCs have differenct record sizes ('.implode(', ', $x).' respectively). cannot merge!', CLI::LOG_ERROR);
             return;
         }
 
@@ -345,11 +347,11 @@ class DBC
 
         $this->createTable();
 
-        CLISetup::log(' - reading '.($this->localized ? 'and merging ' : '').$this->file.'.dbc for locales '.implode(', ', array_keys($this->fileRefs)));
+        CLI::write(' - reading '.($this->localized ? 'and merging ' : '').$this->file.'.dbc for locales '.implode(', ', array_keys($this->fileRefs)));
 
         if (!$this->read())
         {
-            CLISetup::log(' - DBC::read() returned with error', CLISetup::LOG_ERROR);
+            CLI::write(' - DBC::read() returned with error', CLI::LOG_ERROR);
             return false;
         }
 
@@ -374,7 +376,7 @@ class DBC
 
         if (fread($handle, 4) != 'WDBC')
         {
-            CLISetup::log('file '.$this->curFile.' has incorrect magic bytes', CLISetup::LOG_ERROR);
+            CLI::write('file '.$this->curFile.' has incorrect magic bytes', CLI::LOG_ERROR);
             fclose($handle);
             return false;
         }
@@ -387,14 +389,14 @@ class DBC
         $filesize = filesize($this->curFile);
         if ($filesize < 20)
         {
-            CLISetup::log('file '.$this->curFile.' is too small for a DBC file', CLISetup::LOG_ERROR);
+            CLI::write('file '.$this->curFile.' is too small for a DBC file', CLI::LOG_ERROR);
             return false;
         }
 
         $header = $this->readHeader($handle);
         if (!$header)
         {
-            CLISetup::log('cannot open file '.$this->curFile, CLISetup::LOG_ERROR);
+            CLI::write('cannot open file '.$this->curFile, CLI::LOG_ERROR);
             return false;
         }
 
@@ -406,14 +408,14 @@ class DBC
 
         if ($header['recordCount'] * $header['recordSize'] + $header['stringSize'] + 20 != $filesize)
         {
-            CLISetup::log('file '.$this->curFile.' has incorrect size '.$filesize.': '.$debugStr, CLISetup::LOG_ERROR);
+            CLI::write('file '.$this->curFile.' has incorrect size '.$filesize.': '.$debugStr, CLI::LOG_ERROR);
             fclose($handle);
             return false;
         }
 
         if ($header['fieldCount'] != strlen($this->format))
         {
-            CLISetup::log('incorrect format string ('.$this->format.') specified for file '.$this->curFile.' fieldCount='.$header['fieldCount'], CLISetup::LOG_ERROR);
+            CLI::write('incorrect format string ('.$this->format.') specified for file '.$this->curFile.' fieldCount='.$header['fieldCount'], CLI::LOG_ERROR);
             fclose($handle);
             return false;
         }
@@ -519,7 +521,7 @@ class DBC
 
             if (!isset($unpackFmt[$ch]))
             {
-                CLISetup::log('unknown format parameter \''.$ch.'\' in format string', CLISetup::LOG_ERROR);
+                CLI::write('unknown format parameter \''.$ch.'\' in format string', CLI::LOG_ERROR);
                 return false;
             }
 
@@ -541,7 +543,7 @@ class DBC
 
         if ($recSize != $header['recordSize'])
         {
-            CLISetup::log('format string size ('.$recSize.') for file '.$this->file.' does not match actual size ('.$header['recordSize'].')', CLISetup::LOG_ERROR);
+            CLI::write('format string size ('.$recSize.') for file '.$this->file.' does not match actual size ('.$header['recordSize'].')', CLI::LOG_ERROR);
             return false;
         }
 
@@ -561,7 +563,7 @@ class DBC
             if ($this->isGameTable)
                 $row[-1] = $i;
 
-            foreach ($this->fileRefs as $locId => list($handle, $fullPath, $header))
+            foreach ($this->fileRefs as $locId => [$handle, $fullPath, $header])
             {
                 $rec = unpack($unpackStr, fread($handle, $header['recordSize']));
 

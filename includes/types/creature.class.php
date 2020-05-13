@@ -14,7 +14,7 @@ class CreatureList extends BaseType
 
     protected       $queryBase = 'SELECT ct.*, ct.id AS ARRAY_KEY FROM ?_creature ct';
     public          $queryOpts = array(
-                        'ct'     => [['ft', 'qse', 'dct1', 'dct2', 'dct3'], 's' => ', IFNULL(dct1.id, IFNULL(dct2.id, IFNULL(dct3.id, 0))) AS parentId, IFNULL(dct1.name_loc0, IFNULL(dct2.name_loc0, IFNULL(dct3.name_loc0, ""))) AS parent_loc0, IFNULL(dct1.name_loc2, IFNULL(dct2.name_loc2, IFNULL(dct3.name_loc2, ""))) AS parent_loc2, IFNULL(dct1.name_loc3, IFNULL(dct2.name_loc3, IFNULL(dct3.name_loc3, ""))) AS parent_loc3, IFNULL(dct1.name_loc6, IFNULL(dct2.name_loc6, IFNULL(dct3.name_loc6, ""))) AS parent_loc6, IFNULL(dct1.name_loc8, IFNULL(dct2.name_loc8, IFNULL(dct3.name_loc8, ""))) AS parent_loc8, IF(dct1.difficultyEntry1 = ct.id, 1, IF(dct2.difficultyEntry2 = ct.id, 2, IF(dct3.difficultyEntry3 = ct.id, 3, 0))) AS difficultyMode'],
+                        'ct'     => [['ft', 'qse', 'dct1', 'dct2', 'dct3'], 's' => ', IFNULL(dct1.id, IFNULL(dct2.id, IFNULL(dct3.id, 0))) AS parentId, IFNULL(dct1.name_loc0, IFNULL(dct2.name_loc0, IFNULL(dct3.name_loc0, ""))) AS parent_loc0, IFNULL(dct1.name_loc2, IFNULL(dct2.name_loc2, IFNULL(dct3.name_loc2, ""))) AS parent_loc2, IFNULL(dct1.name_loc3, IFNULL(dct2.name_loc3, IFNULL(dct3.name_loc3, ""))) AS parent_loc3, IFNULL(dct1.name_loc4, IFNULL(dct2.name_loc4, IFNULL(dct3.name_loc4, ""))) AS parent_loc4, IFNULL(dct1.name_loc6, IFNULL(dct2.name_loc6, IFNULL(dct3.name_loc6, ""))) AS parent_loc6, IFNULL(dct1.name_loc8, IFNULL(dct2.name_loc8, IFNULL(dct3.name_loc8, ""))) AS parent_loc8, IF(dct1.difficultyEntry1 = ct.id, 1, IF(dct2.difficultyEntry2 = ct.id, 2, IF(dct3.difficultyEntry3 = ct.id, 3, 0))) AS difficultyMode'],
                         'dct1'   => ['j' => ['?_creature dct1 ON ct.cuFlags & 0x02 AND dct1.difficultyEntry1 = ct.id', true]],
                         'dct2'   => ['j' => ['?_creature dct2 ON ct.cuFlags & 0x02 AND dct2.difficultyEntry2 = ct.id', true]],
                         'dct3'   => ['j' => ['?_creature dct3 ON ct.cuFlags & 0x02 AND dct3.difficultyEntry3 = ct.id', true]],
@@ -49,7 +49,7 @@ class CreatureList extends BaseType
 
     public static function getName($id)
     {
-        $n = DB::Aowow()->SelectRow('SELECT name_loc0, name_loc2, name_loc3, name_loc6, name_loc8 FROM ?_creature WHERE id = ?d', $id);
+        $n = DB::Aowow()->SelectRow('SELECT name_loc0, name_loc2, name_loc3, name_loc4, name_loc6, name_loc8 FROM ?_creature WHERE id = ?d', $id);
         return Util::localizedString($n, 'name');
     }
 
@@ -102,22 +102,17 @@ class CreatureList extends BaseType
 
     public function getRandomModelId()
     {
+        // dwarf?? [null, 30754, 30753, 30755, 30736]
         // totems use hardcoded models, tauren model is base
-        $totems = array(                                    // tauren => [orc, dwarf(?!), troll, tauren, draenei]
-            4589 => [30758, 30754, 30762, 4589, 19074],     // fire
-            4588 => [30757, 30753, 30761, 4588, 19073],     // earth
-            4587 => [30759, 30755, 30763, 4587, 19075],     // water
-            4590 => [30756, 30736, 30760, 4590, 19071],     // air
-        );
-
-        $data = [];
+        $totems = [null, 4589, 4588, 4587, 4590];           // slot => modelId
+        $data   = [];
 
         for ($i = 1; $i < 5; $i++)
             if ($_ = $this->curTpl['displayId'.$i])
                 $data[] = $_;
 
-        if (count($data) == 1 && in_array($data[0], array_keys($totems)))
-            $data = $totems[$data[0]];
+        if (count($data) == 1 && ($slotId = array_search($data[0], $totems)))
+            $data = DB::World()->selectCol('SELECT DisplayId FROM player_totem_model WHERE TotemSlot = ?d', $slotId);
 
         return !$data ? 0 : $data[array_rand($data)];
     }
@@ -301,7 +296,7 @@ class CreatureListFilter extends Filter
          7 => [FILTER_CR_CALLBACK, 'cbQuestRelation',   'startsQuests',            0x1        ], // startsquest [enum]
          8 => [FILTER_CR_CALLBACK, 'cbQuestRelation',   'endsQuests',              0x2        ], // endsquest [enum]
          9 => [FILTER_CR_BOOLEAN,  'lootId',                                                  ], // lootable
-        10 => [FILTER_CR_BOOLEAN,  'cbRegularSkinLoot', NPC_TYPEFLAG_SPECIALLOOT              ], // skinnable [yn]
+        10 => [FILTER_CR_CALLBACK, 'cbRegularSkinLoot', NPC_TYPEFLAG_SPECIALLOOT              ], // skinnable [yn]
         11 => [FILTER_CR_BOOLEAN,  'pickpocketLootId',                                        ], // pickpocketable
         12 => [FILTER_CR_CALLBACK, 'cbMoneyDrop',       null,                      null       ], // averagemoneydropped [op] [int]
         15 => [FILTER_CR_CALLBACK, 'cbSpecialSkinLoot', NPC_TYPEFLAG_HERBLOOT,     null       ], // gatherable [yn]
@@ -335,8 +330,8 @@ class CreatureListFilter extends Filter
     protected $inputFields = array(
         'cr'    => [FILTER_V_LIST,     [[1, 3],[5, 12], 15, 16, [18, 25], [27, 29], [31, 35], 37, 38, [40, 44]], true ], // criteria ids
         'crs'   => [FILTER_V_LIST,     [FILTER_ENUM_NONE, FILTER_ENUM_ANY, [0, 9999]],                           true ], // criteria operators
-        'crv'   => [FILTER_V_REGEX,    '/[\p{C}:;]/ui',                                                          true ], // criteria values - only printable chars, no delimiter
-        'na'    => [FILTER_V_REGEX,    '/[\p{C};]/ui',                                                           false], // name / subname - only printable chars, no delimiter
+        'crv'   => [FILTER_V_REGEX,    '/[\p{C}:;%\\\\]/ui',                                                     true ], // criteria values - only printable chars, no delimiter
+        'na'    => [FILTER_V_REGEX,    '/[\p{C};%\\\\]/ui',                                                      false], // name / subname - only printable chars, no delimiter
         'ex'    => [FILTER_V_EQUAL,    'on',                                                                     false], // also match subname
         'ma'    => [FILTER_V_EQUAL,    1,                                                                        false], // match any / all filter
         'fa'    => [FILTER_V_CALLBACK, 'cbPetFamily',                                                            true ], // pet family [list]  -  cat[0] == 1

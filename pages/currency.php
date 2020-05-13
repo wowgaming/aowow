@@ -8,7 +8,7 @@ if (!defined('AOWOW_REVISION'))
 //  tabId  0: Database g_initHeader()
 class CurrencyPage extends GenericPage
 {
-    use DetailPage;
+    use TrDetailPage;
 
     protected $type          = TYPE_CURRENCY;
     protected $typeId        = 0;
@@ -56,8 +56,16 @@ class CurrencyPage extends GenericPage
 
         $infobox = Lang::getInfoBoxForFlags(intval($this->subject->getField('cuFlags')));
 
+        // cap
         if ($_ = $this->subject->getField('cap'))
             $infobox[] = Lang::currency('cap').Lang::main('colon').Lang::nf($_);
+
+        // icon
+        if ($_ = $this->subject->getField('iconId'))
+        {
+            $infobox[] = Util::ucFirst(lang::game('icon')).Lang::main('colon').'[icondb='.$_.' name=true]';
+            $this->extendGlobalIds(TYPE_ICON, $_);
+        }
 
         /****************/
         /* Main Content */
@@ -87,7 +95,7 @@ class CurrencyPage extends GenericPage
             {
                 $this->extendGlobalData($lootTabs->jsGlobals);
 
-                foreach ($lootTabs->iterate() as list($file, $tabData))
+                foreach ($lootTabs->iterate() as [$file, $tabData])
                     $this->lvTabs[] = [$file, $tabData];
             }
 
@@ -109,7 +117,8 @@ class CurrencyPage extends GenericPage
                     {
                         $items  = [];
                         $tokens = [];
-                        foreach ($vendors[$k] as $id => $qty)
+                        // note: can only display one entry per row, so only use first entry of each vendor
+                        foreach ($vendors[$k][0] as $id => $qty)
                         {
                             if (is_string($id))
                                 continue;
@@ -120,16 +129,16 @@ class CurrencyPage extends GenericPage
                                 $items[] = [-$id, $qty];
                         }
 
-                        if ($vendors[$k]['event'])
+                        if ($vendors[$k][0]['event'])
                         {
                             if (count($extraCols) == 3)             // not already pushed
                                 $extraCols[] = '$Listview.extraCols.condition';
 
-                            $this->extendGlobalIds(TYPE_WORLDEVENT, $vendors[$k]['event']);
-                            $row['condition'][0][$this->typeId][] = [[CND_ACTIVE_EVENT, $vendors[$k]['event']]];
+                            $this->extendGlobalIds(TYPE_WORLDEVENT, $vendors[$k][0]['event']);
+                            $row['condition'][0][$this->typeId][] = [[CND_ACTIVE_EVENT, $vendors[$k][0]['event']]];
                         }
 
-                        $row['stock'] = $vendors[$k]['stock'];
+                        $row['stock'] = $vendors[$k][0]['stock'];
                         $row['stack'] = $itemObj->getField('buyCount');
                         $row['cost']  = array(
                             $itemObj->getField('buyPrice'),
@@ -198,7 +207,7 @@ class CurrencyPage extends GenericPage
                     'data'      => array_values($boughtBy->getListviewData(ITEMINFO_VENDOR, [TYPE_CURRENCY => $this->typeId])),
                     'name'      => '$LANG.tab_currencyfor',
                     'id'        => 'currency-for',
-                    'extraCols' => ["\$Listview.funcBox.createSimpleCol('stack', 'stack', '10%', 'stack')"],
+                    'extraCols' => ["\$Listview.funcBox.createSimpleCol('stack', 'stack', '10%', 'stack')", '$Listview.extraCols.cost'],
                 );
 
                 if ($boughtBy->getMatches() > CFG_SQL_LIMIT_DEFAULT)

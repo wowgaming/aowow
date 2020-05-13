@@ -112,7 +112,7 @@ class QuestList extends BaseType
     // static use START
     public static function getName($id)
     {
-        $n = DB::Aowow()->SelectRow('SELECT name_loc0, name_loc2, name_loc3, name_loc6, name_loc8 FROM ?_quests WHERE id = ?d', $id);
+        $n = DB::Aowow()->SelectRow('SELECT name_loc0, name_loc2, name_loc3, name_loc4, name_loc6, name_loc8 FROM ?_quests WHERE id = ?d', $id);
         return Util::localizedString($n, 'name');
     }
     // static use END
@@ -175,7 +175,7 @@ class QuestList extends BaseType
             if (!(Game::sideByRaceMask($this->curTpl['reqRaceMask']) & $side))
                 continue;
 
-            list($series, $first) = DB::Aowow()->SelectRow(
+            [$series, $first] = DB::Aowow()->SelectRow(
                 'SELECT IF(prev.id OR cur.nextQuestIdChain, 1, 0) AS "0", IF(prev.id IS NULL AND cur.nextQuestIdChain, 1, 0) AS "1" FROM ?_quests cur LEFT JOIN ?_quests prev ON prev.nextQuestIdChain = cur.id WHERE cur.id = ?d',
                 $this->id
             );
@@ -313,7 +313,7 @@ class QuestList extends BaseType
         if (!$this->curTpl)
             return null;
 
-        $title = Util::jsEscape($this->getField('name', true));
+        $title = Util::jsEscape(htmlentities($this->getField('name', true)));
         $level = $this->curTpl['level'];
         if ($level < 0)
             $level = 0;
@@ -457,7 +457,7 @@ class QuestListFilter extends Filter
         34 => [FILTER_CR_CALLBACK,  'cbAvailable',      null,                 null], // availabletoplayers [yn]
         36 => [FILTER_CR_FLAG,      'cuFlags',          CUSTOM_HAS_VIDEO          ], // hasvideos
         37 => [FILTER_CR_CALLBACK,  'cbClassSpec',      null,                 null], // classspecific [enum]
-        37 => [FILTER_CR_CALLBACK,  'cbRaceSpec',       null,                 null], // racespecific [enum]
+        38 => [FILTER_CR_CALLBACK,  'cbRaceSpec',       null,                 null], // racespecific [enum]
         42 => [FILTER_CR_STAFFFLAG, 'flags'                                       ], // flags
         43 => [FILTER_CR_CALLBACK,  'cbCurrencyReward', null,                 null], // currencyrewarded [enum]
         44 => [FILTER_CR_CALLBACK,  'cbLoremaster',     null,                 null], // countsforloremaster_stc [yn]
@@ -469,7 +469,7 @@ class QuestListFilter extends Filter
         'cr'    => [FILTER_V_RANGE, [1, 45],                                         true ], // criteria ids
         'crs'   => [FILTER_V_LIST,  [FILTER_ENUM_NONE, FILTER_ENUM_ANY, [0, 99999]], true ], // criteria operators
         'crv'   => [FILTER_V_REGEX, '/\D/',                                          true ], // criteria values - only numerals
-        'na'    => [FILTER_V_REGEX, '/[\p{C};]/ui',                                  false], // name / text - only printable chars, no delimiter
+        'na'    => [FILTER_V_REGEX, '/[\p{C};%\\\\]/ui',                             false], // name / text - only printable chars, no delimiter
         'ex'    => [FILTER_V_EQUAL, 'on',                                            false], // also match subname
         'ma'    => [FILTER_V_EQUAL, 1,                                               false], // match any / all filter
         'minle' => [FILTER_V_RANGE, [1, 99],                                         false], // min quest level

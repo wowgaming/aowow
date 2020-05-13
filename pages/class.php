@@ -8,7 +8,7 @@ if (!defined('AOWOW_REVISION'))
 //  tabId  0: Database g_initHeader()
 class ClassPage extends GenericPage
 {
-    use DetailPage;
+    use TrDetailPage;
 
     protected $type          = TYPE_CLASS;
     protected $typeId        = 0;
@@ -133,7 +133,7 @@ class ClassPage extends GenericPage
         $genSpells = new SpellList($conditions);
         if (!$genSpells->error)
         {
-            $this->extendGlobalData($genSpells->getJSGlobals(GLOBALINFO_SELF));
+            $this->extendGlobalData($genSpells->getJSGlobals(GLOBALINFO_SELF | GLOBALINFO_RELATED));
 
             $this->lvTabs[] = ['spell', array(
                 'data'            => array_values($genSpells->getListviewData()),
@@ -213,7 +213,7 @@ class ClassPage extends GenericPage
         $conditions = array(
             ['npcflag', 0x30, '&'],                             // is trainer
             ['trainerType', 0],                                 // trains class spells
-            ['trainerClass', $this->typeId]
+            ['trainerRequirement', $this->typeId]
         );
 
         $trainer = new CreatureList($conditions);

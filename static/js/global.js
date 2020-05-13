@@ -34,7 +34,7 @@ var U_GROUP_COMMENTS_MODERATOR  = U_GROUP_BUREAU  | U_GROUP_MODERATOR | U_GROUP_
 var U_GROUP_PREMIUM_PERMISSIONS = U_GROUP_PREMIUM | U_GROUP_STAFF     | U_GROUP_VIP;
 
 var g_users = {};
-
+var g_favorites = [];
 var g_customColors = {};
 
 function g_isUsernameValid(username) {
@@ -401,6 +401,7 @@ var PageTemplate = new function()
     self.init = function()
     {
         // Top links
+        initFavorites();
         initUserMenu();
         initFeedbackLink();
         initLanguageMenu();
@@ -489,6 +490,17 @@ var PageTemplate = new function()
         if($WH.Browser.ie6) $(document.documentElement).addClass('ie6 ie67 ie678');
         if($WH.Browser.ie7) $(document.documentElement).addClass('ie7 ie67 ie678');
         if($WH.Browser.ie8) $(document.documentElement).addClass('ie8 ie678');
+    }
+
+    function initFavorites()
+    {
+        var favMenu = $('#toplinks-favorites > a');
+
+        favMenu.text(LANG.favorites);
+        if (!Favorites.hasFavorites())
+            favMenu.parent().hide();
+
+        Favorites.refreshMenu()
     }
 
     function initUserMenu()
@@ -586,7 +598,9 @@ var PageTemplate = new function()
             var menuItem = [character.id, character.name, g_getProfileUrl(character), null,
             {
                 className: (character.pinned ? 'icon-star-right ' : '') + 'c' + character.classs,
-                tinyIcon: $WH.g_getProfileIcon(character.race, character.classs, character.gender, character.level, character.id, 'tiny')
+             // tinyIcon: $WH.g_getProfileIcon(character.race, character.classs, character.gender, character.level, character.id, 'tiny')
+             // aowow: profileId should not be nessecary here
+                tinyIcon: $WH.g_getProfileIcon(character.race, character.classs, character.gender, character.level, 0, 'tiny')
             }];
 
             submenu.push(menuItem);
@@ -4233,6 +4247,238 @@ Dialog.templates.docompare = {
     ]
 };
 
+var Favorites = new function() {
+    var _type    = null;
+    var _typeId  = null;
+    var _favIcon = null;
+
+    this.pageInit = function(h1, type, typeId) {
+        if (typeof h1 == 'string') {
+            if (!document.querySelector)
+                return;
+
+            h1 = document.querySelector(h1);
+        }
+
+        if (!h1 || typeof type != 'number' || typeof typeId != 'number')
+            return;
+
+        _type   = type;
+        _typeId = typeId;
+
+        createIcon(h1);
+    };
+
+    function initFavIcon() {
+        var h1 = typeof g_pageInfo == 'object' && typeof g_pageInfo.type == 'number' && typeof g_pageInfo.typeId == 'number' ? document.querySelector('#main-contents h1') : null;
+        if (!h1) {
+            if (document.readyState !== 'complete')
+                setTimeout(initFavIcon, 9);
+
+            return;
+        }
+
+        _type   = g_pageInfo.type;
+        _typeId = g_pageInfo.typeId;
+
+        createIcon(h1);
+    }
+
+    this.hasFavorites = function() {
+        return !!g_favorites.length
+    };
+
+    this.getMenu = function() {
+        var favMenu  = [];
+        var nGroups  = 0;
+        var nEntries = 0;
+
+        for (var i = 0, favGroup; favGroup = g_favorites[i]; i++) {
+            if (!favGroup.entities.length)
+                continue;
+
+            nGroups++;
+            var subMenu = [];
+            for (var j = 0, favEntry; favEntry = favGroup.entities[j]; j++) {
+                subMenu.push([favEntry[0], favEntry[1], '?' + g_types[favGroup.id] + '=' + favEntry[0]]);
+                nEntries++
+            }
+
+            Menu.sort(subMenu);
+            favMenu.push([favGroup.id, LANG.types[favGroup.id][2], , subMenu])
+        }
+
+        Menu.sort(favMenu);
+
+        // display short favorites as 1-dim list
+        if ((nGroups == 1 && nEntries <= 45) || (nGroups == 2 && nGroups + nEntries <= 30) || (nGroups > 2 && nGroups + nEntries <= 15)) {
+            var list = [];
+
+            for (var i = 0; subMenu = favMenu[i]; i++) {
+                list.push([, subMenu[MENU_IDX_NAME]]);
+
+                for (var j = 0, subEntry; subEntry = subMenu[MENU_IDX_SUB][j]; j++) {
+                    var listEntry = [subEntry[MENU_IDX_ID], subEntry[MENU_IDX_NAME], subEntry[MENU_IDX_URL]];
+
+                    if (subEntry[MENU_IDX_OPT])
+                        listEntry[MENU_IDX_OPT] = subEntry[MENU_IDX_OPT];
+
+                    list.push(listEntry);
+                }
+            }
+
+            favMenu = list;
+        }
+
+        return favMenu;
+    };
+
+    this.refreshMenu = function() {
+        var menuRoot = $('#toplinks-favorites');
+        if (!menuRoot.length)
+            return;
+
+        var favMenu = Favorites.getMenu();
+        if (!favMenu.length) {
+            menuRoot.hide();
+            return;
+        }
+
+        Menu.add(menuRoot, favMenu);
+        menuRoot.show();
+    };
+
+    function createIcon(heading) {
+        _favIcon = $('<span/>', {
+            'class': 'fav-star',
+            mouseout: $WH.Tooltip.hide
+        }).appendTo(heading);
+
+        if (g_user.id) {
+            _favIcon.addClass('fav-star' + (isFaved(_type, _typeId) ? '-1' : '-0')).click((function(type, typeId, name) {
+                toggleEntry(type, typeId, name);
+                updateIcon(type, typeId);
+                $WH.Tooltip.hide();
+            }).bind(null, _type, _typeId, heading.textContent.trim().replace(/(.+)<.*/, '$1')));
+
+            _favIcon.mouseover(function(r) {
+                var tt = this.className.match(/\bfav-star-0\b/) ? LANG.addtofavorites : LANG.removefromfavorites;
+                $WH.Tooltip.show(this, tt, false, false, 'q2');
+            });
+
+        }
+        else {
+            _favIcon.addClass('fa-star-0').click(function() {
+                location.href = "?account=signin";
+                $WH.Tooltip.hide();
+            }).mouseover(function(r) {
+                $WH.Tooltip.show(this, LANG.favorites_login + "<div class='q2' style='margin-top:10px'>" + LANG.clicktologin + '</span>');
+            });
+        }
+    }
+
+    function updateIcon(type, typeId) {
+        if (_favIcon) {
+            var rmv = 'fav-star-0';
+            var add = 'fav-star-1';
+            if (!isFaved(type, typeId)) {
+                rmv = 'fav-star-1';
+                add = 'fav-star-0';
+            }
+
+            _favIcon.removeClass(rmv).addClass(add);
+        }
+    }
+
+    function isFaved(type, typeId) {
+        var idx = getIndex(type);
+        if (idx == -1)
+            return false;
+
+        for (var i = 0, j; j = g_favorites[idx].entities[i]; i++)
+            if (j[0] == typeId)
+                return true;
+
+        return false;
+    }
+
+    function toggleEntry(type, typeId, name) {
+        if (isFaved(type, typeId))
+            removeEntry(type, typeId);
+        else
+            addEntry(type, typeId, name);
+    }
+
+    function addEntry(type, typeId, name) {
+        var idx = getIndex(type, true);
+        if (idx == -1)
+            return;
+
+        for (var i = 0, j; j = g_favorites[idx].entities[i]; i++) {
+            if (j[0] == typeId) {
+                alert(LANG.favorites_duplicate.replace('%s', LANG.types[type][1]));
+                return;
+            }
+        }
+
+        sendUpdate('add', type, typeId);
+        g_favorites[idx].entities.push([typeId, name]);
+        Favorites.refreshMenu();
+    }
+
+    function removeEntry(type, typeId) {
+        var idx = getIndex(type);
+        if (idx == -1)
+            return;
+
+        for (var i = 0, j; j = g_favorites[idx].entities[i]; i++) {
+            if (j[0] == typeId) {
+                sendUpdate('remove', type, typeId);
+                g_favorites[idx].entities.splice(i, 1);
+                if (!g_favorites[idx].entities.length)
+                    g_favorites.splice(idx, 1);
+
+                Favorites.refreshMenu();
+                return;
+            }
+        }
+    }
+
+    function getIndex(type, createNew) {
+        if (!LANG.types[type])
+            return -1;
+
+        for (var i = 0, j; j = g_favorites[i]; i++)
+            if (j.id == type)
+                return i;
+
+        if (!createNew)
+            return -1;
+
+        g_favorites.push({ id: type, entities: [] });
+
+        g_favorites.sort(function(a, b) { return $WH.stringCompare(LANG.types[a.id], LANG.types[b.id]) });
+
+        for (i = 0; j = g_favorites[i]; i++)
+            if (j.id == type)
+                return i;
+
+        return -1;
+    }
+
+    function sendUpdate(method, type, typeId) {
+        var data = {
+            id: typeId,
+            // sessionKey: g_user.sessionKey
+        };
+        data[method] = type;
+        $.post('?account=favorites', data);
+    }
+
+    if (document.querySelector && $WH.localStorage.isSupported())
+        initFavIcon();
+};
+
 function Tabs(opt) {
     $WH.cO(this, opt);
 
@@ -7316,7 +7562,6 @@ Listview.extraCols = {
                 var side = null;
                 var items = row.cost[2];
                 var currency = row.cost[1];
-                var achievementPoints = 0;
 
                 if (row.side != null) {
                     side = row.side;
@@ -7330,7 +7575,7 @@ Listview.extraCols = {
                     }
                 }
 
-                Listview.funcBox.appendMoney(td, money, side, items, currency, achievementPoints);
+                Listview.funcBox.appendMoney(td, money, side, items, currency);
             }
         },
         sortFunc: function(a, b, col) {
@@ -9690,7 +9935,9 @@ Listview.funcBox = {
             }
         }
 
-        if (achievementPoints > 0) {
+        // aowow: changed because legitemately passing zero APs from the profiler is a thing
+        // (achievementPoints > 0) {
+        if (typeof achievementPoints == 'number') {
             if (ns) {
                 $WH.ae(d, $WH.ct(' '));
             }
@@ -11565,7 +11812,7 @@ Listview.templates = {
             }));
 
 
-            /* Aowow - we do not use FA
+            /* Aowow - we do not use FontAwesome
             $WH.ae(ovlName, $WH.g_createButton(null, null, {
                 'class': 'fa fa-fw fa-clipboard',
                 'float': false,
@@ -12569,12 +12816,10 @@ Listview.templates = {
                     return Listview.funcBox.assocArrCmp(a.skill, b.skill, g_spell_skills);
                 }
             },
-    /* aowow
-        todo: localize he next three cols
-    */
+    /* AoWoW: custom start */
             {
                 id: 'stackRules',
-                name: 'Behaviour',
+                name: LANG.asr_behaviour,
                 type: 'text',
                 width: '20%',
                 hidden: true,
@@ -12589,15 +12834,15 @@ Listview.templates = {
 
                     switch (spell.stackRule) {
                         case 3:
-                            buff2 = '(strongest effect is applied)';
+                            buff2 = LANG.asr_strongest_effect;
                         case 0:
-                            buff  = 'coexist';              // without condition
+                            buff  = LANG.asr_coexist;       // without condition
                             break;
                         case 2:
                         case 4:
-                            buff2 = spell.stackRule == 2 ? '(from same caster)' : '(strongest effect is applied)';
+                            buff2 = spell.stackRule == 2 ? LANG.asr_same_owner : LANG.asr_strongest_effect;
                         case 1:
-                            buff  = 'exclusive';            // without condition
+                            buff  = LANG.asr_exclusive;     // without condition
                             break;
                     }
 
@@ -12626,14 +12871,14 @@ Listview.templates = {
                     var buff = '';
                     switch (spell.stackRule) {
                         case 3:
-                            buff += '(strongest effect is applied)';
+                            buff += LANG.asr_strongest_effect;
                         case 0:
-                            buff += ' coexist';
+                            buff += ' ' + LANG.asr_coexist;
                             break;
                         case 2:
-                            buff += '(from same caster)';
+                            buff += LANG.asr_same_owner;
                         case 1:
-                            buff += ' exclusive';
+                            buff += ' ' + LANG.asr_exclusive;
                             break;
                     }
 
@@ -12645,7 +12890,7 @@ Listview.templates = {
             },
             {
                 id: 'linkedTrigger',
-                name: 'Triggers',
+                name: LANG.ls_trigger,
                 type: 'text',
                 width: '50%',
                 hidden: true,
@@ -12660,13 +12905,13 @@ Listview.templates = {
 
                     switch (spell.linked[2]) {
                         case 0:
-                            buff = trigger > 0 ? 'When Spell is casted' : 'When Aura is removed';
+                            buff = trigger > 0 ? LANG.ls_onCast : LANG.ls_onAuraRemove;
                             break;
                         case 1:
-                            buff = 'When Spell hits the target(s)';
+                            buff = LANG.ls_onSpellHit;
                             break;
                         case 2:
-                            buff = 'When Aura is applied and removed';
+                            buff = LANG.ls_onAuraApply;
                             break;
                     }
 
@@ -12678,7 +12923,7 @@ Listview.templates = {
                     a.href = '?spell=' + Math.abs(trigger);
                     if (g_pageInfo.typeId == Math.abs(trigger)) { // ponts to self
                         a.className = 'q1';
-                        $WH.st(a, 'This');
+                        $WH.st(a, LANG.ls_self);
                     }
                     else {
                         var item = g_spells[Math.abs(trigger)];
@@ -12705,7 +12950,7 @@ Listview.templates = {
                         buff    = '';
 
                     if (g_pageInfo.typeId == Math.abs(trigger)) {
-                        buff += 'This';
+                        buff += LANG.ls_self;
                     }
                     else {
                         buff += g_spells[Math.abs(trigger)]['name_' + Locale.getName()];
@@ -12713,13 +12958,13 @@ Listview.templates = {
 
                     switch (spell.linked[2]) {
                         case 0:
-                            buff += trigger > 0 ? ' When Spell is casted' : ' When Aura is removed';
+                            buff += trigger > 0 ? ' ' + LANG.ls_onCast : ' ' + LANG.ls_onAuraRemove;
                             break;
                         case 1:
-                            buff += ' When Spell hits the target(s)';
+                            buff += ' ' + LANG.ls_onSpellHit;
                             break;
                         case 2:
-                            buff += ' When Aura is applied and removed';
+                            buff += ' ' + LANG.ls_onAuraApply;
                             break;
                     }
 
@@ -12752,7 +12997,7 @@ Listview.templates = {
             },
             {
                 id: 'linkedEffect',
-                name: 'Effects',
+                name: LANG.ls_effects,
                 type: 'text',
                 width: '50%',
                 hidden: true,
@@ -12768,10 +13013,10 @@ Listview.templates = {
                     switch (spell.linked[2]) {
                         case 0:
                         case 1:
-                            buff = effect > 0 ? 'Spell is triggered' : 'Spells Auras are removed';
+                            buff = effect > 0 ? LANG.ls_onTrigger : LANG.ls_onAuraRemove;
                             break;
                         case 2:
-                            buff = effect > 0 ? 'Spells Auras are applied or removed' : 'Immunity against Spell is applied or cleared ';
+                            buff = effect > 0 ? LANG.ls_onAuraApply : LANG.ls_onImmune;
                             break;
                     }
 
@@ -12783,7 +13028,7 @@ Listview.templates = {
                     a.href = '?spell=' + Math.abs(effect);
                     if (g_pageInfo.typeId == Math.abs(effect)) { // ponts to self
                         a.className = 'q1';
-                        $WH.st(a, 'This');
+                        $WH.st(a, LANG.ls_self);
                     }
                     else {
                         var item = g_spells[Math.abs(effect)];
@@ -12810,7 +13055,7 @@ Listview.templates = {
                         buff   = '';
 
                     if (g_pageInfo.typeId == Math.abs(effect)) {
-                        buff += 'This';
+                        buff += LANG.ls_self;
                     }
                     else {
                         buff += g_spells[Math.abs(effect)]['name_' + Locale.getName()];
@@ -12819,10 +13064,10 @@ Listview.templates = {
                     switch (spell.linked[2]) {
                         case 0:
                         case 1:
-                            buff += effect > 0 ? ' Spell is triggered' : ' Spells Auras are removed';
+                            buff += effect > 0 ? ' ' + LANG.ls_onTrigger : ' ' + LANG.ls_onAuraRemove;
                             break;
                         case 2:
-                            buff += effect > 0 ? ' Spells Auras are applied or removed' : ' Immunity against Spell is applied or cleared ';
+                            buff += effect > 0 ? ' ' + LANG.ls_onAuraApply : ' ' + LANG.ls_onImmune;
                             break;
                     }
 
@@ -12853,6 +13098,7 @@ Listview.templates = {
                     return 0;
                 }
             }
+    /* AoWoW: custom end */
         ],
 
         getItemLink: function(spell) {
@@ -15445,7 +15691,16 @@ Listview.templates = {
                         i.style.padding = '0';
                         i.style.borderRight = 'none';
 
-                        $WH.ae(i, Icon.create($WH.g_getProfileIcon(profile.race, profile.classs, profile.gender, profile.level, profile.icon ? profile.icon : profile.id, 'medium'), 1, null, this.getItemLink(profile)));
+                     // $WH.ae(i, Icon.create($WH.g_getProfileIcon(profile.race, profile.classs, profile.gender, profile.level, profile.icon ? profile.icon : profile.id, 'medium'), 1, null, this.getItemLink(profile)));
+                     // aowow . i dont know .. i dont know... char icon requests are strange
+                        var ic = Icon.create($WH.g_getProfileIcon(profile.race, profile.classs, profile.gender, profile.level, profile.icon ? profile.icon : 0, 'medium'), 1, null, this.getItemLink(profile));
+                        // aowow - custom
+                        if (profile.captain) {
+                            tr.className = 'mergerow';
+                            ic.className += ' ' + ic.className + '-gold';
+                        }
+
+                        $WH.ae(i, ic);
                         $WH.ae(tr, i);
 
                         td.style.borderLeft = 'none';
@@ -15506,6 +15761,12 @@ Listview.templates = {
                     if (profile.published === 0) {
                         $WH.ae(d, $WH.ct(LANG.privateprofile));
                     }
+
+                    // aowow custom
+                    if (profile.renameItr) {
+                        $WH.ae(s, $WH.ct(LANG.pr_note_pendingrename));
+                    }
+                    // end aowow custom
 
                     $WH.ae(wrapper, d);
                     $WH.ae(td, wrapper);
@@ -15690,6 +15951,24 @@ Listview.templates = {
                 hidden: 1
             },
             {
+                id: 'gearscore',
+                name: LANG.gearscore,
+                tooltip: LANG.gearscore_real,
+                value: 'gearscore',
+                compute: function(profile, td)
+                {
+                    var level = (profile.level ? profile.level : (profile.members !== undefined ? 80 : 0));
+
+                    if (isNaN(profile.gearscore) || !level)
+                        return;
+
+                    td.className = 'q' + pr_getGearScoreQuality(level, profile.gearscore, ($WH.in_array([2, 6, 7, 11], profile.classs) != -1));
+
+                    return (profile.gearscore ? $WH.number_format(profile.gearscore) : 0);
+                },
+                hidden: 1
+            },
+            {
                 id: 'achievementpoints',
                 name: LANG.points,
                 value: 'achievementpoints',
@@ -15713,6 +15992,18 @@ Listview.templates = {
                 compute: function(profile, td) {
                     return profile.games - profile.wins;
                 },
+                sortFunc: function(a, b, col) {
+                    var
+                        lossA = a.games - a.wins,
+                        lossB = b.games - b.wins;
+
+                    if (lossA > lossB)
+                        return 1;
+                    if (lossA < lossB)
+                        return -1;
+
+                    return 0;
+                },
                 hidden: 1
             },
             {
@@ -15720,7 +16011,15 @@ Listview.templates = {
                 name: LANG.guildrank,
                 value: 'guildrank',
                 compute: function(profile, td) {
-                    if (profile.guildrank > 0) {
+                    // >>> aowow - real rank names >>>
+                    if (typeof guild_ranks !== "undefined" && guild_ranks[profile.guildrank]) {
+                        var sp = $WH.ce('span', null, $WH.ct(guild_ranks[profile.guildrank]));
+                        g_addTooltip(sp, $WH.sprintf(LANG.rankno, profile.guildrank));
+                        $WH.ae(td, sp);
+                    }
+                    // if (profile.guildrank > 0) {
+                    // <<< aowow - real rank names <<<
+                    else if (profile.guildrank > 0) {
                         return $WH.sprintf(LANG.rankno, profile.guildrank);
                     }
                     else if (profile.guildrank == 0) {
@@ -15746,20 +16045,6 @@ Listview.templates = {
                 id: 'rating',
                 name: LANG.rating,
                 value: 'rating',
-                compute: function(profile, td) {
-                    if (profile.roster) {
-                        return profile.arenateam[profile.roster].rating;
-                    }
-
-                    return profile.rating;
-                },
-                sortFunc: function(a, b, col) {
-                    if (a.roster && b.roster) {
-                        return $WH.strcmp(a.arenateam[a.roster].rating, b.arenateam[b.roster].rating);
-                    }
-
-                    return $WH.strcmp(a.rating, b.rating);
-                },
                 hidden: 1
             },
             {
@@ -15838,6 +16123,9 @@ Listview.templates = {
                     a.href = '?guild=' + profile.region + '.' + profile.realm + '.' + g_urlize(profile.guild);
                     $WH.ae(a, $WH.ct(profile.guild));
                     $WH.ae(td, a);
+                },
+                sortFunc: function(a, b, col) {
+                    return $WH.strcmp(a.guild, b.guild);
                 }
             }
         ],
@@ -17309,6 +17597,9 @@ $(document).ready(function() // Locale is only known later
         [11], // Professions
         [9]   // Secondary Skills
     ]);
+
+    // aowow - why wasn't this sorted already..?
+    Menu.sortSubmenus(mn_quests, [[0], [1], [2], [3], [4], [5], [6], [7], [8], [9], [10]]);
 });
 
 function MessageBox(parent, text) {
@@ -17349,7 +17640,8 @@ function g_cleanCharacterName(name) {
 
 function g_getProfileUrl(profile) {
     if (profile.region) { // Armory character
-        return '?profile=' + profile.region + '.' + profile.realm + '.' + g_cleanCharacterName(profile.name);
+        // return '?profile=' + profile.region + '.' + profile.realm + '.' + g_cleanCharacterName(profile.name);  // aowow custom
+        return '?profile=' + profile.region + '.' + profile.realm + '.' + g_cleanCharacterName(profile.name) + (profile.renameItr ? '-' + profile.renameItr : '');
     }
     else { // Custom profile
         return '?profile=' + profile.id;
@@ -17486,18 +17778,23 @@ ProgressBar.prototype.getContainer = function()
 var Icon = {
     sizes: ['small', 'medium', 'large'],
     sizes2: [18, 36, 56],
+    sizeIds: {
+        small:  0,
+        medium: 1,
+        large:  2
+    },
     premiumOffsets: [[-56, -36], [-56, 0], [0, 0]],
-        premiumBorderClasses: ['-premium', '-gold', '', '-premiumred', '-red'],
-        STANDARD_BORDER: 2,
-        privilegeBorderClasses: {
-            uncommon: '-q2',
-            rare: '-q3',
-            epic: '-q4',
-            legendary: '-q5'
-        },
-    create: function(name, size, UNUSED, url, num, qty, noBorder, rel) {
+    premiumBorderClasses: ['-premium', '-gold', '', '-premiumred', '-red'],
+    STANDARD_BORDER: 2,
+    privilegeBorderClasses: {
+        uncommon: '-q2',
+        rare: '-q3',
+        epic: '-q4',
+        legendary: '-q5'
+    },
+    create: function(name, size, UNUSED, url, num, qty, noBorder, rel, span) {
         var
-            icon  = $WH.ce('div'),
+            icon  = $WH.ce(span ? 'span' : 'div'),
             image = $WH.ce('ins'),
             tile  = $WH.ce('del');
 
@@ -17530,9 +17827,11 @@ var Icon = {
             if (!avatarIcon) {
                 icon.onclick = Icon.onClick;
 
-                var a = $WH.ce('a');
-                a.href = "javascript:;";
-                $WH.ae(icon, a);
+                if (url !== false) {
+                    var a = $WH.ce('a');
+                    a.href = "javascript:;";
+                    $WH.ae(icon, a);
+                }
             }
         }
 
@@ -19826,7 +20125,7 @@ var MapViewer = new function()
         {
             tempParent = $WH.ce('div');
             tempParent.id = 'fewuiojfdksl';
-            $WH.ae(document.body, tempParent);
+            $WH.aef(document.body, tempParent);             // aowow - aef() insteead of ae() - rather scroll page to top instead of bottom
             var map = new Mapper({ parent: tempParent.id });
             map.setLink(opt.link, true);
             map.toggleZoom();
@@ -19846,9 +20145,6 @@ var ModelViewer = new function() {
         modelType,
         equipList = [],
         optBak,
-        _w,
-        _o,
-        _z,
         modelDiv,
         raceSel1,
         raceSel2,
@@ -19856,6 +20152,7 @@ var ModelViewer = new function() {
         oldHash,
         mode,
         readExtraPound,
+        animsLoaded = false,
 
     races = [
         {id: 10, name: g_chr_races[10], model: 'bloodelf' },
@@ -19875,25 +20172,19 @@ var ModelViewer = new function() {
         {id: 1, name: LANG.female, model: 'female' }
     ];
 
-    function clear() {
-        _w.style.display = 'none';
-        _o.style.display = 'none';
-        _z.style.display = 'none';
-    }
+    function clear() { }
 
     function getRaceSex() {
         var
             race,
             sex;
 
-        if (raceSel1.style.display == '') {
-            race = (raceSel1.selectedIndex >= 0 ? raceSel1.options[raceSel1.selectedIndex].value : '');
-        }
-        else {
-            race = (raceSel2.selectedIndex >= 0 ? raceSel2.options[raceSel2.selectedIndex].value : '');
-        }
+        if (raceSel1.is(':visible'))
+            race = (raceSel1[0].selectedIndex >= 0 ? raceSel1.val() : '');
+        else
+            race = (raceSel2[0].selectedIndex >= 0 ? raceSel2.val() : '');
 
-        sex = (sexSel.selectedIndex >= 0 ? sexSel.options[sexSel.selectedIndex].value : 0);
+        sex = (sexSel[0].selectedIndex >= 0 ? sexSel.val() : 0);
 
         return { r: race, s: sex };
     }
@@ -19905,54 +20196,31 @@ var ModelViewer = new function() {
     }
 
     function render() {
-        if (mode == 2 && !f()) {
-            mode = 0;
-        }
-        if (mode == 2) {
-            var G = '<object id="3dviewer-plugin" type="application/x-zam-wowmodel" width="600" height="400"><param name="model" value="' + model + '" /><param name="modelType" value="' + modelType + '" /><param name="contentPath" value="http://static.wowhead.com/modelviewer/" />';
-            if (modelType == 16 && equipList.length) {
-                G += '<param name="equipList" value="' + equipList.join(',') + '" />';
-            }
-            G += '<param name="bgColor" value="#181818" /></object>';
-            _z.innerHTML = G;
-            _z.style.display = '';
-        }
-        else if (mode == 1) {
-            var G = '<applet id="3dviewer-java" code="org.jdesktop.applet.util.JNLPAppletLauncher" width="600" height="400" archive="http://static.wowhead.com/modelviewer/applet-launcher.jar,http://download.java.net/media/jogl/builds/archive/jsr-231-webstart-current/jogl.jar,http://download.java.net/media/gluegen/webstart/gluegen-rt.jar,http://download.java.net/media/java3d/webstart/release/vecmath/latest/vecmath.jar,http://static.wowhead.com/modelviewer/ModelView510.jar"><param name="jnlp_href" value="http://static.wowhead.com/modelviewer/ModelView.jnlp"><param name="codebase_lookup" value="false"><param name="cache_option" value="no"><param name="subapplet.classname" value="modelview.ModelViewerApplet"><param name="subapplet.displayname" value="Model Viewer Applet"><param name="progressbar" value="true"><param name="jnlpNumExtensions" value="1"><param name="jnlpExtension1" value="http://download.java.net/media/jogl/builds/archive/jsr-231-webstart-current/jogl.jnlp"><param name="contentPath" value="http://static.wowhead.com/modelviewer/"><param name="model" value="' + model + '"><param name="modelType" value="' + modelType + '">';
-            if (modelType == 16 && equipList.length) {
-                G += '<param name="equipList" value="' + equipList.join(',') + '">';
-            }
-            G += '<param name="bgColor" value="#181818"></applet>';
-            _o.innerHTML = G;
-            _o.style.display = '';
-        }
-        else {
-            var flashVars = {
-                model: model,
-                modelType: modelType,
-                // contentPath: 'http://static.wowhead.com/modelviewer/'
-                contentPath: g_staticUrl + '/modelviewer/'
-            };
+        var flashVars = {
+            model: model,
+            modelType: modelType,
+            // contentPath: 'http://static.wowhead.com/modelviewer/'
+            contentPath: g_staticUrl + '/modelviewer/'
+        };
 
-            var params = {
-                quality: 'high',
-                allowscriptaccess: 'always',
-                allowfullscreen: true,
-                menu: false,
-                bgcolor: '#181818',
-                wmode: 'direct'
-            };
+        var params = {
+            quality: 'high',
+            allowscriptaccess: 'always',
+            allowfullscreen: true,
+            menu: false,
+            bgcolor: '#181818',
+            wmode: 'direct'
+        };
 
-            var attributes = { };
+        var attributes = { };
 
-            if (modelType == 16 && equipList.length) {
-                flashVars.equipList = equipList.join(',');
-            }
-
-            // swfobject.embedSWF('http://static.wowhead.com/modelviewer/ZAMviewerfp11.swf', 'modelviewer-generic', '600', '400', "11.0.0", 'http://static.wowhead.com/modelviewer/expressInstall.swf', flashVars, params, attributes);
-            swfobject.embedSWF(g_staticUrl + '/modelviewer/ZAMviewerfp11.swf', 'modelviewer-generic', '600', '400', "11.0.0", g_staticUrl + '/modelviewer/expressInstall.swf', flashVars, params, attributes);
-            _w.style.display = '';
+        if (modelType == 16 && equipList.length) {
+            flashVars.equipList = equipList.join(',');
         }
+
+        // swfobject.embedSWF('http://static.wowhead.com/modelviewer/ZAMviewerfp11.swf', 'modelviewer-generic', '600', '400', "11.0.0", 'http://static.wowhead.com/modelviewer/expressInstall.swf', flashVars, params, attributes);
+        swfobject.embedSWF(g_staticUrl + '/modelviewer/ZAMviewerfp11.swf', 'modelviewer-generic', '600', '400', "11.0.0", g_staticUrl + '/modelviewer/expressInstall.swf', flashVars, params, attributes);
+
         var
             foo  = getRaceSex(),
             race = foo.r,
@@ -19987,6 +20255,9 @@ var ModelViewer = new function() {
             if (optBak.extraPound != null) {
                 url += ':' + optBak.extraPound;
             }
+
+            animsLoaded = false,
+
             location.replace($WH.rtrim(url, ':'));
         }
     }
@@ -19998,11 +20269,10 @@ var ModelViewer = new function() {
             sex  = foo.s;
 
         if (!race) {
-            if (sexSel.style.display == 'none') {
+            if (!sexSel.is(':visible'))
                 return;
-            }
 
-            sexSel.style.display = 'none';
+            sexSel.hide();
 
             model = equipList[1];
             switch (optBak.slot) {
@@ -20017,15 +20287,12 @@ var ModelViewer = new function() {
             }
         }
         else {
-            if (sexSel.style.display == 'none') {
-                sexSel.style.display = '';
-            }
+            if (!sexSel.is(':visible'))
+                sexSel.show();
 
-            var foo = function(x) {
-                return x.id;
-            };
+            var foo = function(x) { return x.id; };
             var raceIndex = $WH.in_array(races, race, foo);
-            var sexIndex = $WH.in_array(sexes, sex, foo);
+            var sexIndex = $WH.in_array(sexes, sex,   foo);
 
             if (raceIndex != -1 && sexIndex != -1) {
                 model = races[raceIndex].model + sexes[sexIndex].model;
@@ -20039,25 +20306,50 @@ var ModelViewer = new function() {
         render();
     }
 
-    function j(newMode) {
-        if (newMode == mode) {
+    function onAnimationChange() {
+        var viewer = $('#modelviewer-generic');
+        if (viewer.length == 0)
+            return;
+        viewer = viewer[0];
+
+        var animList = $('select', animDiv);
+        if (animList.val() && viewer.isLoaded && viewer.isLoaded())
+            viewer.setAnimation(animList.val());
+    }
+
+    function onAnimationMouseover() {
+        if (animsLoaded)
+            return;
+
+        var viewer = $('#modelviewer-generic');
+        if (viewer.length == 0)
+            return;
+        viewer = viewer[0];
+
+        var animList = $('select', animDiv);
+        animList.empty();
+        if (!viewer.isLoaded || !viewer.isLoaded()) {
+            animList.append($('<option/>', { text: LANG.tooltip_loading, val: 0 }));
             return;
         }
 
-        g_setSelectedLink(this, 'modelviewer-mode');
-
-        clear();
-
-        if (mode == null) {
-            mode = newMode;
-            setTimeout(render, 50);
+        var anims = {};
+        var numAnims = viewer.getNumAnimations();
+        for(var i = 0; i < numAnims; ++i) {
+            var a = viewer.getAnimation(i);
+            if(a && a != 'EmoteUseStanding')
+                anims[a] = 1;
         }
-        else {
-            mode = newMode;
-            $WH.sc('modelviewer_mode', 7, newMode, '/', location.hostname);
-            // $WH.sc('modelviewer_mode', 7, newMode, '/', '.wowhead.com');
-            render();
-        }
+
+        var animArray = [];
+        for (var a in anims)
+            animArray.push(a);
+        animArray.sort();
+
+        for (var i = 0; i < animArray.length; ++i)
+            animList.append($('<option/>', { text: animArray[i], val: animArray[i] }));
+
+        animsLoaded = true;
     }
 
     function initRaceSex(allowNoRace, opt) {
@@ -20072,11 +20364,11 @@ var ModelViewer = new function() {
             race = opt.race;
             sex = opt.sex;
 
-            modelDiv.style.display = 'none';
+            modelDiv.hide();
             allowNoRace = 0;
         }
         else {
-            modelDiv.style.display = '';
+            modelDiv.show();
         }
 
         if (race == -1 && sex == -1) {
@@ -20086,7 +20378,7 @@ var ModelViewer = new function() {
                     if (isRaceSexValid(matches[1], matches[2])) {
                         race = matches[1];
                         sex  = matches[2];
-                        sexSel.style.display = '';
+                        sexSel.show();
                     }
                 }
             }
@@ -20096,12 +20388,11 @@ var ModelViewer = new function() {
             sel    = raceSel1;
             offset = 1;
 
-            raceSel1.style.display = '';
-            raceSel1.selectedIndex = -1;
-            raceSel2.style.display = 'none';
-            if (sex == -1) {
-                sexSel.style.display = 'none';
-            }
+            raceSel1.show();
+            raceSel1[0].selectedIndex = -1;
+            raceSel2.hide();
+            if (sex == -1)
+                sexSel.hide();
         }
         else {
             if (race == -1 && sex == -1) {
@@ -20141,22 +20432,19 @@ var ModelViewer = new function() {
             sel    = raceSel2;
             offset = 0;
 
-            raceSel1.style.display = 'none';
-            raceSel2.style.display = '';
-            sexSel.style.display   = '';
+            raceSel1.hide();
+            raceSel2.show();
+            sexSel.show();
         }
 
         if (sex != -1) {
-            sexSel.selectedIndex = sex;
+            sexSel[0].selectedIndex = sex;
         }
 
         if (race != -1 && sex != -1) {
-            var foo = function(x) {
-                return x.id;
-            };
-
+            var foo = function(x) { return x.id; };
             var raceIndex = $WH.in_array(races, race, foo);
-            var sexIndex  = $WH.in_array(sexes, sex, foo);
+            var sexIndex  = $WH.in_array(sexes, sex,  foo);
 
             if (raceIndex != -1 && sexIndex != -1) {
                 model = races[raceIndex].model + sexes[sexIndex].model;
@@ -20164,21 +20452,10 @@ var ModelViewer = new function() {
 
                 raceIndex += offset;
 
-                sel.selectedIndex = raceIndex;
-                sexSel.selectedIndex = sexIndex;
+                sel[0].selectedIndex = raceIndex;
+                sexSel[0].selectedIndex = sexIndex;
             }
         }
-    }
-
-    function f() {
-        var E = navigator.mimeTypes['application/x-zam-wowmodel'];
-        if (E) {
-            var D = E.enabledPlugin;
-            if (D) {
-                return true
-            }
-        }
-        return false
     }
 
     function onHide() {
@@ -20211,165 +20488,129 @@ var ModelViewer = new function() {
         if (first) {
             dest.className = 'modelviewer';
             var screen = $WH.ce('div');
-            _w = $WH.ce('div');
-            _o = $WH.ce('div');
-            _z = $WH.ce('div');
             var flashDiv = $WH.ce('div');
             flashDiv.id = 'modelviewer-generic';
-            $WH.ae(_w, flashDiv);
+            $WH.ae(screen, flashDiv);
             screen.className = 'modelviewer-screen';
-            _w.style.display = _o.style.display = _z.style.display = 'none';
-            $WH.ae(screen, _w);
-            $WH.ae(screen, _o);
-            $WH.ae(screen, _z);
             var screenbg = $WH.ce('div');
             screenbg.style.backgroundColor = '#181818';
             screenbg.style.margin = '0';
             $WH.ae(screenbg, screen);
             $WH.ae(dest, screenbg);
-            G = $WH.ce('a'),
-            E = $WH.ce('a');
-            G.className = 'modelviewer-help';
-            G.href = '?help=modelviewer';
-            G.target = '_blank';
-            $WH.ae(G, $WH.ce('span'));
-            E.className = 'modelviewer-close';
-            E.href = 'javascript:;';
-            E.onclick = Lightbox.hide;
-            $WH.ae(E, $WH.ce('span'));
-            $WH.ae(dest, E);
-            $WH.ae(dest, G);
-            var N = $WH.ce('div'),
-            F = $WH.ce('span'),
-            G = $WH.ce('a'),
-            E = $WH.ce('a');
-            N.className = 'modelviewer-quality';
-            G.href = E.href = 'javascript:;';
-            $WH.ae(G, $WH.ct('Flash'));
-            $WH.ae(E, $WH.ct('Java'));
-            G.onclick = j.bind(G, 0);
-            E.onclick = j.bind(E, 1);
-            $WH.ae(F, G);
-            $WH.ae(F, $WH.ct(' ' + String.fromCharCode(160)));
-            $WH.ae(F, E);
-            if (f()) {
-                var D = $WH.ce('a');
-                D.href = 'javascript:;';
-                $WH.ae(D, $WH.ct('Plugin'));
-                D.onclick = j.bind(D, 2);
-                $WH.ae(F, $WH.ct(' ' + String.fromCharCode(160)));
-                $WH.ae(F, D)
-            }
-            $WH.ae(N, $WH.ce('div'));
-            $WH.ae(N, F);
-            $WH.ae(dest, N);
 
-            modelDiv = $WH.ce('div');
-            modelDiv.className = 'modelviewer-model';
+            dest = $(dest);
 
-            var foo = function(a, b) {
-                return $WH.strcmp(a.name, b.name);
-            };
+            var leftDiv = $('<div/>', { css: { 'float': 'left' } });
 
+            animDiv = $('<div/>', { 'class': 'modelviewer-animation' });
+            var v = $('<var/>', { text: LANG.animation });
+            animDiv.append(v);
+
+            var select = $('<select/>', { change: onAnimationChange, mouseenter: onAnimationMouseover });
+            select.append($('<option/>', { text: LANG.dialog_mouseovertoload }));
+            animDiv.append(select);
+
+            dest.append(animDiv);
+
+            var a1 = $('<a/>', { 'class': 'modelviewer-help', href: '?help=modelviewer', target: '_blank' }),
+                a2 = $('<a/>', { 'class': 'modelviewer-close', href: 'javascript:;', click: Lightbox.hide });
+
+            a1.append($('<span/>'));
+            a2.append($('<span/>'));
+
+            modelDiv = $('<div/>', { 'class': 'modelviewer-model' });
+
+            var foo = function(a, b) { return $WH.strcmp(a.name, b.name); };
             races.sort(foo);
             sexes.sort(foo);
 
-            raceSel1 = $WH.ce('select');
-            raceSel2 = $WH.ce('select');
-            sexSel   = $WH.ce('select');
-            raceSel1.onchange = raceSel2.onchange = sexSel.onchange = onSelChange;
+            raceSel1 = $('<select/>', { change: onSelChange });
+            raceSel2 = $('<select/>', { change: onSelChange });
+            sexSel   = $('<select/>', { change: onSelChange });
 
-            $WH.ae(raceSel1, $WH.ce('option'));
-            for (var i = 0, len = races.length; i < len; ++i) {
-                var o = $WH.ce('option');
-                o.value = races[i].id;
-                $WH.ae(o, $WH.ct(races[i].name));
-                $WH.ae(raceSel1, o);
+            raceSel1.append($('<option/>'));
+            for(var i = 0, len = races.length; i < len; ++i)
+            {
+                var o = $('<option/>', { val: races[i].id, text: races[i].name });
+                raceSel1.append(o);
+            }
+            for(var i = 0, len = races.length; i < len; ++i)
+            {
+                var o = $('<option/>', { val: races[i].id, text: races[i].name });
+                raceSel2.append(o);
             }
 
-            for (var i = 0, len = races.length; i < len; ++i) {
-                var o = $WH.ce('option');
-                o.value = races[i].id;
-                $WH.ae(o, $WH.ct(races[i].name));
-                $WH.ae(raceSel2, o);
+            for(var i = 0, len = sexes.length; i < len; ++i)
+            {
+                var o = $('<option/>', { val: sexes[i].id, text: sexes[i].name });
+                sexSel.append(o);
             }
+            sexSel.hide();
 
-            for (var i = 0, len = sexes.length; i < len; ++i) {
-                var o = $WH.ce('option');
-                o.value = sexes[i].id;
-                $WH.ae(o, $WH.ct(sexes[i].name));
-                $WH.ae(sexSel, o);
-            }
-            sexSel.style.display = 'none';
-            $WH.ae(modelDiv, $WH.ce('div'));
-            $WH.ae(modelDiv, raceSel1);
-            $WH.ae(modelDiv, raceSel2);
-            $WH.ae(modelDiv, sexSel);
-            $WH.ae(dest, modelDiv);
-            d = $WH.ce('div');
-            d.className = 'clear';
-            $WH.ae(dest, d);
+            modelDiv.append($('<div/>'));
+            modelDiv.append(raceSel1);
+            modelDiv.append(raceSel2);
+            modelDiv.append(sexSel);
+
+            leftDiv.append(modelDiv);
+
+            var sp = $('<span/>');
+            sp.append('<small>Drag to rotate<br />Control (Windows) / Cmd (Mac) + drag to pan</small>');
+            leftDiv.append(sp);
+
+            dest.append(leftDiv);
+            dest.append(a2);
+            dest.append(a1);
+
+            d = $('<div/>', { 'class': 'clear' });
+            dest.append(d);
         }
 
         switch (opt.type) {
-        case 1: // NPC
-            modelDiv.style.display = 'none';
-            if (opt.humanoid) {
-                modelType = 32; // Humanoid NPC
-            }
-            else {
-                modelType = 8; // NPC
-            }
-            model = opt.displayId;
-            break;
-        case 2: // Object
-            modelDiv.style.display = 'none';
-            modelType = 64; // Object
-            model = opt.displayId;
-            break;
-        case 3: // Item
-            equipList = [opt.slot, opt.displayId];
-            if ($WH.in_array([4, 5, 6, 7, 8, 9, 10, 16, 19, 20], opt.slot) != -1) {
-                initRaceSex(0, opt)
-            }
-            else {
-                switch (opt.slot) {
-                case 1:
-                    modelType = 2; // Helm
-                    break;
-                case 3:
-                    modelType = 4; // Shoulder
-                    break;
-                default:
-                    modelType = 1; // Item
+            case 1: // NPC
+                modelDiv.hide();
+                if (opt.humanoid) {
+                    modelType = 32; // Humanoid NPC
                 }
-
+                else {
+                    modelType = 8; // NPC
+                }
                 model = opt.displayId;
-
-                initRaceSex(1, opt);
-            }
-            break;
-        case 4: // Item Set
-            equipList = opt.equipList;
-            initRaceSex(0, opt)
-        }
-
-        if (first) {
-            if ($WH.gc('modelviewer_mode') == '2' && f()) {
-                D.onclick()
-            } else {
-                if ($WH.gc('modelviewer_mode') == '1') {
-                    E.onclick()
-                } else {
-                    G.onclick()
+                break;
+            case 2: // Object
+                modelDiv.hide();
+                modelType = 64; // Object
+                model = opt.displayId;
+                break;
+            case 3: // Item
+                equipList = [opt.slot, opt.displayId];
+                if ($WH.in_array([4, 5, 6, 7, 8, 9, 10, 16, 19, 20], opt.slot) != -1) {
+                    initRaceSex(0, opt)
                 }
-            }
-        }
-        else {
+                else {
+                    switch (opt.slot) {
+                    case 1:
+                        modelType = 2; // Helm
+                        break;
+                    case 3:
+                        modelType = 4; // Shoulder
+                        break;
+                    default:
+                        modelType = 1; // Item
+                    }
 
-            clear();
-            setTimeout(render, 1);
+                    model = opt.displayId;
+
+                    initRaceSex(1, opt);
+                }
+                break;
+            case 4: // Item Set
+                equipList = opt.equipList;
+                initRaceSex(0, opt)
         }
+
+        clear();
+        setTimeout(render, 1);
 
         var trackCode = '';
         if (opt.fromTag)
@@ -22398,7 +22639,9 @@ var g_types = {
      19: 'sound',
      29: 'icon',
     501: 'emote',
-    502: 'enchantment'
+    502: 'enchantment',
+    503: 'areatrigger',
+    504: 'mail'
 };
 
 // Items
@@ -22668,7 +22911,7 @@ var ConditionList = new function() {
                      }
                      else                           // create mask from id and resolve in case 32
                         entry[1] = (1 << entry[1]);
-            case 32: param[0] = _listing(entry[1], g_world_object_types, '$1'); break;
+            case 32: param[0] = _listing(entry[1], g_world_object_types, '$2'); break;
             case 36: break;
             case 27:
             case 37:
@@ -22824,7 +23067,7 @@ var ConditionList = new function() {
             }
         }
 
-        return rows.length > 1 ? '[ul][li]' + rows.join('[/li][li]') + '[/li][/ul]' : rows[0];
+        return rows.length > 1 ? rows.join('[br]') : rows[0];
     }
 
 }

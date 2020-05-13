@@ -8,7 +8,7 @@ if (!defined('AOWOW_REVISION'))
 //  tabId  0: Database g_initHeader()
 class IconsPage extends GenericPage
 {
-    use ListPage;
+    use TrListPage;
 
     protected $type          = TYPE_ICON;
     protected $tpl           = 'icons';
@@ -62,7 +62,7 @@ class IconsPage extends GenericPage
         }
 
         if ($this->filterObj->error)
-            $tabData['_errors'] = '$1';
+            $tabData['_errors'] = 1;
 
         $this->lvTabs[] = ['icongallery', $tabData];
     }

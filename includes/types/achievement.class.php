@@ -36,14 +36,16 @@ class AchievementList extends BaseType
         $rewards = DB::World()->select('
             SELECT
                 ar.ID AS ARRAY_KEY, ar.TitleA, ar.TitleH, ar.ItemID, ar.Sender AS sender, ar.MailTemplateID,
-                ar.Subject AS subject_loc0, IFNULL(arl2.Subject, "") AS subject_loc2, IFNULL(arl3.Subject, "") AS subject_loc3, IFNULL(arl6.Subject, "") AS subject_loc6, IFNULL(arl8.Subject, "") AS subject_loc8,
-                ar.Text    AS text_loc0,    IFNULL(arl2.Text,    "") AS text_loc2,    IFNULL(arl3.Text,    "") AS text_loc3,    IFNULL(arl6.Text,    "") AS text_loc6,    IFNULL(arl8.Text,    "") AS text_loc8
+                ar.Subject AS subject_loc0, IFNULL(arl2.Subject, "") AS subject_loc2, IFNULL(arl3.Subject, "") AS subject_loc3, IFNULL(arl4.Subject, "") AS subject_loc4, IFNULL(arl6.Subject, "") AS subject_loc6, IFNULL(arl8.Subject, "") AS subject_loc8,
+                ar.Body    AS text_loc0,    IFNULL(arl2.Body,    "") AS text_loc2,    IFNULL(arl3.Body,    "") AS text_loc3,    IFNULL(arl4.Body,    "") AS text_loc4,    IFNULL(arl6.Body,    "") AS text_loc6,    IFNULL(arl8.Body,    "") AS text_loc8
             FROM
                 achievement_reward ar
             LEFT JOIN
                 achievement_reward_locale arl2 ON arl2.ID = ar.ID AND arl2.Locale = "frFR"
             LEFT JOIN
                 achievement_reward_locale arl3 ON arl3.ID = ar.ID AND arl3.Locale = "deDE"
+            LEFT JOIN
+                achievement_reward_locale arl4 ON arl4.ID = ar.ID AND arl4.Locale = "zhCN"
             LEFT JOIN
                 achievement_reward_locale arl6 ON arl6.ID = ar.ID AND arl6.Locale = "esES"
             LEFT JOIN
@@ -61,11 +63,13 @@ class AchievementList extends BaseType
             {
                 $_curTpl = array_merge($rewards[$_id], $_curTpl);
 
+                $_curTpl['mailTemplate'] = $rewards[$_id]['MailTemplateID'];
+
                 if ($rewards[$_id]['MailTemplateID'])
                 {
                     // using class Loot creates an inifinite loop cirling between Loot, ItemList and SpellList or something
                     // $mailSrc = new Loot();
-                    // $mailSrc->getByContainer(LOOT_MAIL, $rewards[$_id]['mailTemplate']);
+                    // $mailSrc->getByContainer(LOOT_MAIL, $rewards[$_id]['MailTemplateID']);
                     // foreach ($mailSrc->iterate() as $loot)
                         // $_curTpl['rewards'][] = [TYPE_ITEM, $loot['id']];
 
@@ -299,7 +303,7 @@ class AchievementListFilter extends Filter
 
     protected $genericFilter = array(                       // misc (bool): _NUMERIC => useFloat; _STRING => localized; _FLAG => match Value; _BOOLEAN => stringSet
          2 => [FILTER_CR_BOOLEAN,   'reward_loc0', true                             ], // givesreward
-         3 => [FILTER_CR_STRING,    'reward',      true                             ], // rewardtext
+         3 => [FILTER_CR_STRING,    'reward',      STR_LOCALIZED                    ], // rewardtext
          4 => [FILTER_CR_NYI_PH,    null,          1,                               ], // location [enum]
          5 => [FILTER_CR_CALLBACK,  'cbSeries',    ACHIEVEMENT_CU_FIRST_SERIES, null], // first in series [yn]
          6 => [FILTER_CR_CALLBACK,  'cbSeries',    ACHIEVEMENT_CU_LAST_SERIES,  null], // last in series [yn]
@@ -317,8 +321,8 @@ class AchievementListFilter extends Filter
     protected $inputFields = array(
         'cr'    => [FILTER_V_RANGE, [2, 18],                                         true ], // criteria ids
         'crs'   => [FILTER_V_LIST,  [FILTER_ENUM_NONE, FILTER_ENUM_ANY, [0, 99999]], true ], // criteria operators
-        'crv'   => [FILTER_V_REGEX, '/[\p{C};:]/ui',                                 true ], // criteria values - only printable chars, no delimiters
-        'na'    => [FILTER_V_REGEX, '/[\p{C};]/ui',                                  false], // name / description - only printable chars, no delimiter
+        'crv'   => [FILTER_V_REGEX, '/[\p{C};:%\\\\]/ui',                            true ], // criteria values - only printable chars, no delimiters
+        'na'    => [FILTER_V_REGEX, '/[\p{C};%\\\\]/ui',                             false], // name / description - only printable chars, no delimiter
         'ex'    => [FILTER_V_EQUAL, 'on',                                            false], // extended name search
         'ma'    => [FILTER_V_EQUAL, 1,                                               false], // match any / all filter
         'si'    => [FILTER_V_LIST,  [1, 2, 3, -1, -2],                               false], // side

@@ -8,7 +8,7 @@ if (!defined('AOWOW_REVISION'))
 //  tabId  0: Database   g_initHeader()
 class EventPage extends GenericPage
 {
-    use DetailPage;
+    use TrDetailPage;
 
     protected $type          = TYPE_WORLDEVENT;
     protected $typeId        = 0;
@@ -355,7 +355,7 @@ class EventPage extends GenericPage
             $this->saveCache($tt);
         }
 
-        list($start, $end) = $this->postCache();
+        [$start, $end] = $this->postCache();
 
         header('Content-type: application/x-javascript; charset=utf-8');
         die(sprintf($tt, $start, $end));

@@ -31,6 +31,9 @@ class GameObjectList extends BaseType
         // post processing
         foreach ($this->iterate() as $_id => &$curTpl)
         {
+            if (!$curTpl['name_loc0'])
+                $curTpl['name_loc0'] = 'Unnamed Object #' . $_id;
+
             // unpack miscInfo
             $curTpl['lootStack']    = [];
             $curTpl['spells']       = [];
@@ -59,7 +62,7 @@ class GameObjectList extends BaseType
 
     public static function getName($id)
     {
-        $n = DB::Aowow()->SelectRow('SELECT name_loc0, name_loc2, name_loc3, name_loc6, name_loc8 FROM ?_objects WHERE id = ?d', $id);
+        $n = DB::Aowow()->SelectRow('SELECT name_loc0, name_loc2, name_loc3, name_loc4, name_loc6, name_loc8 FROM ?_objects WHERE id = ?d', $id);
         return Util::localizedString($n, 'name');
     }
 
@@ -140,6 +143,15 @@ class GameObjectList extends BaseType
 class GameObjectListFilter extends Filter
 {
     public    $extraOpts     = [];
+    protected $enums         = array(
+        50 => array(
+            null, 1, 2, 3, 4,
+            663 => 663,
+            883 => 883,
+            FILTER_ENUM_ANY => true,
+            FILTER_ENUM_NONE => false
+        )
+    );
 
     protected $genericFilter = array(
          1 => [FILTER_CR_ENUM,     's.areaId',        null                      ], // foundin
@@ -152,15 +164,16 @@ class GameObjectListFilter extends Filter
         13 => [FILTER_CR_FLAG,     'cuFlags',         CUSTOM_HAS_COMMENT        ], // hascomments
         15 => [FILTER_CR_NUMERIC,  'id',              NUM_CAST_INT              ], // id
         16 => [FILTER_CR_CALLBACK, 'cbRelEvent',      null,                 null], // relatedevent (ignore removed by event)
-        18 => [FILTER_CR_FLAG,     'cuFlags',         CUSTOM_HAS_VIDEO          ]  // hasvideos
+        18 => [FILTER_CR_FLAG,     'cuFlags',         CUSTOM_HAS_VIDEO          ], // hasvideos
+        50 => [FILTER_CR_ENUM,     'spellFocusId',    null,                     ], // SpellFocus
     );
 
     // fieldId => [checkType, checkValue[, fieldIsArray]]
     protected $inputFields = array(
-        'cr'  => [FILTER_V_LIST,  [[1, 5], 7, 11, 13, 15, 16, 18],                true ], // criteria ids
+        'cr'  => [FILTER_V_LIST,  [[1, 5], 7, 11, 13, 15, 16, 18, 50],            true ], // criteria ids
         'crs' => [FILTER_V_LIST,  [FILTER_ENUM_NONE, FILTER_ENUM_ANY, [0, 5000]], true ], // criteria operators
         'crv' => [FILTER_V_RANGE, [0, 99999],                                     true ], // criteria values - only numeric input values expected
-        'na'  => [FILTER_V_REGEX, '/[\p{C};]/ui',                                 false], // name - only printable chars, no delimiter
+        'na'  => [FILTER_V_REGEX, '/[\p{C};%\\\\]/ui',                            false], // name - only printable chars, no delimiter
         'ma'  => [FILTER_V_EQUAL, 1,                                              false]  // match any / all filter
     );
 

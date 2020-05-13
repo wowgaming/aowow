@@ -6,14 +6,17 @@ class Lang
     private static $main;
     private static $account;
     private static $user;
-    private static $mail;
     private static $game;
     private static $maps;
+    private static $profiler;
     private static $screenshot;
     private static $privileges;
+    private static $smartAI;
+    private static $unit;
 
     // types
     private static $achievement;
+    private static $areatrigger;
     private static $chrClass;
     private static $currency;
     private static $event;
@@ -22,6 +25,7 @@ class Lang
     private static $icon;
     private static $item;
     private static $itemset;
+    private static $mail;
     private static $npc;
     private static $pet;
     private static $quest;
@@ -48,6 +52,13 @@ class Lang
         // *cough* .. reuse-hacks (because copy-pastaing text for 5 locales sucks)
         self::$item['cat'][2] = [self::$item['cat'][2], self::$spell['weaponSubClass']];
         self::$item['cat'][2][1][14] .= ' ('.self::$item['cat'][2][0].')';
+
+        // not localized .. for whatever reason
+        self::$profiler['regions'] = array(
+            'eu' => "Europe",
+            'us' => "US & Oceanic"
+        );
+
         self::$main['moreTitles']['privilege'] = self::$privileges['_privileges'];
     }
 
@@ -111,6 +122,33 @@ class Lang
         }
 
         return $b;
+    }
+
+    public static function trimTextClean(string $text, int $length = 100) : string
+    {
+        // remove line breaks
+        $text = strtr($text, ["\n" => ' ', "\r" => ' ']);
+
+        // limit whitespaces to one at a time
+        $text = preg_replace('/\s+/', ' ', trim($text));
+
+        // limit previews to 100 chars + whatever it takes to make the last word full
+        if ($length > 0 && mb_strlen($text) > $length)
+        {
+            $n = 0;
+            $b = [];
+            $parts = explode(' ', $text);
+            while ($n < $length && $parts)
+            {
+                $_   = array_shift($parts);
+                $n  += mb_strlen($_);
+                $b[] = $_;
+            }
+
+            $text = implode(' ', $b).'…';
+        }
+
+        return $text;
     }
 
     public static function sort($prop, $group, $method = SORT_NATURAL)
@@ -244,7 +282,7 @@ class Lang
         }
 
         if ($class == ITEM_CLASS_MISC)                      // yeah hardcoded.. sue me!
-            return self::spell('cat', -5);
+            return self::spell('cat', -5, 0);
 
         $tmp  = [];
         $strs = self::spell($class == ITEM_CLASS_ARMOR ? 'armorSubClass' : 'weaponSubClass');
@@ -252,12 +290,17 @@ class Lang
             if ($mask & (1 << $k) && $str)
                 $tmp[] = $str;
 
-        return implode(', ', $tmp);
+        if (!$tmp && $class == ITEM_CLASS_ARMOR)
+            return self::spell('cat', -11, 8);
+        else if (!$tmp && $class == ITEM_CLASS_WEAPON)
+            return self::spell('cat', -11, 6);
+        else
+            return implode(', ', $tmp);
     }
 
     public static function getStances($stanceMask)
     {
-        $stanceMask &= 0xFC27909F;                          // clamp to available stances/forms..
+        $stanceMask &= 0xFF37F6FF;                          // clamp to available stances/forms..
 
         $tmp = [];
         $i   = 1;
@@ -322,29 +365,20 @@ class Lang
         return implode(', ', $tmp);
     }
 
-    public static function getRaceString($raceMask, &$side = 0, &$ids = [], &$n = 0, $asHTML = true)
+    public static function getRaceString($raceMask, &$ids = [], &$n = 0, $asHTML = true)
     {
         $raceMask &= RACE_MASK_ALL;                         // clamp to available races..
 
         if ($raceMask == RACE_MASK_ALL)                     // available to all races (we don't display 'both factions')
             return false;
 
+        if (!$raceMask)
+            return false;
+
         $tmp  = [];
         $i    = 1;
         $base = $asHTML ? '<a href="?race=%d" class="q1">%s</a>' : '[race=%d]';
         $br   = $asHTML ? '' : '[br]';
-
-        if (!$raceMask)
-        {
-            $side |= SIDE_BOTH;
-            return self::game('ra', 0);
-        }
-
-        if ($raceMask & RACE_MASK_HORDE)
-            $side |= SIDE_HORDE;
-
-        if ($raceMask & RACE_MASK_ALLIANCE)
-            $side |= SIDE_ALLIANCE;
 
         if ($raceMask == RACE_MASK_HORDE)
             return self::game('ra', -2);
@@ -375,6 +409,7 @@ class Lang
             LOCALE_EN => [',', '.'],
             LOCALE_FR => [' ', ','],
             LOCALE_DE => ['.', ','],
+            LOCALE_CN => [',', '.'],
             LOCALE_ES => ['.', ','],
             LOCALE_RU => [' ', ',']
         );

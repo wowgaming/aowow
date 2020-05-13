@@ -8,7 +8,7 @@ if (!defined('AOWOW_REVISION'))
 //  tabId 0: Database g_initHeader()
 class QuestPage extends GenericPage
 {
-    use DetailPage;
+    use TrDetailPage;
 
     protected $type          = TYPE_QUEST;
     protected $typeId        = 0;
@@ -33,7 +33,8 @@ class QuestPage extends GenericPage
         if ($this->subject->error)
             $this->notFound();
 
-        $this->name = $this->subject->getField('name', true);
+        // may contain htmlesque tags
+        $this->name = Util::htmlEscape($this->subject->getField('name', true));
     }
 
     protected function generatePath()
@@ -46,7 +47,8 @@ class QuestPage extends GenericPage
 
     protected function generateTitle()
     {
-        array_unshift($this->title, $this->name, Util::ucFirst(Lang::game('quest')));
+        // page title already escaped
+        array_unshift($this->title, $this->subject->getField('name', true), Util::ucFirst(Lang::game('quest')));
     }
 
     protected function generateContent()
@@ -137,7 +139,7 @@ class QuestPage extends GenericPage
         }
 
         // races
-        if ($_ = Lang::getRaceString($this->subject->getField('reqRaceMask'), $__, $jsg, $n, false))
+        if ($_ = Lang::getRaceString($this->subject->getField('reqRaceMask'), $jsg, $n, false))
         {
             $this->extendGlobalIds(TYPE_RACE, $jsg);
             $t = $n == 1 ? Lang::game('race') : Lang::game('races');
@@ -272,7 +274,7 @@ class QuestPage extends GenericPage
                         'side'    => Game::sideByRaceMask($_['reqRaceMask']),
                         'typeStr' => Util::$typeStrings[TYPE_QUEST],
                         'typeId'  => $_['typeId'],
-                        'name'    => mb_strlen($n) > 40 ? mb_substr($n, 0, 40).'…' : $n
+                        'name'    => Util::htmlEscape(Lang::trimTextClean($n, 40)),
                     )
                 ));
             }
@@ -292,7 +294,7 @@ class QuestPage extends GenericPage
                         'side'    => Game::sideByRaceMask($_['reqRaceMask']),
                         'typeStr' => Util::$typeStrings[TYPE_QUEST],
                         'typeId'  => $_['typeId'],
-                        'name'    => mb_strlen($n) > 40 ? mb_substr($n, 0, 40).'…' : $n,
+                        'name'    => Util::htmlEscape(Lang::trimTextClean($n, 40)),
                         '_next'   => $_['_next'],
                     )
                 ));
@@ -318,7 +320,7 @@ class QuestPage extends GenericPage
                     'side'    => Game::sideByRaceMask($list->getField('reqRaceMask')),
                     'typeStr' => Util::$typeStrings[TYPE_QUEST],
                     'typeId'  => $id,
-                    'name'    => mb_strlen($n) > 40 ? mb_substr($n, 0, 40).'…' : $n
+                    'name'    => Util::htmlEscape(Lang::trimTextClean($n, 40))
                 ));
             }
 
@@ -330,13 +332,13 @@ class QuestPage extends GenericPage
             ['reqQ',       array('OR', ['AND', ['nextQuestId', $this->typeId], ['exclusiveGroup', 0, '<']], ['AND', ['id', $this->subject->getField('prevQuestId')], ['nextQuestIdChain', $this->typeId, '!']])],
 
             // Requires one of these quests (Requires one of the quests to choose from)
-            ['reqOneQ',    array(['exclusiveGroup', 0, '>'], ['nextQuestId', $this->typeId])],
+            ['reqOneQ',    array('OR', ['AND', ['exclusiveGroup', 0, '>'], ['nextQuestId', $this->typeId]], ['breadCrumbForQuestId', $this->typeId])],
 
             // Opens Quests (Quests that become available only after complete this quest (optionally only one))
-            ['opensQ',     array('OR', ['AND', ['prevQuestId', $this->typeId], ['id', $this->subject->getField('nextQuestIdChain'), '!']], ['id', $this->subject->getField('nextQuestId')])],
+            ['opensQ',     array('OR', ['AND', ['prevQuestId', $this->typeId], ['id', $this->subject->getField('nextQuestIdChain'), '!']], ['id', $this->subject->getField('nextQuestId')], ['id', $this->subject->getField('breadcrumbForQuestId')])],
 
             // Closes Quests (Quests that become inaccessible after completing this quest)
-            ['closesQ',    array(['exclusiveGroup', 0, '!'], ['exclusiveGroup', $this->subject->getField('exclusiveGroup')], ['id', $this->typeId, '!'])],
+            ['closesQ',    array(['exclusiveGroup', 0, '>'], ['exclusiveGroup', $this->subject->getField('exclusiveGroup')], ['id', $this->typeId, '!'])],
 
             // During the quest available these quests (Quests that are available only at run time this quest)
             ['enablesQ',   array(['prevQuestId', -$this->typeId])],
@@ -383,7 +385,7 @@ class QuestPage extends GenericPage
             $this->extendGlobalData($olItemData->getJSGlobals(GLOBALINFO_SELF));
 
             $providedRequired = false;
-            foreach ($olItems as $i => list($itemId, $qty, $provided))
+            foreach ($olItems as $i => [$itemId, $qty, $provided])
             {
                 if (!$i || !$itemId || !in_array($itemId, $olItemData->getFoundIDs()))
                     continue;
@@ -566,11 +568,11 @@ class QuestPage extends GenericPage
                 */
 
                 $nSources = 0;
-                foreach ($lootTabs->iterate() as list($type, $data))
+                foreach ($lootTabs->iterate() as [$type, $data])
                     if ($type == 'creature' || $type == 'object')
                         $nSources += count(array_filter($data['data'], function($val) { return $val['percent'] >= 1.0; }));
 
-                foreach ($lootTabs->iterate() as $idx => list($file, $tabData))
+                foreach ($lootTabs->iterate() as $idx => [$file, $tabData])
                 {
                     if (!$tabData['data'])
                         continue;
@@ -651,7 +653,7 @@ class QuestPage extends GenericPage
 
         // POI objectives
         // also map olItems to objectiveIdx so every container gets the same pin color
-        foreach ($olItems as $i => list($itemId, $qty, $provided))
+        foreach ($olItems as $i => [$itemId, $qty, $provided])
         {
             if (!$provided && $itemId)
             {
@@ -662,27 +664,45 @@ class QuestPage extends GenericPage
 
         // PSA: 'redundant' data is on purpose (e.g. creature required for kill, also dropps item required to collect)
 
-        // external event / areatrigger
+        // external events
+        $endTextWrapper = '%s';
         if ($_specialFlags & QUEST_FLAG_SPECIAL_EXT_COMPLETE)
         {
-            if ($atir = DB::World()->selectCell('SELECT id FROM areatrigger_involvedrelation WHERE quest = ?d', $this->typeId))
-                if ($atsp = DB::AoWoW()->selectRow('SELECT guid, posX, posY, floor, areaId FROM ?_spawns WHERE `type` = ?d AND `typeId` = ?d', TYPE_AREATRIGGER, $atir))
-                    $mObjectives[$atsp['areaId']] = array(
-                        'zone'     => 'Zone #'.$atsp['areaId'],
-                        'mappable' => 1,
-                        'levels'   => array (
-                            $atsp['floor'] => array (
-                                array (
-                                    'type'      => -1,      // TYPE_AREATRIGGER is internal, the javascript doesn't know it
-                                    'point'     => 'requirement',
-                                    'name'      => $this->subject->parseText('end', false),
-                                    'coord'     => [$atsp['posX'], $atsp['posY']],
-                                    'coords'    => [[$atsp['posX'], $atsp['posY']]],
-                                    'objective' => $objectiveIdx++
-                                )
-                            )
-                        )
-                    );
+            // areatrigger
+            if ($atir = DB::Aowow()->selectCol('SELECT id FROM ?_areatrigger WHERE type = ?d AND quest = ?d', AT_TYPE_OBJECTIVE, $this->typeId))
+            {
+                if ($atSpawns = DB::AoWoW()->select('SELECT typeId AS ARRAY_KEY, posX, posY, floor, areaId FROM ?_spawns WHERE `type` = ?d AND `typeId` IN (?a)', TYPE_AREATRIGGER, $atir))
+                {
+                    foreach ($atSpawns as $atId => $atsp)
+                    {
+                        $atSpawn = array (
+                                'type'      => User::isInGroup(U_GROUP_STAFF) ? TYPE_AREATRIGGER : -1,
+                                'id'        => $atId,
+                                'point'     => 'requirement',
+                                'name'      => $this->subject->parseText('end', false),
+                                'coord'     => [$atsp['posX'], $atsp['posY']],
+                                'coords'    => [[$atsp['posX'], $atsp['posY']]],
+                                'objective' => $objectiveIdx++
+                            );
+
+                        if (isset($mObjectives[$atsp['areaId']]['levels'][$atsp['floor']]))
+                        {
+                            $mObjectives[$atsp['areaId']]['levels'][$atsp['floor']][] = $atSpawn;
+                            continue;
+                        }
+
+                        $mObjectives[$atsp['areaId']] = array(
+                            'zone'     => 'Zone #'.$atsp['areaId'],
+                            'mappable' => 1,
+                            'levels'   => [$atsp['floor'] => [$atSpawn]]
+                        );
+                    }
+                }
+            }
+            // complete-spell
+            else if ($endSpell = new SpellList(array('OR', ['AND', ['effect1Id', 16], ['effect1MiscValue', $this->typeId]], ['AND', ['effect2Id', 16], ['effect2MiscValue', $this->typeId]], ['AND', ['effect3Id', 16], ['effect3MiscValue', $this->typeId]])))
+                if (!$endSpell->error)
+                    $endTextWrapper = '<a href="?spell='.$endSpell->id.'">%s</a>';
         }
 
         // ..adding creature kill requirements
@@ -883,14 +903,14 @@ class QuestPage extends GenericPage
         /****************/
 
         $this->gains         = $this->createGains();
-        $this->mail          = $this->createMail($maTab, $startEnd);
+        $this->mail          = $this->createMail($startEnd);
         $this->rewards       = $this->createRewards($_side);
         $this->objectives    = $this->subject->parseText('objectives', false);
         $this->details       = $this->subject->parseText('details', false);
         $this->offerReward   = $this->subject->parseText('offerReward', false);
         $this->requestItems  = $this->subject->parseText('requestItems', false);
         $this->completed     = $this->subject->parseText('completed', false);
-        $this->end           = $this->subject->parseText('end', false);
+        $this->end           = sprintf($endTextWrapper, $this->subject->parseText('end', false));
         $this->suggestedPl   = $this->subject->getField('suggestedPlayers');
         $this->unavailable   = $_flags & QUEST_FLAG_UNAVAILABLE || $this->subject->getField('cuFlags') & CUSTOM_EXCLUDE_FOR_LISTVIEW;
         $this->redButtons    = array(
@@ -903,9 +923,6 @@ class QuestPage extends GenericPage
                 'typeId'    => $this->typeId
             )
         );
-
-        if ($maTab)
-            $this->lvTabs[] = $maTab;
 
         // factionchange-equivalent
         if ($pendant = DB::World()->selectCell('SELECT IF(horde_id = ?d, alliance_id, -horde_id) FROM player_factionchange_quests WHERE alliance_id = ?d OR horde_id = ?d', $this->typeId, $this->typeId, $this->typeId))
@@ -1202,47 +1219,51 @@ class QuestPage extends GenericPage
         return $rewards;
     }
 
-    private function createMail(&$attachmentTab, $startEnd)
+    private function createMail($startEnd)
     {
         $mail = [];
 
-        if ($_ = $this->subject->getField('rewardMailTemplateId'))
+        if ($rmtId = $this->subject->getField('rewardMailTemplateId'))
         {
             $delay  = $this->subject->getField('rewardMailDelay');
-            $letter = DB::Aowow()->selectRow('SELECT * FROM ?_mailtemplate WHERE id = ?d', $_);
+            $letter = DB::Aowow()->selectRow('SELECT * FROM ?_mails WHERE id = ?d', $rmtId);
 
             $mail = array(
-                'delay'   => $delay  ? sprintf(Lang::quest('mailIn'), Util::formatTime($delay * 1000)) : null,
-                'sender'  => null,
-                'text'    => $letter ? Util::parseHtmlText(Util::localizedString($letter, 'text'))      : null,
-                'subject' => Util::parseHtmlText(Util::localizedString($letter, 'subject'))
+                'id'          => $rmtId,
+                'delay'       => $delay  ? sprintf(Lang::mail('mailIn'), Util::formatTime($delay * 1000)) : null,
+                'sender'      => null,
+                'attachments' => [],
+                'text'        => $letter ? Util::parseHtmlText(Util::localizedString($letter, 'text'))     : null,
+                'subject'     => Util::parseHtmlText(Util::localizedString($letter, 'subject'))
             );
 
-            foreach ($startEnd as $se)
-            {
-                if (!($se['method'] & 0x2) || $se['type'] != TYPE_NPC)
-                    continue;
+            $senderTypeId = 0;
+            if ($_= DB::World()->selectCell('SELECT RewardMailSenderEntry FROM quest_mail_sender WHERE QuestId = ?d', $this->typeId))
+                $senderTypeId = $_;
+            else
+                foreach ($startEnd as $se)
+                    if (($se['method'] & 0x2) && $se['type'] == TYPE_NPC)
+                        $senderTypeId = $se['typeId'];
 
-                if ($ti = CreatureList::getName($se['typeId']))
-                {
-                    $mail['sender'] = sprintf(Lang::quest('mailBy'), $se['typeId'], $ti);
-                    break;
-                }
-            }
+            if ($ti = CreatureList::getName($senderTypeId))
+                $mail['sender'] = sprintf(Lang::mail('mailBy'), $senderTypeId, $ti);
 
-            $extraCols = ['$Listview.extraCols.percent'];
+            // while mail attachemnts are handled as loot, it has no variance. Always 100% chance, always one item.
             $mailLoot = new Loot();
-
-            if ($mailLoot->getByContainer(LOOT_MAIL, $_))
+            if ($mailLoot->getByContainer(LOOT_MAIL, $rmtId))
             {
                 $this->extendGlobalData($mailLoot->jsGlobals);
-                $attachmentTab = ['item', array(
-                    'data'       => array_values($mailLoot->getResult()),
-                    'name'       => Lang::quest('attachment'),
-                    'id'         => 'mail-attachments',
-                    'extraCols'  => array_merge($extraCols, $mailLoot->extraCols),
-                    'hiddenCols' => ['side', 'slot', 'reqlevel']
-                )];
+                foreach ($mailLoot->getResult() as $loot)
+                {
+                    $mail['attachments'][] = array(
+                        'typeStr'   => Util::$typeStrings[TYPE_ITEM],
+                        'id'        => $loot['id'],
+                        'name'      => substr($loot['name'], 1),
+                        'quality'   => 7 - $loot['name'][0],
+                        'qty'       => $loot['stack'][0],
+                        'globalStr' => 'g_items'
+                    );
+                }
             }
         }
 

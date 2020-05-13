@@ -909,6 +909,7 @@ $WH.g_getLocaleFromDomain = function(domain) {
 $WH.g_getLocaleFromDomain.L = {
     fr:  2,
     de:  3,
+    cn:  4,
     es:  6,
     ru:  8,
     www: 0
@@ -1331,7 +1332,7 @@ $WH.g_setJsonItemLevel = function (json, level) {
         json.dmgmin = json[damageType + "dmgmin"] = Math.floor(json.dps * json.speed * (1 - damageRange));
         json.dmgmax = json[damageType + "dmgmax"] = Math.floor(json.dps * json.speed * (1 + damageRange))
 
-        if (json.feratkpwr) {                               // yes thats custom..
+        if (json.feratkpwr) {                               // aowow - yes thats custom..
             json.feratkpwr = Math.max(0, Math.floor((json.dps - 54.8) * 14));
         }
     }
@@ -1339,6 +1340,24 @@ $WH.g_setJsonItemLevel = function (json, level) {
     // Spell Power
     if (splPwrColumn >= 0) {
         json.splpwr = json.bonuses[45] = $WH.g_convertScalingFactor(level, splPwrColumn);
+    }
+
+    // Update the gearscore (profiler usage)
+    if (json.gearscore != null)
+    {
+        if (json._gearscore == null)
+            json._gearscore = json.gearscore;
+
+        var equivLevel = Math.min(80, level + 1);
+
+        if(equivLevel >= 70)
+            n = ((equivLevel - 70) * 9.5) + 105;
+        else if(equivLevel >= 60)
+            n = ((equivLevel - 60) * 4.5) + 60;
+        else
+            n = equivLevel + 5;
+
+        json.gearscore = (json._gearscore * n) / 1.8;
     }
 };
 

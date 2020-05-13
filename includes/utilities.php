@@ -6,26 +6,278 @@ if (!defined('AOWOW_REVISION'))
 
 class SimpleXML extends SimpleXMLElement
 {
-    public function addCData($str)
+    public function addCData(string $cData) : SimpleXMLElement
     {
         $node = dom_import_simplexml($this);
         $no   = $node->ownerDocument;
-        $node->appendChild($no->createCDATASection($str));
+        $node->appendChild($no->createCDATASection($cData));
 
         return $this;
     }
 }
 
+
+class CLI
+{
+    const CHR_BELL      = 7;
+    const CHR_BACK      = 8;
+    const CHR_TAB       = 9;
+    const CHR_LF        = 10;
+    const CHR_CR        = 13;
+    const CHR_ESC       = 27;
+    const CHR_BACKSPACE = 127;
+
+    const LOG_OK        = 0;
+    const LOG_WARN      = 1;
+    const LOG_ERROR     = 2;
+    const LOG_INFO      = 3;
+
+    private static $logHandle   = null;
+    private static $hasReadline = null;
+
+
+    /***********/
+    /* logging */
+    /***********/
+
+    public static function initLogFile(string $file = '') : void
+    {
+        if (!$file)
+            return;
+
+        $file = self::nicePath($file);
+        if (!file_exists($file))
+            self::$logHandle = fopen($file, 'w');
+        else
+        {
+            $logFileParts = pathinfo($file);
+
+            $i = 1;
+            while (file_exists($logFileParts['dirname'].'/'.$logFileParts['filename'].$i.(isset($logFileParts['extension']) ? '.'.$logFileParts['extension'] : '')))
+                $i++;
+
+            $file = $logFileParts['dirname'].'/'.$logFileParts['filename'].$i.(isset($logFileParts['extension']) ? '.'.$logFileParts['extension'] : '');
+            self::$logHandle = fopen($file, 'w');
+        }
+    }
+
+    public static function red(string $str) : string
+    {
+        return OS_WIN ? $str : "\e[31m".$str."\e[0m";
+    }
+
+    public static function green(string $str) : string
+    {
+        return OS_WIN ? $str : "\e[32m".$str."\e[0m";
+    }
+
+    public static function yellow(string $str) : string
+    {
+        return OS_WIN ? $str : "\e[33m".$str."\e[0m";
+    }
+
+    public static function blue(string $str) : string
+    {
+        return OS_WIN ? $str : "\e[36m".$str."\e[0m";
+    }
+
+    public static function bold(string $str) : string
+    {
+        return OS_WIN ? $str : "\e[1m".$str."\e[0m";
+    }
+
+    public static function write(string $txt = '', int $lvl = -1) : void
+    {
+        $msg = "\n";
+        if ($txt)
+        {
+            $msg = str_pad(date('H:i:s'), 10);
+            switch ($lvl)
+            {
+                case self::LOG_ERROR:                       // red      critical error
+                    $msg .= '['.self::red('ERR').']   ';
+                    break;
+                case self::LOG_WARN:                        // yellow   notice
+                    $msg .= '['.self::yellow('WARN').']  ';
+                    break;
+                case self::LOG_OK:                          // green    success
+                    $msg .= '['.self::green('OK').']    ';
+                    break;
+                case self::LOG_INFO:                        // blue     info
+                    $msg .= '['.self::blue('INFO').']  ';
+                    break;
+                default:
+                    $msg .= '        ';
+            }
+
+            $msg .= $txt."\n";
+        }
+
+        echo $msg;
+
+        if (self::$logHandle)                               // remove highlights for logging
+            fwrite(self::$logHandle, preg_replace(["/\e\[\d+m/", "/\e\[0m/"], '', $msg));
+
+        flush();
+    }
+
+    public static function nicePath(string $fileOrPath, string ...$pathParts) : string
+    {
+        $path = '';
+
+        if ($pathParts)
+        {
+            foreach ($pathParts as &$pp)
+                $pp = trim($pp);
+
+            $path .= implode(DIRECTORY_SEPARATOR, $pathParts);
+        }
+
+        $path .= ($path ? DIRECTORY_SEPARATOR : '').trim($fileOrPath);
+
+        // remove quotes (from erronous user input)
+        $path = str_replace(['"', "'"], ['', ''], $path);
+
+        if (DIRECTORY_SEPARATOR == '/')                     // *nix
+        {
+            $path = str_replace('\\', '/', $path);
+            $path = preg_replace('/\/+/i', '/', $path);
+        }
+        else if (DIRECTORY_SEPARATOR == '\\')               // win
+        {
+            $path = str_replace('/', '\\', $path);
+            $path = preg_replace('/\\\\+/i', '\\', $path);
+        }
+        else
+            CLI::write('Dafuq! Your directory separator is "'.DIRECTORY_SEPARATOR.'". Please report this!', CLI::LOG_ERROR);
+
+        // resolve *nix home shorthand
+        if (!OS_WIN)
+        {
+            if (preg_match('/^~(\w+)\/.*/i', $path, $m))
+                $path = '/home/'.substr($path, 1);
+            else if (substr($path, 0, 2) == '~/')
+                $path = getenv('HOME').substr($path, 1);
+            else if ($path[0] == DIRECTORY_SEPARATOR && substr($path, 0, 6) != '/home/')
+                $path = substr($path, 1);
+        }
+
+        return $path;
+    }
+
+
+    /**************/
+    /* read input */
+    /**************/
+
+    /*
+        since the CLI on WIN ist not interactive, the following things have to be considered
+        you do not receive keystrokes but whole strings upon pressing <Enter> (wich also appends a \r)
+        as such <ESC> and probably other control chars can not be registered
+        this also means, you can't hide input at all, least process it
+    */
+
+    public static function readInput(array &$fields, bool $singleChar = false) : bool
+    {
+        // first time set
+        if (self::$hasReadline === null)
+            self::$hasReadline = function_exists('readline_callback_handler_install');
+
+        // prevent default output if able
+        if (self::$hasReadline)
+            readline_callback_handler_install('', function() { });
+
+        foreach ($fields as $name => $data)
+        {
+            $vars = ['desc', 'isHidden', 'validPattern'];
+            foreach ($vars as $idx => $v)
+                $$v = isset($data[$idx]) ? $data[$idx] : false;
+
+            $charBuff = '';
+
+            if ($desc)
+                echo "\n".$desc.": ";
+
+            while (true) {
+                $r = [STDIN];
+                $w = $e = null;
+                $n = stream_select($r, $w, $e, 200000);
+
+                if ($n && in_array(STDIN, $r)) {
+                    $char  = stream_get_contents(STDIN, 1);
+                    $keyId = ord($char);
+
+                    // ignore this one
+                    if ($keyId == self::CHR_TAB)
+                        continue;
+
+                    // WIN sends \r\n as sequence, ignore one
+                    if ($keyId == self::CHR_CR && OS_WIN)
+                        continue;
+
+                    // will not be send on WIN .. other ways of returning from setup? (besides ctrl + c)
+                    if ($keyId == self::CHR_ESC)
+                    {
+                        echo chr(self::CHR_BELL);
+                        return false;
+                    }
+                    else if ($keyId == self::CHR_BACKSPACE)
+                    {
+                        if (!$charBuff)
+                            continue;
+
+                        $charBuff = mb_substr($charBuff, 0, -1);
+                        if (!$isHidden && self::$hasReadline)
+                            echo chr(self::CHR_BACK)." ".chr(self::CHR_BACK);
+                    }
+                    else if ($keyId == self::CHR_LF)
+                    {
+                        $fields[$name] = $charBuff;
+                        break;
+                    }
+                    else if (!$validPattern || preg_match($validPattern, $char))
+                    {
+                        $charBuff .= $char;
+                        if (!$isHidden && self::$hasReadline)
+                            echo $char;
+
+                        if ($singleChar && self::$hasReadline)
+                        {
+                            $fields[$name] = $charBuff;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        echo chr(self::CHR_BELL);
+
+        foreach ($fields as $f)
+            if (strlen($f))
+                return true;
+
+        $fields = null;
+        return true;
+    }
+}
+
+
 class Util
 {
     const FILE_ACCESS = 0777;
 
+    const GEM_SCORE_BASE_WOTLK = 16;                        // rare quality wotlk gem score
+    const GEM_SCORE_BASE_BC    = 8;                         // rare quality bc gem score
+
+    private static $perfectGems             = null;
+
     public static $localeStrings            = array(        // zero-indexed
-        'enus',         null,           'frfr',         'dede',         null,           null,           'eses',         null,           'ruru'
+        'enus',         null,           'frfr',         'dede',         'zhcn',         null,           'eses',         null,           'ruru'
     );
 
     public static $subDomains               = array(
-        'www',          null,           'fr',           'de',           null,           null,           'es',           null,           'ru'
+        'www',          null,           'fr',           'de',           'cn',           null,           'es',           null,           'ru'
     );
 
     public static $typeClasses              = array(
@@ -34,7 +286,9 @@ class Util
         'CharRaceList',     'SkillList',        null,               'CurrencyList',     null,               'SoundList',
         TYPE_ICON        => 'IconList',
         TYPE_EMOTE       => 'EmoteList',
-        TYPE_ENCHANTMENT => 'EnchantmentList'
+        TYPE_ENCHANTMENT => 'EnchantmentList',
+        TYPE_AREATRIGGER => 'AreatriggerList',
+        TYPE_MAIL        => 'MailList'
     );
 
     public static $typeStrings              = array(        // zero-indexed
@@ -44,7 +298,9 @@ class Util
         TYPE_ICON        => 'icon',
         TYPE_USER        => 'user',
         TYPE_EMOTE       => 'emote',
-        TYPE_ENCHANTMENT => 'enchantment'
+        TYPE_ENCHANTMENT => 'enchantment',
+        TYPE_AREATRIGGER => 'areatrigger',
+        TYPE_MAIL        => 'mail'
     );
 
     # todo (high): find a sensible way to write data here on setup
@@ -113,19 +369,19 @@ class Util
     );
 
     public static $configCats               = array(
-        'Other', 'Site', 'Caching', 'Account', 'Session', 'Site Reputation', 'Google Analytics'
+        'Other', 'Site', 'Caching', 'Account', 'Session', 'Site Reputation', 'Google Analytics', 'Profiler'
     );
 
     public static $tcEncoding               = '0zMcmVokRsaqbdrfwihuGINALpTjnyxtgevElBCDFHJKOPQSUWXYZ123456789';
     public static $wowheadLink              = '';
     private static $notes                   = [];
 
-    public static function addNote($uGroupMask, $str)
+    public static function addNote(int $uGroupMask, string $str) : void
     {
         self::$notes[] = [$uGroupMask, $str];
     }
 
-    public static function getNotes()
+    public static function getNotes() : array
     {
         $notes = [];
 
@@ -138,16 +394,16 @@ class Util
 
     private static $execTime = 0.0;
 
-    public static function execTime($set = false)
+    public static function execTime(bool $set = false) : string
     {
         if ($set)
         {
             self::$execTime = microTime(true);
-            return;
+            return '';
         }
 
         if (!self::$execTime)
-            return;
+            return '';
 
         $newTime        = microTime(true);
         $tDiff          = $newTime - self::$execTime;
@@ -156,17 +412,7 @@ class Util
         return self::formatTime($tDiff * 1000, true);
     }
 
-    public static function getBuyoutForItem($itemId)
-    {
-        if (!$itemId)
-            return 0;
-
-        // try, when having filled char-DB at hand
-        // return DB::Characters()->selectCell('SELECT SUM(a.buyoutprice) / SUM(ii.count) FROM auctionhouse a JOIN item_instance ii ON ii.guid = a.itemguid WHERE ii.itemEntry = ?d', $itemId);
-        return 0;
-    }
-
-    public static function formatMoney($qty)
+    public static function formatMoney(int $qty) : string
     {
         $money = '';
 
@@ -190,92 +436,93 @@ class Util
         return $money;
     }
 
-    public static function parseTime($sec)
+    private static function parseTime(int $msec) : array
     {
-        $time = ['d' => 0, 'h' => 0, 'm' => 0, 's' => 0, 'ms' => 0];
+        $time = [0, 0, 0, 0, 0];
+
+        if ($_ = ($msec % 1000))
+            $time[0] = $_;
+
+        $sec = $msec / 1000;
 
         if ($sec >= 3600 * 24)
         {
-            $time['d'] = floor($sec / 3600 / 24);
-            $sec -= $time['d'] * 3600 * 24;
+            $time[4] = floor($sec / 3600 / 24);
+            $sec -= $time[4] * 3600 * 24;
         }
 
         if ($sec >= 3600)
         {
-            $time['h'] = floor($sec / 3600);
-            $sec -= $time['h'] * 3600;
+            $time[3] = floor($sec / 3600);
+            $sec -= $time[3] * 3600;
         }
 
         if ($sec >= 60)
         {
-            $time['m'] = floor($sec / 60);
-            $sec -= $time['m'] * 60;
+            $time[2] = floor($sec / 60);
+            $sec -= $time[2] * 60;
         }
 
         if ($sec > 0)
         {
-            $time['s'] = (int)$sec;
-            $sec -= $time['s'];
+            $time[1] = (int)$sec;
+            $sec -= $time[1];
         }
-
-        if (($sec * 1000) % 1000)
-            $time['ms'] = (int)($sec * 1000);
 
         return $time;
     }
 
-    public static function formatTime($base, $short = false)
+    public static function formatTime(int $msec, bool $short = false) : string
     {
-        $s = self::parseTime($base / 1000);
-        $fmt = [];
+        [$ms, $s, $m, $h, $d] = self::parseTime(abs($msec));
 
         if ($short)
         {
-            if ($_ = round($s['d'] / 364))
+            if ($_ = round($d / 364))
                 return $_." ".Lang::timeUnits('ab', 0);
-            if ($_ = round($s['d'] / 30))
+            if ($_ = round($d / 30))
                 return $_." ".Lang::timeUnits('ab', 1);
-            if ($_ = round($s['d'] / 7))
+            if ($_ = round($d / 7))
                 return $_." ".Lang::timeUnits('ab', 2);
-            if ($_ = round($s['d']))
+            if ($_ = round($d))
                 return $_." ".Lang::timeUnits('ab', 3);
-            if ($_ = round($s['h']))
+            if ($_ = round($h))
                 return $_." ".Lang::timeUnits('ab', 4);
-            if ($_ = round($s['m']))
+            if ($_ = round($m))
                 return $_." ".Lang::timeUnits('ab', 5);
-            if ($_ = round($s['s'] + $s['ms'] / 1000, 2))
+            if ($_ = round($s + $ms / 1000, 2))
                 return $_." ".Lang::timeUnits('ab', 6);
-            if ($s['ms'])
-                return $s['ms']." ".Lang::timeUnits('ab', 7);
+            if ($ms)
+                return $ms." ".Lang::timeUnits('ab', 7);
 
             return '0 '.Lang::timeUnits('ab', 6);
         }
         else
         {
-            $_ = $s['d'] + $s['h'] / 24;
+            $_ = $d + $h / 24;
             if ($_ > 1 && !($_ % 364))                      // whole years
-                return round(($s['d'] + $s['h'] / 24) / 364, 2)." ".Lang::timeUnits($s['d'] / 364 == 1 && !$s['h'] ? 'sg' : 'pl', 0);
+                return round(($d + $h / 24) / 364, 2)." ".Lang::timeUnits($d / 364 == 1 && !$h ? 'sg' : 'pl', 0);
             if ($_ > 1 && !($_ % 30))                       // whole month
-                return round(($s['d'] + $s['h'] / 24) /  30, 2)." ".Lang::timeUnits($s['d'] /  30 == 1 && !$s['h'] ? 'sg' : 'pl', 1);
+                return round(($d + $h / 24) /  30, 2)." ".Lang::timeUnits($d /  30 == 1 && !$h ? 'sg' : 'pl', 1);
             if ($_ > 1 && !($_ % 7))                        // whole weeks
-                return round(($s['d'] + $s['h'] / 24) /   7, 2)." ".Lang::timeUnits($s['d'] /   7 == 1 && !$s['h'] ? 'sg' : 'pl', 2);
-            if ($s['d'])
-                return round($s['d'] + $s['h']  /   24, 2)." ".Lang::timeUnits($s['d'] == 1 && !$s['h']  ? 'sg' : 'pl', 3);
-            if ($s['h'])
-                return round($s['h'] + $s['m']  /   60, 2)." ".Lang::timeUnits($s['h'] == 1 && !$s['m']  ? 'sg' : 'pl', 4);
-            if ($s['m'])
-                return round($s['m'] + $s['s']  /   60, 2)." ".Lang::timeUnits($s['m'] == 1 && !$s['s']  ? 'sg' : 'pl', 5);
-            if ($s['s'])
-                return round($s['s'] + $s['ms'] / 1000, 2)." ".Lang::timeUnits($s['s'] == 1 && !$s['ms'] ? 'sg' : 'pl', 6);
-            if ($s['ms'])
-                return $s['ms']." ".Lang::timeUnits($s['ms'] == 1 ? 'sg' : 'pl', 7);
+                return round(($d + $h / 24) /   7, 2)." ".Lang::timeUnits($d /   7 == 1 && !$h ? 'sg' : 'pl', 2);
+            if ($d)
+                return round($d + $h  /   24, 2)." ".Lang::timeUnits($d == 1 && !$h  ? 'sg' : 'pl', 3);
+            if ($h)
+                return round($h + $m  /   60, 2)." ".Lang::timeUnits($h == 1 && !$m  ? 'sg' : 'pl', 4);
+            if ($m)
+                return round($m + $s  /   60, 2)." ".Lang::timeUnits($m == 1 && !$s  ? 'sg' : 'pl', 5);
+            if ($s)
+                return round($s + $ms / 1000, 2)." ".Lang::timeUnits($s == 1 && !$ms ? 'sg' : 'pl', 6);
+            if ($ms)
+                return $ms." ".Lang::timeUnits($ms == 1 ? 'sg' : 'pl', 7);
 
             return '0 '.Lang::timeUnits('pl', 6);
         }
     }
 
     // pageText for Books (Item or GO) and questText
-    public static function parseHtmlText($text)
+    public static function parseHtmlText(string $text, bool $markdown = false) : string
     {
         if (stristr($text, '<HTML>'))                       // text is basically a html-document with weird linebreak-syntax
         {
@@ -284,7 +531,7 @@ class Util
                 '</HTML>'   => '',
                 '<BODY>'    => '',
                 '</BODY>'   => '',
-                '<BR></BR>' => '<br />'
+                '<BR></BR>' => $markdown ? '[br]' : '<br />'
             );
 
             // html may contain 'Pictures' and FlavorImages and "stuff"
@@ -295,7 +542,7 @@ class Util
             );
         }
         else
-            $text = strtr($text, ["\n" => '<br />', "\r" => '']);
+            $text = strtr($text, ["\n" => $markdown ? '[br]' : '<br />', "\r" => '']);
 
         $from = array(
             '/\|T([\w]+\\\)*([^\.]+)\.blp:\d+\|t/ui',       // images (force size to tiny)                      |T<fullPath>:<size>|t
@@ -304,37 +551,48 @@ class Util
             '/\$t([^;]+);/ui',                              // nonsense, that the client apparently ignores
             '/\|\d\-?\d?\((\$\w)\)/ui',                     // and another modifier for something russian       |3-6($r)
             '/<([^\"=\/>]+\s[^\"=\/>]+)>/ui',               // emotes (workaround: at least one whitespace and never " or = between brackets)
-            '/\$(\d+)w/ui'                                  // worldState(?)-ref found on some pageTexts        $1234w
+            '/\$(\d+)w/ui',                                 // worldState(?)-ref found on some pageTexts        $1234w
+            '/\$c/i',                                       // class-ref
+            '/\$r/i',                                       // race-ref
+            '/\$n/i',                                       // name-ref
+            '/\$b/i',                                       // line break
+            '/\|n/i'                                        // what .. the fuck .. another type of line terminator? (only in spanish though)
         );
 
-        $to = array(
+        $toMD = array(
+            '[icon name=\2]',
+            '[span color=#\1>\2[/span]',
+            '<\1/\2>',
+            '',
+            '\1',
+            '<\1>',
+            '[span class=q0>WorldState #\1[/span]',
+            '<'.Lang::game('class').'>',
+            '<'.Lang::game('race').'>',
+            '<'.Lang::main('name').'>',
+            '[br]',
+            ''
+        );
+
+        $toHTML = array(
             '<span class="icontiny" style="background-image: url('.STATIC_URL.'/images/wow/icons/tiny/\2.gif)">',
             '<span style="color: #\1">\2</span>',
             '&lt;\1/\2&gt;',
             '',
             '\1',
             '&lt;\1&gt;',
-            '<span class="q0">WorldState #\1</span>'
+            '<span class="q0">WorldState #\1</span>',
+            '&lt;'.Lang::game('class').'&gt;',
+            '&lt;'.Lang::game('race').'&gt;',
+            '&lt;'.Lang::main('name').'&gt;',
+            '<br />',
+            ''
         );
 
-        $text = preg_replace($from, $to, $text);
-
-        $pairs = array(
-            '$c' => '&lt;'.Lang::game('class').'&gt;',
-            '$C' => '&lt;'.Lang::game('class').'&gt;',
-            '$r' => '&lt;'.Lang::game('race').'&gt;',
-            '$R' => '&lt;'.Lang::game('race').'&gt;',
-            '$n' => '&lt;'.Lang::main('name').'&gt;',
-            '$N' => '&lt;'.Lang::main('name').'&gt;',
-            '$b' => '<br />',
-            '$B' => '<br />',
-            '|n' => ''                                      // what .. the fuck .. another type of line terminator? (only in spanish though)
-        );
-
-        return strtr($text, $pairs);
+        return preg_replace($from, $markdown ? $toMD : $toHTML, $text);
     }
 
-    public static function asHex($val)
+    public static function asHex($val) : string
     {
         $_ = decHex($val);
         while (fMod(strLen($_), 4))                         // in 4-blocks
@@ -343,7 +601,7 @@ class Util
         return '0x'.strToUpper($_);
     }
 
-    public static function asBin($val)
+    public static function asBin($val) : string
     {
         $_ = decBin($val);
         while (fMod(strLen($_), 4))                         // in 4-blocks
@@ -403,8 +661,12 @@ class Util
     }
 
     // default back to enUS if localization unavailable
-    public static function localizedString($data, $field, $silent = false)
+    public static function localizedString(array $data, string $field, bool $silent = false) : string
     {
+        // only display placeholder markers for staff
+        if (!User::isInGroup(U_GROUP_EMPLOYEE | U_GROUP_TESTER | U_GROUP_LOCALIZER))
+            $silent = true;
+
         // default case: selected locale available
         if (!empty($data[$field.'_loc'.User::$localeId]))
             return $data[$field.'_loc'.User::$localeId];
@@ -427,7 +689,7 @@ class Util
     }
 
     // for item and spells
-    public static function setRatingLevel($level, $type, $val)
+    public static function setRatingLevel(int $level, int $type, int $val) : string
     {
         if (in_array($type, [ITEM_MOD_DEFENSE_SKILL_RATING, ITEM_MOD_DODGE_RATING, ITEM_MOD_PARRY_RATING, ITEM_MOD_BLOCK_RATING, ITEM_MOD_RESILIENCE_RATING]) && $level < 34)
             $level = 34;
@@ -530,18 +792,13 @@ class Util
         return false;                                       // always false for passed arrays
     }
 
-    public static function arraySumByKey(&$ref)
+    public static function arraySumByKey(array &$ref, array ...$adds) : void
     {
-        $nArgs = func_num_args();
-        if (!is_array($ref) || $nArgs < 2)
+        if (!$adds)
             return;
 
-        for ($i = 1; $i < $nArgs; $i++)
+        foreach ($adds as $arr)
         {
-            $arr = func_get_arg($i);
-            if (!is_array($arr))
-                continue;
-
             foreach ($arr as $k => $v)
             {
                 if (!isset($ref[$k]))
@@ -550,42 +807,6 @@ class Util
                 $ref[$k] += $v;
             }
         }
-    }
-
-    public static function urlize($str)
-    {
-        $search  = ['<', '>', ' / ', "'", '(', ')'];
-        $replace = ['&lt;', '&gt;', '-', '', '', ''];
-        $str = str_replace($search, $replace, $str);
-
-        $accents = array(
-            "ß" => "ss",
-            "á" => "a", "ä" => "a", "à" => "a", "â" => "a",
-            "è" => "e", "ê" => "e", "é" => "e", "ë" => "e",
-            "í" => "i", "î" => "i", "ì" => "i", "ï" => "i",
-            "ñ" => "n",
-            "ò" => "o", "ó" => "o", "ö" => "o", "ô" => "o",
-            "ú" => "u", "ü" => "u", "û" => "u", "ù" => "u",
-            "œ" => "oe",
-            "Á" => "A", "Ä" => "A", "À" => "A", "Â" => "A",
-            "È" => "E", "Ê" => "E", "É" => "E", "Ë" => "E",
-            "Í" => "I", "Î" => "I", "Ì" => "I", "Ï" => "I",
-            "Ñ" => "N",
-            "Ò" => "O", "Ó" => "O", "Ö" => "O", "Ô" => "O",
-            "Ú" => "U", "Ü" => "U", "Û" => "U", "Ù" => "U",
-            "œ" => "Oe"
-        );
-        $str = strtr($str, $accents);
-        $str = trim($str);
-        $str = preg_replace('/[^a-z0-9]/i', '-', $str);
-
-        $str = str_replace('--', '-', $str);
-        $str = str_replace('--', '-', $str);
-
-        $str = rtrim($str, '-');
-        $str = strtolower($str);
-
-        return $str;
     }
 
     public static function isValidEmail($email)
@@ -627,18 +848,14 @@ class Util
         return $hash;
     }
 
-    public static function mergeJsGlobals(&$master)
+    public static function mergeJsGlobals(array &$master, array ...$adds) : bool
     {
-        $args = func_get_args();
-        if (count($args) < 2)                               // insufficient args
+        if (!$adds)                                         // insufficient args
             return false;
 
-        if (!is_array($master))
-            $master = [];
-
-        for ($i = 1; $i < count($args); $i++)               // skip first (master) entry
+        foreach ($adds as $arr)
         {
-            foreach ($args[$i] as $type => $data)
+            foreach ($arr as $type => $data)
             {
                 // bad data or empty
                 if (empty(Util::$typeStrings[$type]) || !is_array($data) || !$data)
@@ -813,7 +1030,7 @@ class Util
                                 break;
                             }
                             else
-                                continue;
+                                continue 3;
                     }
                 case CND_ZONEID:                            // 4
                 case CND_AREAID:                            // 23
@@ -868,7 +1085,7 @@ class Util
                     else if ($c['ConditionValue1'] == 67)   // Horde
                         $c['ConditionValue1'] = 2;
                     else
-                        continue;
+                        continue 2;
             }
 
             $res = [$c['NegativeCondition'] ? -$c['ConditionTypeOrReference'] : $c['ConditionTypeOrReference']];
@@ -911,40 +1128,376 @@ class Util
         return $json;
     }
 
-    public static function checkOrCreateDirectory($path)
+    public static function createSqlBatchInsert(array $data)
     {
-        // remove multiple slashes
-        $path = preg_replace('|/+|', '/', $path);
+        $nRows  = 100;
+        $nItems = count(reset($data));
+        $result = [];
+        $buff   = [];
 
-        if (!is_dir($path) && !@mkdir($path, self::FILE_ACCESS, true))
-            trigger_error('Could not create directory: '.$path, E_USER_ERROR);
-        else if (!is_writable($path) && !@chmod($path, self::FILE_ACCESS))
-            trigger_error('Cannot write into directory: '.$path, E_USER_ERROR);
-        else
-            return true;
+        if (!count($data))
+            return [];
 
-        return false;
-    }
-
-    private static $realms = [];
-    public static function getRealms()
-    {
-        if (DB::isConnectable(DB_AUTH) && !self::$realms)
+        foreach ($data as $d)
         {
-            self::$realms = DB::Auth()->select('SELECT id AS ARRAY_KEY, name, IF(timezone IN (8, 9, 10, 11, 12), "eu", "us") AS region FROM realmlist WHERE allowedSecurityLevel = 0 AND gamebuild = ?d', WOW_BUILD);
-            foreach (self::$realms as $rId => $rData)
-            {
-                if (DB::isConnectable(DB_CHARACTERS . $rId))
-                    continue;
+            if (count($d) != $nItems)
+                return [];
 
-                unset(self::$realms[$rId]);
-                trigger_error('Realm #'.$rId.' ('.$rData['name'].') has no connection info set.', E_USER_NOTICE);
+            $d = array_map(function ($x) {
+                if ($x === null)
+                    return 'NULL';
+
+                return DB::Aowow()->escape($x);
+            }, $d);
+
+            $buff[] = implode(',', $d);
+
+            if (count($buff) >= $nRows)
+            {
+                $result[] = '('.implode('),(', $buff).')';
+                $buff = [];
             }
         }
 
-        return self::$realms;
+        if ($buff)
+            $result[] = '('.implode('),(', $buff).')';
+
+        return $result;
     }
 
+    /*****************/
+    /* file handling */
+    /*****************/
+
+    public static function writeFile($file, $content)
+    {
+        $success = false;
+        if ($handle = @fOpen($file, "w"))
+        {
+            if (fWrite($handle, $content))
+                $success = true;
+            else
+                trigger_error('could not write to file', E_USER_ERROR);
+
+            fClose($handle);
+        }
+        else
+            trigger_error('could not create file', E_USER_ERROR);
+
+        if ($success)
+            @chmod($file, Util::FILE_ACCESS);
+
+        return $success;
+    }
+
+    public static function writeDir($dir)
+    {
+        // remove multiple slashes
+        $dir = preg_replace('|/+|', '/', $dir);
+
+        if (is_dir($dir))
+        {
+            if (!is_writable($dir) && !@chmod($dir, Util::FILE_ACCESS))
+                trigger_error('cannot write into directory', E_USER_ERROR);
+
+            return is_writable($dir);
+        }
+
+        if (@mkdir($dir, Util::FILE_ACCESS, true))
+            return true;
+
+        trigger_error('could not create directory', E_USER_ERROR);
+        return false;
+    }
+
+
+    /**************/
+    /* Good Skill */
+    /**************/
+
+    public static function getEquipmentScore($itemLevel, $quality, $slot, $nSockets = 0)
+    {
+        $score = $itemLevel;
+
+        // quality mod
+        switch ($quality)
+        {
+            case ITEM_QUALITY_POOR:
+                $score = 0;                                 // guessed as crap
+                break;
+            case ITEM_QUALITY_NORMAL:
+                $score = 0;                                 // guessed as crap
+                break;
+            case ITEM_QUALITY_UNCOMMON:
+                $score /= 2.0;
+                break;
+            case ITEM_QUALITY_RARE:
+                $score /= 1.8;
+                break;
+            case ITEM_QUALITY_EPIC:
+                $score /= 1.2;
+                break;
+            case ITEM_QUALITY_LEGENDARY:
+                $score /= 1;
+                break;
+            case ITEM_QUALITY_HEIRLOOM:                     // actual calculation in javascript .. still uses this as some sort of factor..?
+                break;
+            case ITEM_QUALITY_ARTIFACT:
+                break;
+        }
+
+        switch ($slot)
+        {
+            case INVTYPE_WEAPON:
+            case INVTYPE_WEAPONMAINHAND:
+            case INVTYPE_WEAPONOFFHAND:
+                $score *= 27/64;
+                break;
+            case INVTYPE_SHIELD:
+            case INVTYPE_HOLDABLE:
+                $score *= 9/16;
+                break;
+            case INVTYPE_HEAD:
+            case INVTYPE_CHEST:
+            case INVTYPE_LEGS:
+            case INVTYPE_2HWEAPON:
+                $score *= 1.0;
+                break;
+            case INVTYPE_SHOULDERS:
+            case INVTYPE_HANDS:
+            case INVTYPE_WAIST:
+            case INVTYPE_FEET:
+                $score *= 3/4;
+                break;
+            case INVTYPE_WRISTS:
+            case INVTYPE_NECK:
+            case INVTYPE_CLOAK:
+            case INVTYPE_FINGER:
+            case INVTYPE_TRINKET:
+                $score *= 9/16;
+                break;
+            case INVTYPE_THROWN:
+            case INVTYPE_RANGED:
+            case INVTYPE_RELIC:
+                $score *= 81/256;
+                break;
+            default:
+                $score *= 0.0;
+        }
+
+        // subtract sockets
+        if ($nSockets)
+        {
+            // items by expansion overlap in this range. luckily highlevel raid items are exclusivly epic or better
+            if ($itemLevel > 164 || ($itemLevel > 134 && $quality < ITEM_QUALITY_EPIC))
+                $score -= $nSockets * self::GEM_SCORE_BASE_WOTLK;
+            else
+                $score -= $nSockets * self::GEM_SCORE_BASE_BC;
+        }
+
+        return round(max(0.0, $score), 4);
+    }
+
+    public static function getGemScore($itemLevel, $quality, $profSpec = false, $itemId = 0)
+    {
+        // prepare score-lookup
+        if (empty(self::$perfectGems))
+            self::$perfectGems = DB::World()->selectCol('SELECT perfectItemType FROM skill_perfect_item_template WHERE requiredSpecialization = ?d', 55534);
+
+        // epic - WotLK - increased stats / profession specific (Dragon's Eyes)
+        if ($profSpec)
+            return 32.0;
+        // epic - WotLK - base stats
+        if ($itemLevel == 80 && $quality == ITEM_QUALITY_EPIC)
+            return 20.0;
+        // rare - WotLK [GEM BASELINE!]
+        if ($itemLevel == 80 && $quality == ITEM_QUALITY_RARE)
+            return 16.0;
+        // uncommon - WotLK - inreased stats
+        if ($itemId > 0 && in_array($itemId, self::$perfectGems))
+            return 14.0;
+        // uncommon - WotLK - base stats
+        if ($itemLevel == 70 && $quality == ITEM_QUALITY_UNCOMMON)
+            return 12.0;
+        // epic - BC - vendored (PvP)
+        if ($itemLevel == 60 && $quality == ITEM_QUALITY_EPIC)
+            return 10.0;
+        // epic - BC - dropped / crafted
+        if ($itemLevel == 70 && $quality == ITEM_QUALITY_EPIC)
+            return 9.0;
+        // rare - BC - crafted
+        if ($itemLevel == 70 && $quality == ITEM_QUALITY_RARE)
+            return 8.0;
+        // rare - BC - vendored (pvp)
+        if ($itemLevel == 60 && $quality == ITEM_QUALITY_RARE)
+            return 7.0;
+        // uncommon - BC
+        if ($itemLevel == 60 && $quality == ITEM_QUALITY_UNCOMMON)
+            return 6.0;
+        // common - BC - vendored gems
+        if ($itemLevel == 55 && $quality == ITEM_QUALITY_NORMAL)
+            return 4.0;
+
+        // dafuq..?
+        return 0.0;
+    }
+
+    public static function getEnchantmentScore($itemLevel, $quality, $profSpec = false, $idOverride = 0)
+    {
+        // some hardcoded values, that defy lookups (cheaper but not skillbound profession versions of spell threads, leg armor)
+        if (in_array($idOverride, [3327, 3328, 3872, 3873]))
+            return 20.0;
+
+        if ($profSpec)
+            return 40.0;
+
+        // other than the constraints (0 - 20 points; 40 for profession perks), everything in here is guesswork
+        $score = max(min($itemLevel, 80), 0);
+
+        switch ($quality)
+        {
+            case ITEM_QUALITY_HEIRLOOM:                 // because i say so!
+                $score = 80.0;
+                break;
+            case ITEM_QUALITY_RARE:
+                $score /= 1.2;
+                break;
+            case ITEM_QUALITY_UNCOMMON:
+                $score /= 1.6;
+                break;
+            case ITEM_QUALITY_NORMAL:
+                $score /= 2.5;
+                break;
+        }
+
+        return round(max(0.0, $score / 4), 4);
+    }
+
+    public static function fixWeaponScores($class, $talents, $mainHand, $offHand)
+    {
+        $mh = 1;
+        $oh = 1;
+
+        if ($mainHand) { // Main Hand Equipped
+            if ($offHand) { // Off Hand Equipped
+                if ($mainHand['slotbak'] == 21 || $mainHand['slotbak'] == 13) { // Main Hand, One Hand
+                    if ($offHand['slotbak'] == 22 || $offHand['slotbak'] == 13) { // Off Hand, One Hand
+                        if ($class == 6 || $class == 3 || $class == 4 || // Death Knight, Hunter, Rogue
+                           ($class == 7 && $talents['spent'][1] > 30 && $talents['spec'] == 2) || // Enhancement Shaman Over 39
+                           ($class == 1 && $talents['spent'][1] < 51 && $talents['spec'] == 2)) // Fury Warrior Under 60
+                        {
+                            $mh = 64 / 27;
+                            $oh = 64 / 27;
+                        }
+                    }
+                    else if ($offHand['slotbak'] == 23 || $offHand['slotbak'] == 14) { // Held in Off Hand, Shield
+                        if ($class == 5 || $class == 9 || $class == 8 || // Priest, Warlock, Mage
+                           ($class == 11 && ($talents['spec'] == 1 || $talents['spec'] == 3)) || // Balance Druid, Restoration Druid
+                           ($class == 7 && ($talents['spec'] == 1 || $talents['spec'] == 3)) || // Elemental Shaman, Restoration Shaman
+                           ($class == 2 && ($talents['spec'] == 1 || $talents['spec'] == 2)) || // Holy Paladin, Protection Paladin
+                           ($class == 1 && $talents['spec'] == 3))  // Protection Warrior
+                        {
+                            $mh = 64 / 27;
+                            $oh = 16 / 9;
+                        }
+                    }
+                }
+            }
+            else if ($mainHand['slotbak'] == 17) {  // Two Handed
+                if ($class == 5 || $class == 9 || $class == 8 || // Priest, Warlock, Mage
+                    $class == 11 || $class == 3 || $class == 6 || // Druid, Hunter, Death Knight
+                   ($class == 7 && $talents['spent'][1] < 31 && $talents['spec'] == 2) || // Enhancement Shaman Under 40
+                   ($class == 2 && $talents['spec'] == 3) || // Retribution Paladin
+                   ($class == 1 && $talents['spec'] == 1)) // Arms Warrior
+                {
+                    $mh = 2;
+                    $oh = 0;
+                }
+            }
+        }
+
+        return array(
+            round($mainHand['gearscore'] * $mh),
+            round($offHand['gearscore']  * $oh)
+        );
+    }
+
+    static function createReport($mode, $reason, $subject, $desc, $userAgent = null, $appName = null, $url = null, $relUrl = null, $email = null)
+    {
+        $update = array(
+            'userId'      => User::$id,
+            'createDate'  => time(),
+            'mode'        => $mode,
+            'reason'      => $reason,
+            'subject'     => $subject ?: 0,                 // not set for utility, tools and misc pages
+            'ip'          => User::$ip,
+            'description' => $desc,
+            'userAgent'   => $userAgent ?: $_SERVER['HTTP_USER_AGENT'],
+            'appName'     => $appName ?: (get_browser(null, true)['browser'] ?: '')
+        );
+
+        if ($url)
+            $update['url'] = $url;
+
+        if ($relUrl)
+            $update['relatedurl'] = $relUrl;
+
+        if ($email)
+            $update['email'] = $email;
+
+        return DB::Aowow()->query('INSERT INTO ?_reports (?#) VALUES (?a)', array_keys($update), array_values($update));
+    }
+
+    // orientation is 2*M_PI for a full circle, increasing counterclockwise
+    static function O2Deg($o)
+    {
+        // orientation values can exceed boundaries (for whatever reason)
+        while ($o < 0)
+            $o += 2*M_PI;
+
+        while ($o >= 2*M_PI)
+            $o -= 2*M_PI;
+
+        $deg = 360 * (1 - ($o / (2*M_PI) ) );
+        if ($deg == 360)
+            $deg = 0;
+
+        $dir  = Lang::game('orientation');
+        $desc = '';
+        foreach ($dir as $f => $d)
+        {
+            if (!$f)
+                continue;
+
+            if ( ($deg >= (45 * $f) - 22.5) && ($deg <= (45 * $f) + 22.5) )
+            {
+                $desc = $d;
+                break;
+            }
+        }
+
+        if (!$desc)
+            $desc = $dir[0];
+
+        return [(int)$deg, $desc];
+    }
+
+    static function mask2bits($bitmask, $offset = 0)
+    {
+        $bits = [];
+        $i    = 0;
+        while ($bitmask)
+        {
+            if ($bitmask & (1 << $i))
+            {
+                $bitmask &= ~(1 << $i);
+                $bits[] = ($i + $offset);
+            }
+            $i++;
+        }
+
+        return $bits;
+    }
 }
 
 ?>

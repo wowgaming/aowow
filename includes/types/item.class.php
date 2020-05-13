@@ -77,7 +77,7 @@ class ItemList extends BaseType
     // use if you JUST need the name
     public static function getName($id)
     {
-        $n = DB::Aowow()->selectRow('SELECT name_loc0, name_loc2, name_loc3, name_loc6, name_loc8 FROM ?_items WHERE id = ?d', $id);
+        $n = DB::Aowow()->selectRow('SELECT name_loc0, name_loc2, name_loc3, name_loc4, name_loc6, name_loc8 FROM ?_items WHERE id = ?d', $id);
         return Util::localizedString($n, 'name');
     }
 
@@ -90,67 +90,83 @@ class ItemList extends BaseType
 
         if (empty($this->vendors))
         {
-            $itemz = DB::World()->select('
-                SELECT   nv.item AS ARRAY_KEY1, nv.entry AS ARRAY_KEY2,            0  AS eventId,   nv.maxcount,   nv.extendedCost FROM            npc_vendor   nv                                                                                                  WHERE {nv.entry IN (?a) AND} nv.item IN (?a)
+            $itemz      = [];
+            $xCostData  = [];
+            $rawEntries = DB::World()->select('
+                SELECT   nv.item,       nv.entry,             0  AS eventId,   nv.maxcount,   nv.extendedCost FROM            npc_vendor   nv                                                                                                  WHERE {nv.entry IN (?a) AND} nv.item IN (?a)
                 UNION
-                SELECT genv.item AS ARRAY_KEY1,     c.id AS ARRAY_KEY2, ge.eventEntry AS eventId, genv.maxcount, genv.extendedCost FROM game_event_npc_vendor genv LEFT JOIN game_event ge ON genv.eventEntry = ge.eventEntry JOIN creature c ON c.guid = genv.guid WHERE {c.id IN (?a) AND}   genv.item IN (?a)',
+                SELECT genv.item, c.id AS `entry`, ge.eventEntry AS eventId, genv.maxcount, genv.extendedCost FROM game_event_npc_vendor genv LEFT JOIN game_event ge ON genv.eventEntry = ge.eventEntry JOIN creature c ON c.guid = genv.guid WHERE {c.id IN (?a) AND}   genv.item IN (?a)',
                 empty($filter[TYPE_NPC]) || !is_array($filter[TYPE_NPC]) ? DBSIMPLE_SKIP : $filter[TYPE_NPC],
                 array_keys($this->templates),
                 empty($filter[TYPE_NPC]) || !is_array($filter[TYPE_NPC]) ? DBSIMPLE_SKIP : $filter[TYPE_NPC],
                 array_keys($this->templates)
             );
 
-            $xCosts = [];
-            foreach ($itemz as $i => $vendors)
-                $xCosts = array_merge($xCosts, array_column($vendors, 'extendedCost'));
+            foreach ($rawEntries as $costEntry)
+            {
+                if ($costEntry['extendedCost'])
+                    $xCostData[] = $costEntry['extendedCost'];
 
-            if ($xCosts)
-                $xCosts = DB::Aowow()->select('SELECT *, id AS ARRAY_KEY FROM ?_itemextendedcost WHERE id IN (?a)', $xCosts);
+                if (!isset($itemz[$costEntry['item']][$costEntry['entry']]))
+                    $itemz[$costEntry['item']][$costEntry['entry']] = [$costEntry];
+                else
+                    $itemz[$costEntry['item']][$costEntry['entry']][] = $costEntry;
+            }
+
+            if ($xCostData)
+                $xCostData = DB::Aowow()->select('SELECT *, id AS ARRAY_KEY FROM ?_itemextendedcost WHERE id IN (?a)', $xCostData);
 
             $cItems = [];
             foreach ($itemz as $k => $vendors)
             {
-                foreach ($vendors as $l => $vInfo)
+                foreach ($vendors as $l => $vendor)
                 {
-                    $costs = [];
-                    if (!empty($xCosts[$vInfo['extendedCost']]))
-                        $costs = $xCosts[$vInfo['extendedCost']];
-
-                    $data   = array(
-                        'stock'      => $vInfo['maxcount'] ?: -1,
-                        'event'      => $vInfo['eventId'],
-                        'reqRating'  => $costs ? $costs['reqPersonalRating'] : 0,
-                        'reqBracket' => $costs ? $costs['reqArenaSlot']      : 0
-                    );
-
-                    // hardcode arena(103) & honor(104)
-                    if (!empty($costs['reqArenaPoints']))
+                    foreach ($vendor as $m => $vInfo)
                     {
-                        $data[-103] = $costs['reqArenaPoints'];
-                        $this->jsGlobals[TYPE_CURRENCY][103] = 103;
-                    }
+                        $costs = [];
+                        if (!empty($xCostData[$vInfo['extendedCost']]))
+                            $costs = $xCostData[$vInfo['extendedCost']];
 
-                    if (!empty($costs['reqHonorPoints']))
-                    {
-                        $data[-104] = $costs['reqHonorPoints'];
-                        $this->jsGlobals[TYPE_CURRENCY][104] = 104;
-                    }
+                        $data   = array(
+                            'stock'      => $vInfo['maxcount'] ?: -1,
+                            'event'      => $vInfo['eventId'],
+                            'reqRating'  => $costs ? $costs['reqPersonalRating'] : 0,
+                            'reqBracket' => $costs ? $costs['reqArenaSlot']      : 0
+                        );
 
-                    for ($i = 1; $i < 6; $i++)
-                    {
-                        if (!empty($costs['reqItemId'.$i]) && $costs['itemCount'.$i] > 0)
+                        // hardcode arena(103) & honor(104)
+                        if (!empty($costs['reqArenaPoints']))
                         {
-                            $data[$costs['reqItemId'.$i]] = $costs['itemCount'.$i];
-                            $cItems[] = $costs['reqItemId'.$i];
+                            $data[-103] = $costs['reqArenaPoints'];
+                            $this->jsGlobals[TYPE_CURRENCY][103] = 103;
                         }
+
+                        if (!empty($costs['reqHonorPoints']))
+                        {
+                            $data[-104] = $costs['reqHonorPoints'];
+                            $this->jsGlobals[TYPE_CURRENCY][104] = 104;
+                        }
+
+                        for ($i = 1; $i < 6; $i++)
+                        {
+                            if (!empty($costs['reqItemId'.$i]) && $costs['itemCount'.$i] > 0)
+                            {
+                                $data[$costs['reqItemId'.$i]] = $costs['itemCount'.$i];
+                                $cItems[] = $costs['reqItemId'.$i];
+                            }
+                        }
+
+                        // no extended cost or additional gold required
+                        if (!$costs || $this->getField('flagsExtra') & 0x04)
+                        {
+                            $this->getEntry($k);
+                            if ($_ = $this->getField('buyPrice'))
+                                $data[0] = $_;
+                        }
+
+                        $vendor[$m] = $data;
                     }
-
-                    // no extended cost or additional gold required
-                    if (!$costs || $this->getField('flagsExtra') & 0x04)
-                        if ($_ = $this->getField('buyPrice'))
-                            $data[0] = $_;
-
-                    $vendors[$l] = $data;
+                    $vendors[$l] = $vendor;
                 }
 
                 $itemz[$k] = $vendors;
@@ -164,33 +180,37 @@ class ItemList extends BaseType
                     foreach ($jsData as $k => $v)
                         $this->jsGlobals[$type][$k] = $v;
 
-                foreach ($itemz as $id => $vendors)
+                foreach ($itemz as $itemId => $vendors)
                 {
-                    foreach ($vendors as $l => $costs)
+                    foreach ($vendors as $npcId => $costData)
                     {
-                        foreach ($costs as $k => $v)
+                        foreach ($costData as $itr => $cost)
                         {
-                            if (in_array($k, $cItems))
+                            foreach ($cost as $k => $v)
                             {
-                                $found = false;
-                                foreach ($moneyItems->iterate() as $__)
+                                if (in_array($k, $cItems))
                                 {
-                                    if ($moneyItems->getField('itemId') == $k)
+                                    $found = false;
+                                    foreach ($moneyItems->iterate() as $__)
                                     {
-                                        unset($costs[$k]);
-                                        $costs[-$moneyItems->id] = $v;
-                                        $found = true;
-                                        break;
+                                        if ($moneyItems->getField('itemId') == $k)
+                                        {
+                                            unset($cost[$k]);
+                                            $cost[-$moneyItems->id] = $v;
+                                            $found = true;
+                                            break;
+                                        }
                                     }
-                                }
 
-                                if (!$found)
-                                    $this->jsGlobals[TYPE_ITEM][$k] = $k;
+                                    if (!$found)
+                                        $this->jsGlobals[TYPE_ITEM][$k] = $k;
+                                }
                             }
+                            $costData[$itr] = $cost;
                         }
-                        $vendors[$l] = $costs;
+                        $vendors[$npcId] = $costData;
                     }
-                    $itemz[$id] = $vendors;
+                    $itemz[$itemId] = $vendors;
                 }
             }
 
@@ -206,32 +226,32 @@ class ItemList extends BaseType
         foreach ($result as $itemId => &$data)
         {
             $reqRating = [];
-            foreach ($data as $npcId => $costs)
+            foreach ($data as $npcId => $entries)
             {
-                if ($tok || $cur)                           // bought with specific token or currency
+                foreach ($entries as $costs)
                 {
-                    $valid = false;
-                    foreach ($costs as $k => $qty)
+                    if ($tok || $cur)                           // bought with specific token or currency
                     {
-                        if ((!$tok || $k == $tok) && (!$cur || $k == -$cur))
+                        $valid = false;
+                        foreach ($costs as $k => $qty)
                         {
-                            $valid = true;
-                            break;
+                            if ((!$tok || $k == $tok) && (!$cur || $k == -$cur))
+                            {
+                                $valid = true;
+                                break;
+                            }
                         }
+
+                        if (!$valid)
+                            unset($data[$npcId]);
                     }
 
-                    if (!$valid)
-                        unset($data[$npcId]);
+                    // reqRating ins't really a cost .. so pass it by ref instead of return
+                    // use highest total value
+                    if (isset($data[$npcId]) && $costs['reqRating'] && (!$reqRating || $reqRating[0] < $costs['reqRating']))
+                        $reqRating = [$costs['reqRating'], $costs['reqBracket']];
                 }
-
-                // reqRating ins't really a cost .. so pass it by ref instead of return
-                // use highest total value
-                if (isset($data[$npcId]) && $costs['reqRating'] && (!$reqRating || $reqRating[0] < $costs['reqRating']))
-                    $reqRating = [$costs['reqRating'], $costs['reqBracket']];
             }
-
-            if ($reqRating)
-                $data['reqRating'] = $reqRating[0];
 
             if (empty($data))
                 unset($result[$itemId]);
@@ -259,6 +279,11 @@ class ItemList extends BaseType
         if ($addInfoMask & ITEMINFO_JSON)
             $this->extendJsonStats();
 
+        $extCosts = [];
+        if ($addInfoMask & ITEMINFO_VENDOR)
+            $extCosts = $this->getExtendedCost($miscData);
+
+        $extCostOther = [];
         foreach ($this->iterate() as $__)
         {
             foreach ($this->json[$this->id] as $k => $v)
@@ -293,42 +318,51 @@ class ItemList extends BaseType
             if ($addInfoMask & ITEMINFO_VENDOR)
             {
                 // just use the first results
-                // todo (med): dont use first result; search for the right one
-                if (!empty($this->getExtendedCost($miscData)[$this->id]))
+                // todo (med): dont use first vendor; search for the right one
+                if (!empty($extCosts[$this->id]))
                 {
-                    $cost     = reset($this->getExtendedCost($miscData)[$this->id]);
-                    $currency = [];
-                    $tokens   = [];
-
-                    foreach ($cost as $k => $qty)
+                    $cost = reset($extCosts[$this->id]);
+                    foreach ($cost as $itr => $entries)
                     {
-                        if (is_string($k))
-                            continue;
+                        $currency = [];
+                        $tokens   = [];
+                        $costArr  = [];
 
-                        if ($k > 0)
-                            $tokens[] = [$k, $qty];
-                        else if ($k < 0)
-                            $currency[] = [-$k, $qty];
+                        foreach ($entries as $k => $qty)
+                        {
+                            if (is_string($k))
+                                continue;
+
+                            if ($k > 0)
+                                $tokens[] = [$k, $qty];
+                            else if ($k < 0)
+                                $currency[] = [-$k, $qty];
+                        }
+
+                        $costArr['stock'] = $entries['stock'];// display as column in lv
+                        $costArr['avail'] = $entries['stock'];// display as number on icon
+                        $costArr['cost']  = [empty($entries[0]) ? 0 : $entries[0]];
+
+                        if ($entries['event'])
+                        {
+                            $this->jsGlobals[TYPE_WORLDEVENT][$entries['event']] = $entries['event'];
+                            $costArr['condition'][0][$this->id][] = [[CND_ACTIVE_EVENT, $entries['event']]];
+                        }
+
+                        if ($currency || $tokens)           // fill idx:3 if required
+                            $costArr['cost'][] = $currency;
+
+                        if ($tokens)
+                            $costArr['cost'][] = $tokens;
+
+                        if (!empty($entries['reqRating']))
+                            $costArr['reqarenartng'] = $entries['reqRating'];
+
+                        if ($itr > 0)
+                            $extCostOther[$this->id][] = $costArr;
+                        else
+                            $data[$this->id] = array_merge($data[$this->id], $costArr);
                     }
-
-                    $data[$this->id]['stock'] = $cost['stock']; // display as column in lv
-                    $data[$this->id]['avail'] = $cost['stock']; // display as number on icon
-                    $data[$this->id]['cost']  = [empty($cost[0]) ? 0 : $cost[0]];
-
-                    if ($cost['event'])
-                    {
-                        $this->jsGlobals[TYPE_WORLDEVENT][$cost['event']] = $cost['event'];
-                        $row['condition'][0][$this->id][] = [[CND_ACTIVE_EVENT, $cost['event']]];
-                    }
-
-                    if ($currency || $tokens)               // fill idx:3 if required
-                        $data[$this->id]['cost'][] = $currency;
-
-                    if ($tokens)
-                        $data[$this->id]['cost'][] = $tokens;
-
-                    if (!empty($cost['reqRating']))
-                        $data[$this->id]['reqarenartng'] = $cost['reqRating'];
                 }
 
                 if ($x = $this->curTpl['buyPrice'])
@@ -389,6 +423,10 @@ class ItemList extends BaseType
             if (!empty($this->curTpl['cooldown']))
                 $data[$this->id]['cooldown'] = $this->curTpl['cooldown'] / 1000;
         }
+
+        foreach ($extCostOther as $itemId => $duplicates)
+            foreach ($duplicates as $d)
+                $data[] = array_merge($data[$itemId], $d);  // we dont really use keys on data, but this may cause errors in future
 
         /* even more complicated crap
             modelviewer {type:X, displayid:Y, slot:z} .. not sure, when to set
@@ -640,10 +678,10 @@ class ItemList extends BaseType
             if ($interactive)
                 $spanI = 'class="q2 tip" onmouseover="$WH.Tooltip.showAtCursor(event, $WH.sprintf(LANG.tooltip_armorbonus, '.$this->curTpl['armorDamageModifier'].'), 0, 0, \'q\')" onmousemove="$WH.Tooltip.cursorUpdate(event)" onmouseout="$WH.Tooltip.hide()"';
 
-            $x .= '<span '.$spanI.'><!--addamr'.$this->curTpl['armorDamageModifier'].'--><span>'.Lang::item('armor', [intVal($this->curTpl['armor'] + $this->curTpl['armorDamageModifier'])]).'</span></span><br />';
+            $x .= '<span '.$spanI.'><!--addamr'.$this->curTpl['armorDamageModifier'].'--><span>'.Lang::item('armor', [$this->curTpl['armor']]).'</span></span><br />';
         }
-        else if (($this->curTpl['armor'] + $this->curTpl['armorDamageModifier']) > 0)
-            $x .= '<span><!--amr-->'.Lang::item('armor', [intVal($this->curTpl['armor'] + $this->curTpl['armorDamageModifier'])]).'</span><br />';
+        else if ($this->curTpl['armor'])
+            $x .= '<span><!--amr-->'.Lang::item('armor', [$this->curTpl['armor']]).'</span><br />';
 
         // Block (note: block value from field block and from field stats or parsed from itemSpells are displayed independently)
         if ($this->curTpl['tplBlock'])
@@ -807,7 +845,7 @@ class ItemList extends BaseType
         if ($_ = $this->curTpl['socketBonus'])
         {
             $sbonus = DB::Aowow()->selectRow('SELECT * FROM ?_itemenchantment WHERE Id = ?d', $_);
-            $x .= '<span class="q'.($hasMatch ? '2' : '0').'">'.Lang::item('socketBonus').Lang::main('colon').'<a href="?enchantment='.$_.'">'.Util::localizedString($sbonus, 'name').'</a></span><br />';
+            $x .= '<span class="q'.($hasMatch ? '2' : '0').'">'.Lang::item('socketBonus', ['<a href="?enchantment='.$_.'">'.Util::localizedString($sbonus, 'name').'</a>']).'</span><br />';
         }
 
         // durability
@@ -825,14 +863,13 @@ class ItemList extends BaseType
         }
 
         // required races
-        if ($races = Lang::getRaceString($this->curTpl['requiredRace'], $__, $jsg, $__))
+        if ($races = Lang::getRaceString($this->curTpl['requiredRace'], $jsg, $__))
         {
             foreach ($jsg as $js)
                 if (empty($this->jsGlobals[TYPE_RACE][$js]))
                     $this->jsGlobals[TYPE_RACE][$js] = $js;
 
-            if ($races != Lang::game('ra', 0))              // not "both", but display combinations like: troll, dwarf
-                $x .= Lang::game('races').Lang::main('colon').$races.'<br />';
+            $x .= Lang::game('races').Lang::main('colon').$races.'<br />';
         }
 
         // required honorRank (not used anymore)
@@ -942,12 +979,33 @@ class ItemList extends BaseType
         $pieces  = [];
         if ($setId = $this->getField('itemset'))
         {
-            // while Ids can technically be used multiple times the only difference in data are the items used. So it doesn't matter what we get
-            $itemset = new ItemsetList(array(['id', $setId]));
+            $condition = [
+                ['refSetId', $setId],
+             // ['quality',  $this->curTpl['quality']],
+                ['minLevel', $this->curTpl['itemLevel'], '<='],
+                ['maxLevel', $this->curTpl['itemLevel'], '>=']
+            ];
+
+            $itemset = new ItemsetList($condition);
             if (!$itemset->error && $itemset->pieceToSet)
             {
+                // handle special cases where:
+                // > itemset has items of different qualities (handled by not limiting for this in the initial query)
+                // > itemset is virtual and multiple instances have the same itemLevel but not quality (filter below)
+                if ($itemset->getMatches() > 1)
+                {
+                    foreach ($itemset->iterate() as $id => $__)
+                    {
+                        if ($itemset->getField('quality') == $this->curTpl['quality'])
+                        {
+                            $itemset->pieceToSet = array_filter($itemset->pieceToSet, function($x) use ($id) { return $id == $x; });
+                            break;
+                        }
+                    }
+                }
+
                 $pieces = DB::Aowow()->select('
-                    SELECT b.id AS ARRAY_KEY, b.name_loc0, b.name_loc2, b.name_loc3, b.name_loc6, b.name_loc8, GROUP_CONCAT(a.id SEPARATOR \':\') AS equiv
+                    SELECT b.id AS ARRAY_KEY, b.name_loc0, b.name_loc2, b.name_loc3, b.name_loc4, b.name_loc6, b.name_loc8, GROUP_CONCAT(a.id SEPARATOR \':\') AS equiv
                     FROM   ?_items a, ?_items b
                     WHERE  a.slotBak = b.slotBak AND a.itemset = b.itemset AND b.id IN (?a)
                     GROUP BY b.id;',
@@ -959,7 +1017,7 @@ class ItemList extends BaseType
 
                 $xSet = '<br /><span class="q">'.Lang::item('setName', ['<a href="?itemset='.$itemset->id.'" class="q">'.$itemset->getField('name', true).'</a>', 0, count($pieces)]).'</span>';
 
-                if ($skId = $itemset->getField('skillId'))      // bonus requires skill to activate
+                if ($skId = $itemset->getField('skillId'))  // bonus requires skill to activate
                 {
                     $xSet .= '<br />'.sprintf(Lang::game('requires'), '<a href="?skills='.$skId.'" class="q1">'.SkillList::getName($skId).'</a>');
 
@@ -1110,7 +1168,7 @@ class ItemList extends BaseType
         return $x;
     }
 
-    private function getRandEnchantForItem($randId)
+    public function getRandEnchantForItem($randId)
     {
         // is it available for this item? .. does it even exist?!
         if (empty($this->enhanceR))
@@ -1203,15 +1261,8 @@ class ItemList extends BaseType
             $this->itemMods[$this->id] = [];
 
             foreach (Game::$itemMods as $mod)
-            {
-                if (isset($this->curTpl[$mod]) && ($_ = floatVal($this->curTpl[$mod])))
-                {
-                    if (!isset($this->itemMods[$this->id][$mod]))
-                        $this->itemMods[$this->id][$mod] = 0;
-
-                    $this->itemMods[$this->id][$mod] += $_;
-                }
-            }
+                if ($_ = floatVal($this->curTpl[$mod]))
+                    Util::arraySumByKey($this->itemMods[$this->id], [$mod => $_]);
 
             // fetch and add socketbonusstats
             if (!empty($this->json[$this->id]['socketbonus']))
@@ -1238,14 +1289,14 @@ class ItemList extends BaseType
                     if ($item > 0)                          // apply socketBonus
                         $this->json[$item]['socketbonusstat'] = array_filter($eStats[$eId]);
                     else /* if ($item < 0) */               // apply gemEnchantment
-                        Util::arraySumByKey($this->json[-$item][$mod], array_filter($eStats[$eId]));
+                        Util::arraySumByKey($this->json[-$item], array_filter($eStats[$eId]));
                 }
             }
         }
 
         foreach ($this->json as $item => $json)
             foreach ($json as $k => $v)
-                if (!$v && !in_array($k, ['classs', 'subclass', 'quality', 'side']))
+                if (!$v && !in_array($k, ['classs', 'subclass', 'quality', 'side', 'gearscore']))
                     unset($this->json[$item][$k]);
     }
 
@@ -1554,6 +1605,34 @@ class ItemList extends BaseType
         }
     }
 
+    public function getScoreTotal($class = 0, $spec = [], $mhItem = 0, $ohItem = 0)
+    {
+        if (!$class || !$spec)
+            return array_sum(array_column($this->json, 'gearscore'));
+
+        $score    = 0.0;
+        $mh = $oh = [];
+
+        foreach ($this->json as $j)
+        {
+            if ($j['id'] == $mhItem)
+                $mh = $j;
+            else if ($j['id'] == $ohItem)
+                $oh = $j;
+            else if ($j['gearscore'])
+            {
+                if ($j['slot'] == INVTYPE_RELIC)
+                    $score += 20;
+
+                $score += round($j['gearscore']);
+            }
+        }
+
+        $score += array_sum(Util::fixWeaponScores($class, $spec, $mh, $oh));
+
+        return $score;
+    }
+
     private function initJsonStats()
     {
         $json = array(
@@ -1578,7 +1657,7 @@ class ItemList extends BaseType
             'frores'      => $this->curTpl['resFrost'],
             'shares'      => $this->curTpl['resShadow'],
             'arcres'      => $this->curTpl['resArcane'],
-            'armorbonus'  => $this->curTpl['armorDamageModifier'],
+            'armorbonus'  => max(0, intVal($this->curTpl['armorDamageModifier'])),
             'armor'       => $this->curTpl['armor'],
             'dura'        => $this->curTpl['durability'],
             'itemset'     => $this->curTpl['itemset'],
@@ -1619,12 +1698,14 @@ class ItemList extends BaseType
                 $json['feratkpwr'] = $fap;
         }
 
-        if ($this->curTpl['armorDamageModifier'] > 0)
-            $json['armor'] += $this->curTpl['armorDamageModifier'];
+        if ($this->curTpl['class'] == ITEM_CLASS_ARMOR || $this->curTpl['class'] == ITEM_CLASS_WEAPON)
+            $json['gearscore'] = Util::getEquipmentScore($json['level'], $this->getField('quality'), $json['slot'], $json['nsockets']);
+        else if ($this->curTpl['class'] == ITEM_CLASS_GEM)
+            $json['gearscore'] = Util::getGemScore($json['level'], $this->getField('quality'), $this->getField('requiredSkill') == 755, $this->id);
 
         // clear zero-values afterwards
         foreach ($json as $k => $v)
-            if (!$v && !in_array($k, ['classs', 'subclass', 'quality', 'side']))
+            if (!$v && !in_array($k, ['classs', 'subclass', 'quality', 'side', 'gearscore']))
                 unset($json[$k]);
 
         Util::checkNumeric($json);
@@ -1752,7 +1833,7 @@ class ItemListFilter extends Filter
          38 => [FILTER_CR_NUMERIC,   'is.rgdatkpwr',           NUM_CAST_INT,            true          ], // rgdatkpwr
          39 => [FILTER_CR_NUMERIC,   'is.rgdhitrtng',          NUM_CAST_INT,            true          ], // rgdhitrtng
          40 => [FILTER_CR_NUMERIC,   'is.rgdcritstrkrtng',     NUM_CAST_INT,            true          ], // rgdcritstrkrtng
-         41 => [FILTER_CR_NUMERIC,   'is.armor'   ,            NUM_CAST_INT,            true          ], // armor
+         41 => [FILTER_CR_NUMERIC,   'is.armor',               NUM_CAST_INT,            true          ], // armor
          42 => [FILTER_CR_NUMERIC,   'is.defrtng',             NUM_CAST_INT,            true          ], // defrtng
          43 => [FILTER_CR_NUMERIC,   'is.block',               NUM_CAST_INT,            true          ], // block
          44 => [FILTER_CR_NUMERIC,   'is.blockrtng',           NUM_CAST_INT,            true          ], // blockrtng
@@ -1811,7 +1892,7 @@ class ItemListFilter extends Filter
         101 => [FILTER_CR_NUMERIC,   'is.rgdhastertng',        NUM_CAST_INT,            true          ], // rgdhastertng
         102 => [FILTER_CR_NUMERIC,   'is.splhastertng',        NUM_CAST_INT,            true          ], // splhastertng
         103 => [FILTER_CR_NUMERIC,   'is.hastertng',           NUM_CAST_INT,            true          ], // hastertng
-        104 => [FILTER_CR_STRING,    'description',            true                                   ], // flavortext
+        104 => [FILTER_CR_STRING,    'description',            STR_LOCALIZED                          ], // flavortext
         105 => [FILTER_CR_NYI_PH,    null,                     1,                                     ], // dropsinnormal [heroicdungeon-any]
         106 => [FILTER_CR_NYI_PH,    null,                     1,                                     ], // dropsinheroic [heroicdungeon-any]
         107 => [FILTER_CR_NYI_PH,    null,                     1,                                     ], // effecttext [str]                 not yet parsed              ['effectsParsed_loc'.User::$localeId, $cr[2]]
@@ -1881,10 +1962,10 @@ class ItemListFilter extends Filter
         'gm'    => [FILTER_V_LIST,     [2, 3, 4],                                       false], // gem rarity for weight calculation
         'cr'    => [FILTER_V_RANGE,    [1, 177],                                        true ], // criteria ids
         'crs'   => [FILTER_V_LIST,     [FILTER_ENUM_NONE, FILTER_ENUM_ANY, [0, 99999]], true ], // criteria operators
-        'crv'   => [FILTER_V_REGEX,    '/[\p{C};:]/ui',                                 true ], // criteria values - only printable chars, no delimiters
+        'crv'   => [FILTER_V_REGEX,    '/[\p{C};:%\\\\]/ui',                            true ], // criteria values - only printable chars, no delimiters
         'upg'   => [FILTER_V_RANGE,    [1, 999999],                                     true ], // upgrade item ids
         'gb'    => [FILTER_V_LIST,     [0, 1, 2, 3],                                    false], // search result grouping
-        'na'    => [FILTER_V_REGEX,    '/[\p{C};]/ui',                                  false], // name - only printable chars, no delimiter
+        'na'    => [FILTER_V_REGEX,    '/[\p{C};%\\\\]/ui',                             false], // name - only printable chars, no delimiter
         'ma'    => [FILTER_V_EQUAL,    1,                                               false], // match any / all filter
         'ub'    => [FILTER_V_LIST,     [[1, 9], 11],                                    false], // usable by classId
         'qu'    => [FILTER_V_RANGE,    [0, 7],                                          true ], // quality ids
@@ -2215,7 +2296,7 @@ class ItemListFilter extends Filter
     protected function cbArmorBonus($cr)
     {
         if (!Util::checkNumeric($cr[2], NUM_CAST_FLOAT) || !$this->int2Op($cr[1]))
-                return false;
+            return false;
 
         $this->formData['extraCols'][] = $cr[0];
         return ['AND', ['armordamagemodifier', $cr[2], $cr[1]], ['class', ITEM_CLASS_ARMOR]];
@@ -2278,11 +2359,11 @@ class ItemListFilter extends Filter
         if (!Util::checkNumeric($cr[2], NUM_CAST_INT) || !$this->int2Op($cr[1]))
             return false;
 
-        foreach (Util::getRealms() as $rId => $__)
+        foreach (Profiler::getRealms() as $rId => $__)
         {
             // todo: do something sensible..
             // // todo (med): get the avgbuyout into the listview
-            // if ($_ = DB::Characters()->select('SELECT ii.itemEntry AS ARRAY_KEY, AVG(ah.buyoutprice / ii.count) AS buyout FROM auctionhouse ah JOIN item_instance ii ON ah.itemguid = ii.guid GROUP BY ii.itemEntry HAVING avgbuyout '.$cr[1].' ?f', $c[1]))
+            // if ($_ = DB::Characters()->select('SELECT ii.itemEntry AS ARRAY_KEY, AVG(ah.buyoutprice / ii.count) AS buyout FROM auctionhouse ah JOIN item_instance ii ON ah.itemguid = ii.guid GROUP BY ii.itemEntry HAVING buyout '.$cr[1].' ?f', $c[1]))
                 // return ['i.id', array_keys($_)];
             // else
                 // return [0];
@@ -2529,7 +2610,7 @@ class ItemListFilter extends Filter
             return in_array($v, $sl);
 
         // consumables - any; perm / temp item enhancements
-        else if ($c[0] == 0 && (!isset($c[1]) || in_array($c[1], [3, -6])))
+        else if ($c[0] == 0 && (!isset($c[1]) || in_array($c[1], [-3, 6])))
             return in_array($v, $sl);
 
         // weapons - always

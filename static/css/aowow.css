@@ -948,6 +948,14 @@ a.dialog-right {
 #statweight-help div { position: absolute; right: -9px; top: -33px; }
 #fi_weight { margin-top: 10px; padding-top: 12px; border-top: 1px solid #484848; }
 
+span.iconsmall,
+span.iconmedium,
+span.iconlarge,
+span.iconblizzard {
+    display: inline-block;
+    vertical-align: middle;
+}
+
 .iconsmall,
 .iconmedium,
 .iconlarge,
@@ -2534,36 +2542,9 @@ div.modelviewer-screen {
     margin: 0 auto;
 }
 
-div.modelviewer-quality {
-    margin: 10px 10px 5px 0;
-    line-height: 22px;
-    height: 22px;
-    display: block;
-    float: left;
-}
-
-div.modelviewer-quality var {
-    float: left;
-    height: 22px;
-    display: block;
-    color: #a0a0a0;
-    text-transform: uppercase;
-    text-decoration: none;
-    font-size: 15px;
-    font-style: normal;
-    margin-right: 10px;
-    font-family: Tahoma, sans-serif;
-}
-
-div.modelviewer-quality span {
-    float: left;
-    display: block;
-    line-height: 22px;
-}
-
 div.modelviewer-model {
-/*  clear: left;
-    padding: 5px 0 10px 0; */
+    clear: left;
+    padding: 5px 0 10px 0;
     padding: 10px 0;
 }
 
@@ -2586,13 +2567,16 @@ a.modelviewer-help {
     display: block;
     padding: 10px 0 10px 10px;
     margin-right: 10px;
+    margin-top:5px;
 }
 
 a.modelviewer-close {
     float: right;
     display: block;
     padding: 10px 0 10px 10px;
-}
+    clear:right;
+    margin-top:5px;
+ }
 
 /**********/
 /* LAYOUT */
@@ -4343,4 +4327,22 @@ input.button-copy {
 
 input.button-copy:hover {
     background-color: #444;
+}
+
+/* favicon fa-replacement custom */
+.fav-star {
+    cursor:pointer;
+    display: inline-block;
+    width: 22px;
+    height: 20px;
+    background: url(../images/icons/fav-star.png) 0px center no-repeat;
+    margin-left:10px;
+}
+
+.fav-star-0:hover {
+    background-position: -32px center;
+}
+
+.fav-star-1 {
+    background-position: -65px center;
 }

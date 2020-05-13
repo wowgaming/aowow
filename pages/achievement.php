@@ -23,7 +23,7 @@ if (!defined('AOWOW_REVISION'))
 //  tabId 0: Database    g_initHeader()
 class AchievementPage extends GenericPage
 {
-    use DetailPage;
+    use TrDetailPage;
 
     protected $type          = TYPE_ACHIEVEMENT;
     protected $typeId        = 0;
@@ -99,11 +99,18 @@ class AchievementPage extends GenericPage
                 $infobox[] = Lang::main('side').Lang::main('colon').Lang::game('si', SIDE_BOTH);
         }
 
+        // icon
+        if ($_ = $this->subject->getField('iconId'))
+        {
+            $infobox[] = Util::ucFirst(lang::game('icon')).Lang::main('colon').'[icondb='.$_.' name=true]';
+            $this->extendGlobalIds(TYPE_ICON, $_);
+        }
+
         // realm first available?
         if ($this->subject->getField('flags') & 0x100 && DB::isConnectable(DB_AUTH))
         {
             $avlb = [];
-            foreach (Util::getRealms() AS $rId => $rData)
+            foreach (Profiler::getRealms() AS $rId => $rData)
                 if (!DB::Characters($rId)->selectCell('SELECT 1 FROM character_achievement WHERE achievement = ?d LIMIT 1', $this->typeId))
                     $avlb[] = Util::ucWords($rData['name']);
 
@@ -259,9 +266,13 @@ class AchievementPage extends GenericPage
         $scripts  = [];
 
         // serverside extra-Data
-        $crtIds = array_column($this->subject->getCriteria(), 'id');
-        Util::checkNumeric($crtIds);
-        $crtExtraData = DB::World()->select('SELECT criteria_id AS ARRAY_KEY, type AS ARRAY_KEY2, value1, value2, ScriptName FROM achievement_criteria_data WHERE criteria_id IN (?a)', $crtIds);
+        if ($crtIds = array_column($this->subject->getCriteria(), 'id'))
+        {
+            Util::checkNumeric($crtIds);
+            $crtExtraData = DB::World()->select('SELECT criteria_id AS ARRAY_KEY, type AS ARRAY_KEY2, value1, value2, ScriptName FROM achievement_criteria_data WHERE criteria_id IN (?a)', $crtIds);
+        }
+        else
+            $crtExtraData = [];
 
         foreach ($this->subject->getCriteria() as $i => $crt)
         {
@@ -561,31 +572,35 @@ class AchievementPage extends GenericPage
 
         if ($_ = $this->subject->getField('mailTemplate'))
         {
-            $letter = DB::Aowow()->selectRow('SELECT * FROM ?_mailtemplate WHERE id = ?d', $_);
+            $letter = DB::Aowow()->selectRow('SELECT * FROM ?_mails WHERE id = ?d', $_);
             if (!$letter)
                 return [];
 
             $reqCss = true;
             $mail   = array(
-                'delay'   => null,
-                'sender'  => null,
-                'subject' => Util::parseHtmlText(Util::localizedString($letter, 'subject', true)),
-                'text'    => Util::parseHtmlText(Util::localizedString($letter, 'text', true))
+                'id'          => $_,
+                'delay'       => null,
+                'sender'      => null,
+                'attachments' => [],
+                'subject'     => Util::parseHtmlText(Util::localizedString($letter, 'subject', true)),
+                'text'        => Util::parseHtmlText(Util::localizedString($letter, 'text', true))
             );
         }
         else if ($_ = Util::parseHtmlText($this->subject->getField('text', true, true)))
         {
             $reqCss = true;
             $mail   = array(
-                'delay'   => null,
-                'sender'  => null,
-                'subject' => Util::parseHtmlText($this->subject->getField('subject', true, true)),
-                'text'    => $_
+                'id'          => -$this->typeId,
+                'delay'       => null,
+                'sender'      => null,
+                'attachments' => [],
+                'subject'     => Util::parseHtmlText($this->subject->getField('subject', true, true)),
+                'text'        => $_
             );
         }
 
         if ($_ = CreatureList::getName($this->subject->getField('sender')))
-            $mail['sender'] = sprintf(Lang::quest('mailBy'), $this->subject->getField('sender'), $_);
+            $mail['sender'] = sprintf(Lang::mail('mailBy'), $this->subject->getField('sender'), $_);
 
         return $mail;
     }

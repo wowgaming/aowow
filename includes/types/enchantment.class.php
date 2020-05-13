@@ -73,7 +73,7 @@ class EnchantmentList extends BaseType
     // use if you JUST need the name
     public static function getName($id)
     {
-        $n = DB::Aowow()->SelectRow('SELECT name_loc0, name_loc2, name_loc3, name_loc6, name_loc8 FROM ?_itemenchantment WHERE id = ?d', $id );
+        $n = DB::Aowow()->SelectRow('SELECT name_loc0, name_loc2, name_loc3, name_loc4, name_loc6, name_loc8 FROM ?_itemenchantment WHERE id = ?d', $id );
         return Util::localizedString($n, 'name');
     }
     // end static use
@@ -307,12 +307,12 @@ class EnchantmentListFilter extends Filter
 
     // fieldId => [checkType, checkValue[, fieldIsArray]]
     protected $inputFields = array(
-        'cr'    => [FILTER_V_RANGE,    [2, 123],       true ], // criteria ids
-        'crs'   => [FILTER_V_RANGE,    [1, 15],        true ], // criteria operators
-        'crv'   => [FILTER_V_RANGE,    [0, 99999],     true ], // criteria values - only numerals
-        'na'    => [FILTER_V_REGEX,    '/[\p{C};]/ui', false], // name - only printable chars, no delimiter
-        'ma'    => [FILTER_V_EQUAL,    1,              false], // match any / all filter
-        'ty'    => [FILTER_V_RANGE,    [1, 8],         true ]  // types
+        'cr'    => [FILTER_V_RANGE,    [2, 123],            true ], // criteria ids
+        'crs'   => [FILTER_V_RANGE,    [1, 15],             true ], // criteria operators
+        'crv'   => [FILTER_V_RANGE,    [0, 99999],          true ], // criteria values - only numerals
+        'na'    => [FILTER_V_REGEX,    '/[\p{C};%\\\\]/ui', false], // name - only printable chars, no delimiter
+        'ma'    => [FILTER_V_EQUAL,    1,                   false], // match any / all filter
+        'ty'    => [FILTER_V_RANGE,    [1, 8],              true ]  // types
     );
 
     protected function createSQLForCriterium(&$cr)
@@ -338,13 +338,7 @@ class EnchantmentListFilter extends Filter
 
         // type
         if (isset($_v['ty']))
-        {
-            $_ = (array)$_v['ty'];
-            if (!array_diff($_, [1, 2, 3, 4, 5, 6, 7, 8]))
-                $parts[] = ['OR', ['type1', $_], ['type2', $_], ['type3', $_]];
-            else
-                unset($_v['ty']);
-        }
+            $parts[] = ['OR', ['type1', $_v['ty']], ['type2', $_v['ty']], ['type3', $_v['ty']]];
 
         return $parts;
     }

@@ -8,7 +8,7 @@ if (!defined('AOWOW_REVISION'))
 //  tabId  0: Database g_initHeader()
 class SoundPage extends GenericPage
 {
-    use DetailPage;
+    use TrDetailPage;
 
     protected $type          = TYPE_SOUND;
     protected $tpl           = 'sound';
@@ -31,6 +31,7 @@ class SoundPage extends GenericPage
             $this->cat           = 1000;
             $this->articleUrl    = 'sound&playlist';
             $this->hasComContent = false;
+            $this->mode          = CACHE_TYPE_NONE;
         }
         // regular case
         else
@@ -87,7 +88,7 @@ class SoundPage extends GenericPage
         }
 
         // get full path ingame for sound (workaround for missing PlaySoundKit())
-        $fullpath = DB::Aowow()->selectCell('SELECT IF(sf.`path`, CONCAT(sf.`path`, "\\\\", sf.`file`), sf.`file`) FROM ?_sounds_files sf JOIN ?_sounds s ON s.soundFile1 = sf.id WHERE s.id = ?d', $this->typeId);
+        $fullpath = DB::Aowow()->selectCell('SELECT IF(sf.`path` <> "", CONCAT(sf.`path`, "\\\\", sf.`file`), sf.`file`) FROM ?_sounds_files sf JOIN ?_sounds s ON s.soundFile1 = sf.id WHERE s.id = ?d', $this->typeId);
 
         $this->map          = $map;
         $this->headIcons  = [$this->subject->getField('iconString')];
@@ -286,7 +287,7 @@ class SoundPage extends GenericPage
         $ssActionLists = DB::World()->selectCol('SELECT entryorguid FROM smart_scripts WHERE action_type = 4 AND action_param1 = ?d AND source_type = 9', $this->typeId);
         $smartScripts  = DB::World()->selectCol($ssQuery, $this->typeId, $ssActionLists ?: DBSIMPLE_SKIP, $ssActionLists, $ssActionLists, $ssActionLists, $ssActionLists, $ssActionLists, $ssActionLists, $ssActionLists, $ssActionLists);
 
-        $creatureIds = DB::World()->selectCol('SELECT ct.CreatureID FROM creature_text ct LEFT JOIN broadcast_text bct ON bct.ID = ct.BroadCastTextId WHERE bct.SoundId = ?d OR ct.Sound = ?d', $this->typeId, $this->typeId);
+        $creatureIds = DB::World()->selectCol('SELECT ct.CreatureID FROM creature_text ct LEFT JOIN broadcast_text bct ON bct.ID = ct.BroadCastTextId WHERE bct.SoundEntriesID = ?d OR ct.Sound = ?d', $this->typeId, $this->typeId);
         foreach ($smartScripts as $source => $ids)
         {
             switch($source)

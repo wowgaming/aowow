@@ -35,6 +35,9 @@ class AjaxFilter extends AjaxHandler
             case 'achievements':
                 $this->filter = (new AchievementListFilter(true, $opts));
                 break;
+            case 'areatriggers':
+                $this->filter = (new AreaTriggerListFilter(true, $opts));
+                break;
             case 'enchantments':
                 $this->filter = (new EnchantmentListFilter(true, $opts));
                 break;
@@ -62,6 +65,15 @@ class AjaxFilter extends AjaxHandler
             case 'spells':
                 $this->filter = (new SpellListFilter(true, $opts));
                 break;
+            case 'profiles':
+                $this->filter = (new ProfileListFilter(true, $opts));
+                break;
+            case 'guilds':
+                $this->filter = (new GuildListFilter(true, $opts));
+                break;
+            case 'arena-teams':
+                $this->filter = (new ArenaTeamListFilter(true, $opts));
+                break;
             default:
                 return;
         }
@@ -72,9 +84,11 @@ class AjaxFilter extends AjaxHandler
         $this->handler = 'handleFilter';
     }
 
-    protected function handleFilter()
+    protected function handleFilter() : string
     {
         $url = '?'.$this->page;
+
+        $this->filter->mergeCat($this->cat);
 
         if ($this->cat)
             $url .= '='.implode('.', $this->cat);
@@ -92,5 +106,6 @@ class AjaxFilter extends AjaxHandler
         // do get request
         return $url;
     }
-
 }
+
+?>

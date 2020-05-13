@@ -4,7 +4,7 @@ if (!defined('AOWOW_REVISION'))
     die('illegal access');
 
 
-trait DetailPage
+trait TrDetailPage
 {
     protected $hasComContent = true;
     protected $category      = null;                        // not used on detail pages
@@ -32,7 +32,6 @@ trait DetailPage
         return implode('_', $key);
     }
 
-
     protected function applyCCErrors()
     {
         if (!empty($_SESSION['error']['co']))
@@ -49,7 +48,7 @@ trait DetailPage
 }
 
 
-trait ListPage
+trait TrListPage
 {
     protected $category  = null;
     protected $filter    = [];
@@ -74,6 +73,96 @@ trait ListPage
     }
 }
 
+trait TrProfiler
+{
+    protected $region      = '';
+    protected $realm       = '';
+    protected $realmId     = 0;
+    protected $battlegroup = '';                            // not implemented, since no pserver supports it
+    protected $subjectName = '';
+    protected $subjectGUID = 0;
+    protected $sumSubjects = 0;
+
+    protected $doResync    = null;
+
+    protected function generateCacheKey($withStaff = true)
+    {
+        $staff = intVal($withStaff && User::isInGroup(U_GROUP_EMPLOYEE));
+
+        //     mode,         type,        typeId,                         employee-flag, localeId,        category, filter
+        $key = [$this->mode, $this->type, $this->subject->getField('id'), $staff,        User::$localeId, '-1',     '-1'];
+
+        return implode('_', $key);
+    }
+
+    protected function getSubjectFromUrl($str)
+    {
+        if (!$str)
+            return;
+
+        // cat[0] is always region
+        // cat[1] is realm or bGroup (must be realm if cat[2] is set)
+        // cat[2] is arena-team, guild or player
+        $cat = explode('.', $str, 3);
+
+        $cat = array_map('urldecode', $cat);
+
+        if ($cat[0] !== 'eu' && $cat[0] !== 'us')
+            return;
+
+        $this->region = $cat[0];
+
+        // if ($cat[1] == Profiler::urlize(CFG_BATTLEGROUP))
+            // $this->battlegroup = CFG_BATTLEGROUP;
+        if (isset($cat[1]))
+        {
+            foreach (Profiler::getRealms() as $rId => $r)
+            {
+                if (Profiler::urlize($r['name']) == $cat[1])
+                {
+                    $this->realm   = $r['name'];
+                    $this->realmId = $rId;
+                    if (isset($cat[2]) && mb_strlen($cat[2]) >= 2)
+                        $this->subjectName = $cat[2];       // cannot reconstruct original name from urlized form; match against special name field
+
+                    break;
+                }
+            }
+        }
+    }
+
+    protected function initialSync()
+    {
+        $this->prepareContent();
+
+        $this->hasComContent = false;
+        $this->notFound      = array(
+            'title' => sprintf(Lang::profiler('firstUseTitle'), $this->subjectName, $this->realm),
+            'msg'   => ''
+        );
+
+        if (isset($this->tabId))
+            $this->pageTemplate['activeTab'] = $this->tabId;
+
+        $this->sumSQLStats();
+
+        $this->display('text-page-generic');
+        exit();
+    }
+
+    protected function generatePath()
+    {
+        if ($this->region)
+        {
+            $this->path[] = $this->region;
+
+            if ($this->realm)
+                $this->path[] = Profiler::urlize($this->realm);
+            // else
+                // $this->path[] = Profiler::urlize(CFG_BATTLEGROUP);
+        }
+    }
+}
 
 class GenericPage
 {
@@ -110,6 +199,7 @@ class GenericPage
 
     private   $lvTemplates  = array(
         'achievement'       => ['template' => 'achievement',       'id' => 'achievements',    'parent' => 'lv-generic', 'data' => [], 'name' => '$LANG.tab_achievements'  ],
+        'areatrigger'       => ['template' => 'areatrigger',       'id' => 'areatrigger',     'parent' => 'lv-generic', 'data' => [],                                     ],
         'calendar'          => ['template' => 'holidaycal',        'id' => 'calendar',        'parent' => 'lv-generic', 'data' => [], 'name' => '$LANG.tab_calendar'      ],
         'class'             => ['template' => 'classs',            'id' => 'classes',         'parent' => 'lv-generic', 'data' => [], 'name' => '$LANG.tab_classes'       ],
         'commentpreview'    => ['template' => 'commentpreview',    'id' => 'comments',        'parent' => 'lv-generic', 'data' => [], 'name' => '$LANG.tab_comments'      ],
@@ -123,6 +213,7 @@ class GenericPage
         'icongallery'       => ['template' => 'icongallery',       'id' => 'icons',           'parent' => 'lv-generic', 'data' => []                                      ],
         'item'              => ['template' => 'item',              'id' => 'items',           'parent' => 'lv-generic', 'data' => [], 'name' => '$LANG.tab_items'         ],
         'itemset'           => ['template' => 'itemset',           'id' => 'itemsets',        'parent' => 'lv-generic', 'data' => [], 'name' => '$LANG.tab_itemsets'      ],
+        'mail'              => ['template' => 'mail',              'id' => 'mails',           'parent' => 'lv-generic', 'data' => []                                      ],
         'model'             => ['template' => 'model',             'id' => 'gallery',         'parent' => 'lv-generic', 'data' => [], 'name' => '$LANG.tab_gallery'       ],
         'object'            => ['template' => 'object',            'id' => 'objects',         'parent' => 'lv-generic', 'data' => [], 'name' => '$LANG.tab_objects'       ],
         'pet'               => ['template' => 'pet',               'id' => 'hunter-pets',     'parent' => 'lv-generic', 'data' => [], 'name' => '$LANG.tab_pets'          ],
@@ -149,7 +240,7 @@ class GenericPage
         if ($pageParam)
             $this->fullParams .= '='.$pageParam;
 
-        if (CFG_CACHE_DIR && Util::checkOrCreateDirectory(CFG_CACHE_DIR))
+        if (CFG_CACHE_DIR && Util::writeDir(CFG_CACHE_DIR))
             $this->cacheDir = mb_substr(CFG_CACHE_DIR, -1) != '/' ? CFG_CACHE_DIR.'/' : CFG_CACHE_DIR;
 
         // force page refresh
@@ -174,7 +265,8 @@ class GenericPage
             if ($ahl = DB::Aowow()->selectCell('SELECT altHeaderLogo FROM ?_home_featuredbox WHERE ?d BETWEEN startDate AND endDate ORDER BY id DESC', time()))
                 $this->headerLogo = Util::defStatic($ahl);
 
-            $this->gUser   = User::getUserGlobals();
+            $this->gUser      = User::getUserGlobals();
+            $this->gFavorites = User::getFavorites();
             $this->pageTemplate['pageName'] = strtolower($pageCall);
 
             if (!$this->isValidPage())
@@ -253,7 +345,7 @@ class GenericPage
     /* Prepare Page */
     /****************/
 
-    private function prepareContent()                       // get from cache ?: run generators
+    protected function prepareContent()                     // get from cache ?: run generators
     {
         if (!$this->loadCache())
         {
@@ -294,7 +386,7 @@ class GenericPage
             $this->postCache();
 
         // determine contribute tabs
-        if (isset($this->subject))
+        if (isset($this->subject) && !isset($this->contribute))
         {
             $x = get_class($this->subject);
             $this->contribute = $x::$contribute;
@@ -302,13 +394,14 @@ class GenericPage
 
         if (!empty($this->hasComContent))                   // get comments, screenshots, videos
         {
+            $jsGlobals = [];
             $this->community = CommunityContent::getAll($this->type, $this->typeId, $jsGlobals);
             $this->extendGlobalData($jsGlobals);            // as comments are not cached, those globals cant be either
             $this->applyGlobals();
         }
 
         $this->time = microtime(true) - $this->time;
-        Util::arraySumByKey($this->mysql, DB::Aowow()->getStatistics(), DB::World()->getStatistics());
+        $this->sumSQLStats();
     }
 
     public function addJS($name, $unshift = false)
@@ -415,8 +508,8 @@ class GenericPage
                 'mode'   => 1,
                 'status' => 1,
                 'name'   => 'internal error',
-                'style'  => 'padding-left: 40px; background-image: url('.STATIC_URL.'/images/announcements/warn-small.png); background-size: 15px 15px; background-position: 12px center; border: dashed 2px #C03030;',
-                'text'   => '[span id=inputbox-error]'.implode("[br]", $_).'[/span]',
+                'style'  => 'color: #ff3333; font-weight: bold; font-size: 14px; padding-left: 40px; background-image: url('.STATIC_URL.'/images/announcements/warn-small.png); background-size: 15px 15px; background-position: 12px center; border: dashed 2px #C03030;',
+                'text'   => '[span]'.implode("[br]", $_).'[/span]'
             );
         }
 
@@ -464,6 +557,11 @@ class GenericPage
         header('Location: ?account=signin'.$next, true, 302);
     }
 
+    protected function sumSQLStats()
+    {
+        Util::arraySumByKey($this->mysql, DB::Aowow()->getStatistics(), DB::World()->getStatistics());
+    }
+
     /*******************/
     /* Special Display */
     /*******************/
@@ -472,17 +570,19 @@ class GenericPage
     {
         array_unshift($this->title, Lang::main('nfPageTitle'));
 
+        $this->hasComContent = false;
         $this->notFound      = array(
             'title' =>          isset($this->typeId) ? Util::ucFirst($title).' #'.$this->typeId    : $title,
             'msg'   => !$msg && isset($this->typeId) ? sprintf(Lang::main('pageNotFound'), $title) : $msg
         );
-        $this->hasComContent = false;
-        Util::arraySumByKey($this->mysql, DB::Aowow()->getStatistics(), DB::World()->getStatistics());
 
         if (isset($this->tabId))
             $this->pageTemplate['activeTab'] = $this->tabId;
 
-        header("HTTP/1.0 404 Not Found", true, 404);
+        $this->sumSQLStats();
+
+        header('HTTP/1.0 404 Not Found', true, 404);
+
         $this->display('list-page-generic');
         exit();
     }
@@ -498,15 +598,19 @@ class GenericPage
 
         $this->addArticle();
 
-        Util::arraySumByKey($this->mysql, DB::Aowow()->getStatistics(), DB::World()->getStatistics());
+        $this->sumSQLStats();
 
-        header("HTTP/1.0 404 Not Found", true, 404);
+        header('HTTP/1.0 404 Not Found', true, 404);
+
         $this->display('list-page-generic');
         exit();
     }
 
     public function maintenance()                           // display brb gnomes
     {
+        header('HTTP/1.0 503 Service Temporarily Unavailable', true, 503);
+        header('Retry-After: '.(3 * HOUR));
+
         $this->display('maintenance');
         exit();
     }
@@ -562,8 +666,8 @@ class GenericPage
             {
                 foreach ($data as $k => $v)
                 {
-                    // localizes expected fields
-                    if (in_array($k, ['name', 'namefemale']))
+                    // localizes expected fields .. except for icons .. icons are special
+                    if (in_array($k, ['name', 'namefemale']) && $struct[0]  != 'g_icons')
                     {
                         $data[$k.'_'.User::$localeString] = $v;
                         unset($data[$k]);
@@ -651,6 +755,9 @@ class GenericPage
 
     public function extendGlobalData($data, $extra = null)  // add jsGlobals or typeIds (can be mixed in one array: TYPE => [mixeddata]) to display on the page
     {
+        if ($data === null)
+            throw new ErrorException('ffffuuuu.....!');
+
         foreach ($data as $type => $globals)
         {
             if (!is_array($globals) || !$globals)
@@ -742,11 +849,12 @@ class GenericPage
                 case TYPE_SKILL:       $obj = new SkillList($cnd);       break;
                 case TYPE_CURRENCY:    $obj = new CurrencyList($cnd);    break;
                 case TYPE_SOUND:       $obj = new SoundList($cnd);       break;
+                case TYPE_ICON:        $obj = new IconList($cnd);        break;
                 // "um, eh":, he ums and ehs.
                 case TYPE_USER:        $obj = new UserList($cnd);        break;
                 case TYPE_EMOTE:       $obj = new EmoteList($cnd);       break;
                 case TYPE_ENCHANTMENT: $obj = new EnchantmentList($cnd); break;
-                default: continue;
+                default: continue 2;
             }
 
             $this->extendGlobalData($obj->getJSGlobals(GLOBALINFO_SELF));
@@ -859,7 +967,7 @@ class GenericPage
                 $type = $cache['isString'];
                 $data = $cache['data'];
 
-                if ($cache['timestamp'] + CFG_CACHE_DECAY <= time() || $cache['revision'] < AOWOW_REVISION)
+                if ($cache['timestamp'] + CFG_CACHE_DECAY <= time() || $cache['revision'] != AOWOW_REVISION)
                     $cache = null;
                 else
                     $this->cacheLoaded = [CACHE_MODE_MEMCACHED, $cache['timestamp']];
@@ -880,9 +988,9 @@ class GenericPage
             if (substr_count($cache[0], ' ') < 2)
                 return false;
 
-            list($time, $rev, $type) = explode(' ', $cache[0]);
+            [$time, $rev, $type] = explode(' ', $cache[0]);
 
-            if ($time + CFG_CACHE_DECAY <= time() || $rev < AOWOW_REVISION)
+            if ($time + CFG_CACHE_DECAY <= time() || $rev != AOWOW_REVISION)
                 $cache = null;
             else
             {

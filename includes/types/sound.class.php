@@ -13,7 +13,7 @@ class SoundList extends BaseType
     public static   $dataTable  = '?_sounds';
     public static   $contribute = CONTRIBUTE_CO;
 
-    protected       $queryBase  = 'SELECT *, s.id AS ARRAY_KEY FROM ?_sounds s';
+    protected       $queryBase  = 'SELECT s.*, s.id AS ARRAY_KEY FROM ?_sounds s';
 
     private         $fileBuffer = [];
     private static  $fileTypes  = array(
@@ -43,9 +43,11 @@ class SoundList extends BaseType
 
         if ($this->fileBuffer)
         {
-            $files = DB::Aowow()->select('SELECT id AS ARRAY_KEY, `id`, `file` AS title, `type` FROM ?_sounds_files sf WHERE id IN (?a)', array_keys($this->fileBuffer));
+            $files = DB::Aowow()->select('SELECT id AS ARRAY_KEY, `id`, `file` AS title, `type`, `path` FROM ?_sounds_files sf WHERE id IN (?a)', array_keys($this->fileBuffer));
             foreach ($files as $id => $data)
             {
+                // 3.3.5 bandaid - need fullpath to play via wow API, remove for cata and later
+                $data['path']  = str_replace('\\', '\\\\', $data['path'] ? $data['path'] . '\\' . $data['title'] : $data['title']);
                 // skipp file extension
                 $data['title'] = substr($data['title'], 0, -4);
                 // enum to string
@@ -101,6 +103,12 @@ class SoundList extends BaseType
 
 class SoundListFilter extends Filter
 {
+    // fieldId => [checkType, checkValue[, fieldIsArray]]
+    protected $inputFields = array(
+        'na' => [FILTER_V_REGEX, '/[\p{C};%\\\\]/ui',                                                    false], // name - only printable chars, no delimiter
+        'ty' => [FILTER_V_LIST,  [[1, 4], 6, 9, 10, 12, 13, 14, 16, 17, [19, 23], [25, 31], 50, 52, 53], true ]  // type
+    );
+
     // we have no criteria for this one...
     protected function createSQLForCriterium(&$cr)
     {
@@ -108,12 +116,6 @@ class SoundListFilter extends Filter
         $this->error = true;
         return [1];
     }
-
-    // fieldId => [checkType, checkValue[, fieldIsArray]]
-    protected $inputFields = array(
-        'na' => [FILTER_V_REGEX, '/[\p{C};]/ui',                                                         false], // name - only printable chars, no delimiter
-        'ty' => [FILTER_V_LIST,  [[1, 4], 6, 9, 10, 12, 13, 14, 16, 17, [19, 23], [25, 31], 50, 52, 53], true ]  // type
-    );
 
     protected function createSQLForValues()
     {

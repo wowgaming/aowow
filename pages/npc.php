@@ -8,7 +8,7 @@ if (!defined('AOWOW_REVISION'))
 //  tabId 0: Database g_initHeader()
 class NpcPage extends GenericPage
 {
-    use DetailPage;
+    use TrDetailPage;
 
     protected $type          = TYPE_NPC;
     protected $typeId        = 0;
@@ -34,7 +34,7 @@ class NpcPage extends GenericPage
         if ($this->subject->error)
             $this->notFound();
 
-        $this->name    = $this->subject->getField('name', true);
+        $this->name    = Util::htmlEscape($this->subject->getField('name', true));
         $this->subname = $this->subject->getField('subname', true);
     }
 
@@ -48,7 +48,7 @@ class NpcPage extends GenericPage
 
     protected function generateTitle()
     {
-        array_unshift($this->title, $this->name, Util::ucFirst(Lang::game('npc')));
+        array_unshift($this->title, $this->subject->getField('name', true), Util::ucFirst(Lang::game('npc')));
     }
 
     protected function generateContent()
@@ -317,14 +317,40 @@ class NpcPage extends GenericPage
                 $map['extra'][$areaId] = ZoneList::getName($areaId);
         }
 
-        // consider pooled spawns
+        // smart AI
+        $sai = null;
+        if ($this->subject->getField('aiName') == 'SmartAI')
+        {
+            $sai = new SmartAI(SAI_SRC_TYPE_CREATURE, $this->typeId, ['name' => $this->subject->getField('name', true)]);
+            if (!$sai->prepare())                           // no smartAI found .. check per guid
+            {
+                // at least one of many
+                $guids = DB::World()->selectCol('SELECT guid FROM creature WHERE id = ?d', $this->typeId);
+                while ($_ = array_pop($guids))
+                {
+                    $sai = new SmartAI(SAI_SRC_TYPE_CREATURE, -$_, ['baseEntry' => $this->typeId, 'name' => $this->subject->getField('name', true), 'title' => ' [small](for GUID: '.$_.')[/small]']);
+                    if ($sai->prepare())
+                        break;
+                }
+            }
 
+            if ($sai->prepare())
+            {
+                foreach ($sai->getJSGlobals() as $type => $typeIds)
+                    $this->extendGlobalIds($type, $typeIds);
+            }
+            else
+                trigger_error('Creature has SmartAI set in template but no SmartAI defined.');
+        }
+
+        // consider pooled spawns
         $this->map          = $map;
         $this->infobox      = '[ul][li]'.implode('[/li][li]', $infobox).'[/li][/ul]';
         $this->placeholder  = $placeholder;
         $this->accessory    = $accessory;
         $this->quotes       = $this->getQuotes();
         $this->reputation   = $this->getOnKillRep($_altIds, $mapType);
+        $this->smartAI      = $sai ? $sai->getMarkdown() : null;
         $this->redButtons   = array(
             BUTTON_WOWHEAD => true,
             BUTTON_LINKS   => ['type' => $this->type, 'typeId' => $this->typeId],
@@ -338,9 +364,6 @@ class NpcPage extends GenericPage
         /**************/
         /* Extra Tabs */
         /**************/
-
-        // tab: SAI
-            // hmm, how should this look like
 
         // tab: abilities / tab_controlledabilities (dep: VehicleId)
         // SMART_SCRIPT_TYPE_CREATURE = 0; SMART_ACTION_CAST = 11; SMART_ACTION_ADD_AURA = 75; SMART_ACTION_INVOKER_CAST = 85; SMART_ACTION_CROSS_CAST = 86
@@ -398,15 +421,8 @@ class NpcPage extends GenericPage
                     if (in_array($id, $smartSpells))
                     {
                         $normal[$id] = $values;
-                        unset($controled[$id]);
-                        continue;
-                    }
-
-                    // not quite right. All seats should be checked for allowed-to-cast-flag-something
-                    if (!$this->subject->getField('vehicleId') && in_array($id, $tplSpells))
-                    {
-                        $normal[$id] = $values;
-                        unset($controled[$id]);
+                        if (!in_array($id, $tplSpells))
+                            unset($controled[$id]);
                     }
                 }
 
@@ -429,9 +445,9 @@ class NpcPage extends GenericPage
         // tab: summoned by
         $conditions = array(
             'OR',
-            ['AND', ['effect1Id', 28], ['effect1MiscValue', $this->typeId]],
-            ['AND', ['effect2Id', 28], ['effect2MiscValue', $this->typeId]],
-            ['AND', ['effect3Id', 28], ['effect3MiscValue', $this->typeId]]
+            ['AND', ['effect1Id', [28, 56, 112]], ['effect1MiscValue', $this->typeId]],
+            ['AND', ['effect2Id', [28, 56, 112]], ['effect2MiscValue', $this->typeId]],
+            ['AND', ['effect3Id', [28, 56, 112]], ['effect3MiscValue', $this->typeId]]
         );
 
         $summoned = new SpellList($conditions);
@@ -450,14 +466,10 @@ class NpcPage extends GenericPage
         if ($this->subject->getField('npcflag') & NPC_FLAG_TRAINER)
         {
             $teachQuery = '
-                SELECT    IFNULL(t2.SpellID, t1.SpellID) AS ARRAY_KEY,
-                          IFNULL(t2.MoneyCost, t1.MoneyCost) AS cost,
-                          IFNULL(t2.ReqSkillLine, t1.ReqSkillLine) AS reqSkillId,
-                          IFNULL(t2.ReqSkillRank, t1.ReqSkillRank) AS reqSkillValue,
-                          IFNULL(t2.ReqLevel, t1.ReqLevel) AS reqLevel
-                FROM      npc_trainer t1
-                LEFT JOIN npc_trainer t2 ON t2.ID = IF(t1.SpellID < 0, -t1.SpellID, null)
-                WHERE     t1.ID = ?d
+                SELECT  ts.SpellId AS ARRAY_KEY, ts.MoneyCost AS cost, ts.ReqSkillLine AS reqSkillId, ts.ReqSkillRank AS reqSkillValue, ts.ReqLevel AS reqLevel, ts.ReqAbility1 AS reqSpellId1, ts.reqAbility2 AS reqSpellId2
+                FROM    trainer_spell ts
+                JOIN    creature_default_trainer cdt ON cdt.TrainerId = ts.TrainerId
+                WHERE   cdt.Creatureid = ?d
             ';
 
             if ($tSpells = DB::World()->select($teachQuery, $this->typeId))
@@ -476,11 +488,26 @@ class NpcPage extends GenericPage
 
                         if ($_ = $train['reqSkillId'])
                         {
-                            $this->extendGlobalIds(TYPE_SKILL, $_);
-                            if (!isset($extra[0]))
-                                $extra[0] = '$Listview.extraCols.condition';
+                            if (count($data[$sId]['skill']) == 1 && $_ != $data[$sId]['skill'][0])
+                            {
+                                $this->extendGlobalIds(TYPE_SKILL, $_);
+                                if (!isset($extra[0]))
+                                    $extra[0] = '$Listview.extraCols.condition';
 
-                            $data[$sId]['condition'][0][$this->typeId][] = [[CND_SKILL, $_, $train['reqSkillValue']]];
+                                $data[$sId]['condition'][0][$this->typeId][] = [[CND_SKILL, $_, $train['reqSkillValue']]];
+                            }
+                        }
+
+                        for ($i = 1; $i < 3; $i++)
+                        {
+                            if ($_ = $train['reqSpellId'.$i])
+                            {
+                                $this->extendGlobalIds(TYPE_SPELL, $_);
+                                if (!isset($extra[0]))
+                                    $extra[0] = '$Listview.extraCols.condition';
+
+                                $data[$sId]['condition'][0][$this->typeId][] = [[CND_SPELL, $_]];
+                            }
                         }
 
                         if ($_ = $train['reqLevel'])
@@ -503,7 +530,7 @@ class NpcPage extends GenericPage
                     );
 
                     if ($extra)
-                        $tabData['extraCols'] = $extra;
+                        $tabData['extraCols'] = array_values($extra);
 
                     $this->lvTabs[] = ['spell', $tabData];
                 }
@@ -970,10 +997,10 @@ class NpcPage extends GenericPage
             SELECT
                 ct.GroupID AS ARRAY_KEY, ct.ID as ARRAY_KEY2, ct.`Type`,
                 ct.TextRange AS `range`,
-                IFNULL(bct.`Language`, ct.`Language`) AS lang,
-                IFNULL(NULLIF(bct.MaleText, ""), IFNULL(NULLIF(bct.FemaleText, ""), IFNULL(ct.`Text`, ""))) AS text_loc0,
-               {IFNULL(NULLIF(bctl.MaleText, ""), IFNULL(NULLIF(bctl.FemaleText, ""), IFNULL(ctl.Text, ""))) AS text_loc?d,}
-                IF(bct.SoundId > 0, bct.SoundId, ct.Sound) AS soundId
+                IFNULL(bct.`LanguageID`, ct.`Language`) AS lang,
+                IFNULL(NULLIF(bct.Text, ""), IFNULL(NULLIF(bct.Text1, ""), IFNULL(ct.`Text`, ""))) AS text_loc0,
+               {IFNULL(NULLIF(bctl.Text, ""), IFNULL(NULLIF(bctl.Text1, ""), IFNULL(ctl.Text, ""))) AS text_loc?d,}
+                IF(bct.SoundEntriesID > 0, bct.SoundEntriesID, ct.Sound) AS soundId
             FROM
                 creature_text ct
            {LEFT JOIN
@@ -990,7 +1017,7 @@ class NpcPage extends GenericPage
             $this->typeId
         );
 
-        foreach ($quoteSrc as $text)
+        foreach ($quoteSrc as $grp => $text)
         {
             $group = [];
             foreach ($text as $t)
@@ -1013,7 +1040,7 @@ class NpcPage extends GenericPage
                     'range' => $t['range'],
                     'type'  => 2,                           // [type: 0, 12] say: yellow-ish
                     'lang'  => !empty($t['lang']) ? Lang::game('languages', $t['lang']) : null,
-                    'text'  => sprintf(Util::parseHtmlText(htmlentities($msg)), $this->name),
+                    'text'  => sprintf(Util::parseHtmlText(htmlentities($msg)), $this->subject->getField('name', true)),
                 );
 
                 switch ($t['Type'])
@@ -1035,7 +1062,7 @@ class NpcPage extends GenericPage
             }
 
             if ($group)
-                $quotes[] = $group;
+                $quotes[$grp] = $group;
         }
 
         return [$quotes, $nQuotes];

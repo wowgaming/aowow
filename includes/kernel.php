@@ -9,17 +9,24 @@ if (file_exists('config/config.php'))
 else
     $AoWoWconf = [];
 
+
 mb_internal_encoding('UTF-8');
+
+
+define('OS_WIN', substr(PHP_OS, 0, 3) == 'WIN');
+
 
 require_once 'includes/defines.php';
 require_once 'includes/libs/DbSimple/Generic.php';          // Libraray: http://en.dklab.ru/lib/DbSimple (using variant: https://github.com/ivan1986/DbSimple/tree/master)
 require_once 'includes/utilities.php';                      // helper functions
 require_once 'includes/game.php';                           // game related data & functions
+require_once 'includes/profiler.class.php';
 require_once 'includes/user.class.php';
 require_once 'includes/markup.class.php';                   // manipulate markup text
 require_once 'includes/database.class.php';                 // wrap DBSimple
 require_once 'includes/community.class.php';                // handle comments, screenshots and videos
 require_once 'includes/loot.class.php';                     // build lv-tabs containing loot-information
+require_once 'includes/smartAI.class.php';
 require_once 'localization/lang.class.php';
 require_once 'pages/genericPage.class.php';
 
@@ -38,10 +45,18 @@ spl_autoload_register(function ($class) {
     {
         require_once 'includes/basetype.class.php';
 
-        if (file_exists('includes/types/'.strtr($class, ['list' => '']).'.class.php'))
-            require_once 'includes/types/'.strtr($class, ['list' => '']).'.class.php';
+        $cl = strtr($class, ['list' => '']);
+        if ($cl == 'remoteprofile' || $cl == 'localprofile')
+            $cl = 'profile';
+        if ($cl == 'remotearenateam' || $cl == 'localarenateam')
+            $cl = 'arenateam';
+        if ($cl == 'remoteguild' || $cl == 'localguild')
+            $cl = 'guild';
+
+        if (file_exists('includes/types/'.$cl.'.class.php'))
+            require_once 'includes/types/'.$cl.'.class.php';
         else
-            throw new Exception('could not register type class: '.$class);
+            throw new Exception('could not register type class: '.$cl);
 
         return;
     }
@@ -201,12 +216,17 @@ if (!CLI)
         die('error: SITE_HOST or STATIC_HOST not configured');
 
     // Setup Session
-    if (CFG_SESSION_CACHE_DIR && Util::checkOrCreateDirectory(CFG_SESSION_CACHE_DIR))
+    if (CFG_SESSION_CACHE_DIR && Util::writeDir(CFG_SESSION_CACHE_DIR))
         session_save_path(getcwd().'/'.CFG_SESSION_CACHE_DIR);
 
     session_set_cookie_params(15 * YEAR, '/', '', $secure, true);
     session_cache_limiter('private');
-    session_start();
+    if (!session_start())
+    {
+        trigger_error('failed to start session', E_USER_ERROR);
+        exit;
+    }
+
     if (!empty($AoWoWconf['aowow']) && User::init())
         User::save();                                       // save user-variables in session
 
@@ -221,7 +241,7 @@ if (!CLI)
     }
 
     // parse page-parameters .. sanitize before use!
-    $str = explode('&', $_SERVER['QUERY_STRING'], 2)[0];
+    $str = explode('&', mb_strtolower($_SERVER['QUERY_STRING']), 2)[0];
     $_   = explode('=', $str, 2);
     $pageCall  = $_[0];
     $pageParam = isset($_[1]) ? $_[1] : null;

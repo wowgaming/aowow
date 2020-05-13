@@ -173,7 +173,7 @@ class ItemsetListFilter extends Filter
     protected $genericFilter = array(                       // misc (bool): _NUMERIC => useFloat; _STRING => localized; _FLAG => match Value; _BOOLEAN => stringSet
          2 => [FILTER_CR_NUMERIC, 'id',          NUM_CAST_INT,         true], // id
          3 => [FILTER_CR_NUMERIC, 'npieces',     NUM_CAST_INT              ], // pieces
-         4 => [FILTER_CR_STRING,  'bonusText',   true                      ], // bonustext
+         4 => [FILTER_CR_STRING,  'bonusText',   STR_LOCALIZED             ], // bonustext
          5 => [FILTER_CR_BOOLEAN, 'heroic',                                ], // heroic
          6 => [FILTER_CR_ENUM,    'e.holidayId',                           ], // relatedevent
          8 => [FILTER_CR_FLAG,    'cuFlags',     CUSTOM_HAS_COMMENT        ], // hascomments
@@ -186,8 +186,8 @@ class ItemsetListFilter extends Filter
     protected $inputFields = array(
         'cr'    => [FILTER_V_RANGE, [2, 12],                                       true ], // criteria ids
         'crs'   => [FILTER_V_LIST,  [FILTER_ENUM_NONE, FILTER_ENUM_ANY, [0, 424]], true ], // criteria operators
-        'crv'   => [FILTER_V_REGEX, '/[\p{C};:]/ui',                               true ], // criteria values - only printable chars, no delimiters
-        'na'    => [FILTER_V_REGEX, '/[\p{C};]/ui',                                false], // name / description - only printable chars, no delimiter
+        'crv'   => [FILTER_V_REGEX, '/[\p{C};:%\\\\]/ui',                          true ], // criteria values - only printable chars, no delimiters
+        'na'    => [FILTER_V_REGEX, '/[\p{C};%\\\\]/ui',                           false], // name / description - only printable chars, no delimiter
         'ma'    => [FILTER_V_EQUAL, 1,                                             false], // match any / all filter
         'qu'    => [FILTER_V_RANGE, [0, 7],                                        true ], // quality
         'ty'    => [FILTER_V_RANGE, [1, 12],                                       true ], // set type

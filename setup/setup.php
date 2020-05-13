@@ -17,18 +17,19 @@ define('ERR_MISSING_INCL', 'required function %s() could not be found at %s');
 
 
 require_once 'setup/tools/CLISetup.class.php';
+require_once 'setup/tools/setupScript.class.php';
 require_once 'setup/tools/dbc.class.php';
 require_once 'setup/tools/imagecreatefromblp.func.php';
 
 function finish()
 {
     if (!getopt('d', ['delete']))                           // generated with TEMPORARY keyword. Manual deletion is not needed
-        CLISetup::log('generated dbc_* - tables kept available', CLISetup::LOG_INFO);
+        CLI::write('generated dbc_* - tables kept available', CLI::LOG_INFO);
 
     die("\n");
 }
 
-$opt = getopt('h', ['help', 'account', 'dbconfig', 'siteconfig', 'sql', 'build', 'sync', 'update', 'firstrun']);
+$opt = getopt('h', ['help', 'account', 'dbconfig', 'siteconfig', 'sql', 'build', 'sync', 'update', 'firstrun', 'dbc:']);
 if (!$opt || ((isset($opt['help']) || isset($opt['h'])) && (isset($opt['firstrun']) || isset($opt['resume']))))
 {
     echo "\nAowow Setup\n";
@@ -72,7 +73,7 @@ switch ($cmd)                                               // we accept only on
         finish();
     case 'update':
         require_once 'setup/tools/clisetup/update.func.php';
-        list($s, $b) = update();                            // return true if we do not rebuild stuff
+        [$s, $b] = update();                                // return true if we do not rebuild stuff
         if (!$s && !$b)
             return;
     case 'sync':
@@ -94,6 +95,26 @@ switch ($cmd)                                               // we accept only on
         }
 
         finish();
+    case 'dbc':
+        foreach (explode(',', $opt['dbc']) as $n)
+        {
+            if (empty($n))
+                continue;
+
+            $dbc = new DBC(trim($n), ['temporary' => false]);
+            if ($dbc->error)
+            {
+                CLI::write('CLISetup::loadDBC() - required DBC '.$name.'.dbc not found!', CLI::LOG_ERROR);
+                return false;
+            }
+
+            if (!$dbc->readFile())
+            {
+                CLI::write('CLISetup::loadDBC() - DBC '.$name.'.dbc could not be written to DB!', CLI::LOG_ERROR);
+                return false;
+            }
+        }
+        break;
 }
 
 ?>

@@ -6,13 +6,19 @@
 </head>
 <body class="home<?=(User::isPremium() ? ' premium-logo' : null); ?>">
     <div id="layers"></div>
-<?php if (!empty($this->featuredBox['altHomeLogo'])):  ?>
-        <style type="text/css">
-        .home-logo {
-               background: url(<?=$this->featuredBox['altHomeLogo'];?>) no-repeat center 0 !important;
-               margin-bottom: 1px !important;
-        }
-        </style>
+<?php
+if ($this->homeTitle):
+    echo "    <script>document.title = '".$this->homeTitle."';</script>\n";
+endif;
+
+if (!empty($this->featuredBox['altHomeLogo'])):
+?>
+    <style type="text/css">
+    .home-logo {
+           background: url(<?=$this->featuredBox['altHomeLogo'];?>) no-repeat center 0 !important;
+           margin-bottom: 1px !important;
+    }
+    </style>
 <?php endif; ?>
     <div class="home-wrapper">
         <h1>Aowow</h1>
@@ -21,7 +27,7 @@
 <?php $this->brick('announcement'); ?>
 
         <div class="home-search" id="home-search">
-            <form method="get" action="">
+            <form method="get">
                 <input type="text" name="search" />
             </form>
         </div>
@@ -79,12 +85,12 @@ endif;
             <a href="?aboutus"><?=Lang::main('aboutUs'); ?></a>|<a href="https://github.com/Sarjuuk/aowow" target="_blank">Github</a>|<a href="#" id="footer-links-language"><?=Lang::main('language'); ?></a>
         </div>
         <div class="footer-copy">
-            &#12484; 2017 Aowow<br />rev. <?=AOWOW_REVISION; ?>
+            &#12484; 2020 Aowow<br />rev. <?=AOWOW_REVISION; ?>
         </div>
     </div>
 
 <?php $this->brick('pageTemplate'); ?>
 
-    <noscript><div id="noscript-bg"></div><div id="noscript-text"><b><?=Lang::main('jsError'); ?></div></noscript>
+    <noscript><div id="noscript-bg"></div><div id="noscript-text"><b><?=Lang::main('jsError'); ?></b></div></noscript>
 </body>
 </html>

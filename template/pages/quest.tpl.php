@@ -200,9 +200,10 @@ if ($g = $this->gains):
     echo "                    </ul>\n";
 endif;
 
-$this->brick('mail');
+$this->brick('mail', ['offset' => ++$offset]);
 
 if (!empty($this->transfer)):
+    echo "    <div style=\"clear: left\"></div>";
     echo "    <div class=\"pad\"></div>\n    ".$this->transfer."\n";
 endif;
 

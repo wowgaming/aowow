@@ -8,7 +8,7 @@ if (!defined('AOWOW_REVISION'))
 //  tabId 0: Database g_initHeader()
 class ObjectPage extends GenericPage
 {
-    use DetailPage;
+    use TrDetailPage;
 
     protected $type          = TYPE_OBJECT;
     protected $typeId        = 0;
@@ -129,7 +129,7 @@ class ObjectPage extends GenericPage
         // lootinfo: [min, max, restock]
         if (($_ = $this->subject->getField('lootStack')) && $_[0])
         {
-            $buff = Lang::item('charges').Lang::main('colon').$_[0];
+            $buff = Lang::spell('spellModOp', 4).Lang::main('colon').$_[0];
             if ($_[0] < $_[1])
                 $buff .= Lang::game('valueDelim').$_[1];
 
@@ -182,10 +182,13 @@ class ObjectPage extends GenericPage
         // AI
         if (User::isInGroup(U_GROUP_EMPLOYEE))
         {
-            if ($_ = $this->subject->getField('ScriptName'))
-                $infobox[] = 'Script'.Lang::main('colon').$_;
-            else if ($_ = $this->subject->getField('AIName'))
-                $infobox[] = 'AI'.Lang::main('colon').$_;
+            if ($_ = $this->subject->getField('ScriptOrAI'))
+            {
+                if ($_ == 'SmartGameObjectAI')
+                    $infobox[] = 'AI'.Lang::main('colon').$_;
+                else
+                    $infobox[] = 'Script'.Lang::main('colon').$_;
+            }
         }
 
 
@@ -214,19 +217,49 @@ class ObjectPage extends GenericPage
 
 
         $relBoss = null;
-        if ($_ = DB::Aowow()->selectCell('SELECT ABS(npcId) FROM ?_loot_link WHERE objectId = ?d', $this->typeId))
+        if ($ll = DB::Aowow()->selectRow('SELECT * FROM ?_loot_link WHERE objectId = ?d ORDER BY priority DESC LIMIT 1', $this->typeId))
         {
+            // group encounter
+            if ($ll['encounterId'])
+                $relBoss = [$ll['npcId'], Lang::profiler('encounterNames', $ll['encounterId'])];
             // difficulty dummy
-            if ($c = DB::Aowow()->selectRow('SELECT id, name_loc0, name_loc2, name_loc3, name_loc6, name_loc8 FROM ?_creature WHERE difficultyEntry1 = ?d OR difficultyEntry2 = ?d OR difficultyEntry3 = ?d', $_, $_, $_))
+            else if ($c = DB::Aowow()->selectRow('SELECT id, name_loc0, name_loc2, name_loc3, name_loc6, name_loc8 FROM ?_creature WHERE difficultyEntry1 = ?d OR difficultyEntry2 = ?d OR difficultyEntry3 = ?d', abs($ll['npcId']), abs($ll['npcId']), abs($ll['npcId'])))
                 $relBoss = [$c['id'], Util::localizedString($c, 'name')];
             // base creature
-            else if ($c = DB::Aowow()->selectRow('SELECT id, name_loc0, name_loc2, name_loc3, name_loc6, name_loc8 FROM ?_creature WHERE id = ?d', $_))
+            else if ($c = DB::Aowow()->selectRow('SELECT id, name_loc0, name_loc2, name_loc3, name_loc6, name_loc8 FROM ?_creature WHERE id = ?d', abs($ll['npcId'])))
                 $relBoss = [$c['id'], Util::localizedString($c, 'name')];
         }
 
-        $this->infobox     = $infobox ? '[ul][li]'.implode('[/li][li]', $infobox).'[/li][/ul]' : null;
+        // smart AI
+        $sai = null;
+        if ($this->subject->getField('ScriptOrAI') == 'SmartGameObjectAI')
+        {
+            $sai = new SmartAI(SAI_SRC_TYPE_OBJECT, $this->typeId, ['name' => $this->name]);
+            if (!$sai->prepare())                           // no smartAI found .. check per guid
+            {
+                // at least one of many
+                $guids = DB::World()->selectCol('SELECT guid FROM gameobject WHERE id = ?d LIMIT 1', $this->typeId);
+                while ($_ = array_pop($guids))
+                {
+                    $sai = new SmartAI(SAI_SRC_TYPE_OBJECT, -$_, ['name' => $this->name, 'title' => ' [small](for GUID: '.$_.')[/small]']);
+                    if ($sai->prepare())
+                        break;
+                }
+            }
+
+            if ($sai->prepare())
+            {
+                foreach ($sai->getJSGlobals() as $type => $typeIds)
+                    $this->extendGlobalIds($type, $typeIds);
+            }
+            else
+                trigger_error('Gameobject has AIName set in template but no SmartAI defined.');
+        }
+
         $this->map         = $map;
+        $this->infobox     = $infobox ? '[ul][li]'.implode('[/li][li]', $infobox).'[/li][/ul]' : null;
         $this->relBoss     = $relBoss;
+        $this->smartAI     = $sai ? $sai->getMarkdown() : null;
         $this->redButtons  = array(
             BUTTON_WOWHEAD => true,
             BUTTON_LINKS   => ['type' => $this->type, 'typeId' => $this->typeId],
@@ -365,7 +398,7 @@ class ObjectPage extends GenericPage
                     if (!$lv['quest'])
                         continue;
 
-                    $extraCols[] = 'Listview.extraCols.condition';
+                    $extraCols[] = '$Listview.extraCols.condition';
                     $reqQuest[$lv['id']] = 0;
                     $lv['condition'][0][$this->typeId][] = [[CND_QUESTTAKEN, &$reqQuest[$lv['id']]]];
                 }
@@ -406,6 +439,31 @@ class ObjectPage extends GenericPage
                 foreach ($reqIds as $rId)
                     if (in_array($rId, $reqQuests->requires[$qId][TYPE_ITEM]))
                         $reqQuest[$rId] = $reqQuests->id;
+            }
+        }
+
+        // tab: Spell Focus for
+        if ($sfId = $this->subject->getField('spellFocusId'))
+        {
+            $focusSpells = new SpellList(array(['spellFocusObject', $sfId]));
+            if (!$focusSpells->error)
+            {
+                $tabData = array(
+                    'data' => array_values($focusSpells->getListviewData()),
+                    'name' => Lang::gameObject('focus'),
+                    'id'   => 'focus-for'
+                );
+
+                $this->extendGlobalData($focusSpells->getJSGlobals(GLOBALINFO_SELF | GLOBALINFO_RELATED));
+
+                // create note if search limit was exceeded
+                if ($focusSpells->getMatches() > CFG_SQL_LIMIT_DEFAULT)
+                {
+                    $tabData['note']  = sprintf(Util::$tryNarrowingString, 'LANG.lvnote_spellsfound', $focusSpells->getMatches(), CFG_SQL_LIMIT_DEFAULT);
+                    $tabData['_truncated'] = 1;
+                }
+
+                $this->lvTabs[] = ['spell', $tabData];
             }
         }
 

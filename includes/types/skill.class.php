@@ -10,7 +10,7 @@ class SkillList extends BaseType
     public static   $brickFile = 'skill';
     public static   $dataTable = '?_skillline';
 
-    protected       $queryBase = 'SELECT *, sl.id AS ARRAY_KEY FROM ?_skillline sl';
+    protected       $queryBase = 'SELECT sl.*, sl.id AS ARRAY_KEY FROM ?_skillline sl';
     protected       $queryOpts = array(
                         'sl' => [['ic']],
                         'ic' => ['j' => ['?_icons ic ON ic.id = sl.iconId', true], 's' => ', ic.name AS iconString'],
@@ -40,7 +40,7 @@ class SkillList extends BaseType
 
     public static function getName($id)
     {
-        $n = DB::Aowow()->SelectRow('SELECT name_loc0, name_loc2, name_loc3, name_loc6, name_loc8 FROM ?_skillline WHERE id = ?d', $id);
+        $n = DB::Aowow()->SelectRow('SELECT name_loc0, name_loc2, name_loc3, name_loc4, name_loc6, name_loc8 FROM ?_skillline WHERE id = ?d', $id);
         return Util::localizedString($n, 'name');
     }
 

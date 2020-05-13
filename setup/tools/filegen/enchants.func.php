@@ -49,14 +49,14 @@ if (!CLI)
             jsonequip:{reqlevel:60,"exprtng":15},
             temp:0,
             classes:0,
-            gearscore:20 // nope, i'm not doing this
+            gearscore:20 // fuck, i'm doing this..
         },
     */
 
     function enchants()
     {
-        // from g_item_slots: 13:"One-Hand", 26:"Ranged", 17:"Two-Hand",
-        $slotPointer   = [13, 17, 26, 26, 13, 17, 17, 13, 17, null, 17, null, null, 13, null, 13, null, null, null, null, 17];
+        // from g_item_slots: 13:"One-Hand", 15:"Ranged", 17:"Two-Hand",
+        $slotPointer   = [13, 17, 15, 15, 13, 17, 17, 13, 17, null, 17, null, null, 13, null, 13, null, null, null, null, 17];
         $castItems     = [];
         $successs      = true;
         $enchantSpells = DB::Aowow()->select('
@@ -66,7 +66,7 @@ if (!CLI)
                 equippedItemClass, equippedItemInventoryTypeMask, equippedItemSubClassMask,
                 skillLine1,
                 IFNULL(i.name, "inv_misc_questionmark") AS iconString,
-                name_loc0, name_loc2, name_loc3, name_loc6, name_loc8
+                name_loc0, name_loc2, name_loc3, name_loc4, name_loc6, name_loc8
             FROM
                 ?_spell s
             LEFT JOIN
@@ -86,10 +86,12 @@ if (!CLI)
         $enchantments = new EnchantmentList(array(['id', $enchIds], CFG_SQL_LIMIT_NONE));
         if ($enchantments->error)
         {
-            CLISetup::log('Required table ?_itemenchantment seems to be empty! Leaving enchants()...', CLISetup::LOG_ERROR);
-            CLISetup::log();
+            CLI::write('Required table ?_itemenchantment seems to be empty! Leaving enchants()...', CLI::LOG_ERROR);
+            CLI::write();
             return false;
         }
+
+        $castItems = new ItemList(array(['spellId1', array_keys($enchantSpells)], ['src.typeId', null, '!'], CFG_SQL_LIMIT_NONE));
 
         foreach (CLISetup::$localeIds as $lId)
         {
@@ -104,7 +106,7 @@ if (!CLI)
                 $eId = $es['effect1MiscValue'];
                 if (!$enchantments->getEntry($eId))
                 {
-                    CLISetup::log(' * could not find enchantment #'.$eId.' referenced by spell #'.$esId, CLISetup::LOG_WARN);
+                    CLI::write(' * could not find enchantment #'.$eId.' referenced by spell #'.$esId, CLI::LOG_WARN);
                     continue;
                 }
 
@@ -134,7 +136,6 @@ if (!CLI)
                     }
                 }
 
-
                 // defaults
                 $ench = array(
                     'name'        => [],                    // set by skill or item
@@ -147,6 +148,7 @@ if (!CLI)
                     'jsonequip'   => $enchantments->getStatGain(),
                     'temp'        => 0,                     // always 0
                     'classes'     => 0,                     // modified by item
+                    'gearscore'   => 0                      // set later
                 );
 
                 if ($_ = $enchantments->getField('skillLine'))
@@ -169,12 +171,25 @@ if (!CLI)
 
                 // check if this spell can be cast via item -> Source:Item
                 // do not reuse enchantment scrolls; do not use items without source
-                if (!isset($castItems[$esId]))
-                    $castItems[$esId] = new ItemList([['spellId1', $esId], ['name_loc0', 'Scroll of Enchant%', '!'], ['src.typeId', null, '!']]);
-
-                $cI = &$castItems[$esId];      // this construct is a bit .. unwieldy
+                $cI = &$castItems;                          // this construct is a bit .. unwieldy
                 foreach ($cI->iterate() as $__)
                 {
+                    if ($enchantments->getField('skillLevel'))
+                        if ($s = Util::getEnchantmentScore(0, -1, true, $eId))
+                            $ench['gearscore'] = $s;
+
+                    if ($cI->getField('spellId1') != $esId)
+                        continue;
+
+                    $isScroll = substr($cI->getField('name_loc0'), 0, 17) == 'Scroll of Enchant';
+
+                    if ($s = Util::getEnchantmentScore($cI->getField('itemLevel'), $isScroll ? -1 : $cI->getField('quality'), !!$enchantments->getField('skillLevel'), $eId))
+                        if ($s > $ench['gearscore'])
+                            $ench['gearscore'] = $s;
+
+                    if ($isScroll)
+                        continue;
+
                     $ench['name'][]   = $cI->getField('name', true);
                     $ench['source'][] = -$cI->id;
                     $ench['icon']     = strTolower($cI->getField('iconString'));

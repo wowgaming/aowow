@@ -22,20 +22,18 @@ if (!CLI)
             if ($i == $step)
             {
                 $i = 0;
-                CLISetup::log(' - '.$itr.'/'.$nFiles.' ('.(intVal(100 * $itr / $nFiles).'%) done'));
+                CLI::write(' - '.$itr.'/'.$nFiles.' ('.(intVal(100 * $itr / $nFiles).'%) done'));
                 DB::Aowow()->selectCell('SELECT 1');        // keep mysql busy or it may go away
             }
 
-            if (stristr($filePath, '.wav'))                 // expected file.wav.ogg
-                $filePath .= '.ogg';
-            else                                            // expected file.mp3.mp3
-                $filePath .= '.mp3';
+            // expect converted files as file.wav_ or file.mp3_
+            $filePath .= '_';
 
             // just use the first locale available .. there is no support for multiple audio files anyway
             foreach (CLISetup::$expectedPaths as $locStr => $__)
             {
                 // get your paths straight!
-                $p = CLISetup::nicePath($filePath, CLISetup::$srcDir, $locStr);
+                $p = CLI::nicePath($filePath, CLISetup::$srcDir, $locStr);
 
                 if (CLISetup::fileExists($p))
                 {
@@ -43,7 +41,7 @@ if (!CLI)
                     if (!copy($p, 'static/wowsounds/'.$fileId))
                     {
                         $ok = false;
-                        CLISetup::log(' - could not copy '.CLISetup::bold($p).' into '.CLISetup::bold('static/wowsounds/'.$fileId), CLISetup::LOG_ERROR);
+                        CLI::write(' - could not copy '.CLI::bold($p).' into '.CLI::bold('static/wowsounds/'.$fileId), CLI::LOG_ERROR);
                         break 2;
                     }
 
@@ -51,7 +49,7 @@ if (!CLI)
                 }
             }
 
-            CLISetup::log(' - did not find file: '.CLISetup::bold(CLISetup::nicePath($filePath, CLISetup::$srcDir, '<locale>')), CLISetup::LOG_WARN);
+            CLI::write(' - did not find file: '.CLI::bold(CLI::nicePath($filePath, CLISetup::$srcDir, '['.implode(',', CLISetup::$locales).']')), CLI::LOG_WARN);
             // flag as unusable in DB
             DB::Aowow()->query('UPDATE ?_sounds_files SET id = ?d WHERE ABS(id) = ?d', -$fileId, $fileId);
         }

@@ -8,7 +8,7 @@ if (!defined('AOWOW_REVISION'))
 //  tabid 0: Database g_initHeader()
 class PetPage extends GenericPage
 {
-    use DetailPage;
+    use TrDetailPage;
 
     protected $type          = TYPE_PET;
     protected $typeId        = 0;
@@ -57,6 +57,13 @@ class PetPage extends GenericPage
         // exotic
         if ($this->subject->getField('exotic'))
             $infobox[] = '[url=?spell=53270]'.Lang::pet('exotic').'[/url]';
+
+        // icon
+        if ($_ = $this->subject->getField('iconId'))
+        {
+            $infobox[] = Util::ucFirst(lang::game('icon')).Lang::main('colon').'[icondb='.$_.' name=true]';
+            $this->extendGlobalIds(TYPE_ICON, $_);
+        }
 
         /****************/
         /* Main Content */

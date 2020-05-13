@@ -22,8 +22,10 @@ switch ($pageCall)
     case 'account':                                         // account management [nyi]
     case 'achievement':
     case 'achievements':
-    // case 'arena-team':
-    // case 'arena-teams':
+    case 'areatrigger':
+    case 'areatriggers':
+    case 'arena-team':
+    case 'arena-teams':
     case 'class':
     case 'classes':
     case 'currency':
@@ -37,8 +39,8 @@ switch ($pageCall)
     case 'events':
     case 'faction':
     case 'factions':
-    // case 'guild':
-    // case 'guilds':
+    case 'guild':
+    case 'guilds':
     case 'icon':
     case 'icons':
     case 'item':
@@ -46,6 +48,8 @@ switch ($pageCall)
     case 'itemset':
     case 'itemsets':
     case 'maps':                                            // tool: map listing
+    case 'mail':
+    case 'mails':
     case 'npc':
     case 'npcs':
     case 'object':
@@ -88,8 +92,10 @@ switch ($pageCall)
         $cleanName = str_replace(['-', '_'], '', ucFirst($altClass ?: $pageCall));
         try                                                 // can it be handled as ajax?
         {
+            $out   = '';
             $class = 'Ajax'.$cleanName;
             $ajax  = new $class(explode('.', $pageParam));
+
             if ($ajax->handle($out))
             {
                 Util::sendNoCacheHeader();
@@ -108,7 +114,12 @@ switch ($pageCall)
         catch (Exception $e)                                // no, apparently not..
         {
             $class = $cleanName.'Page';
-            (new $class($pageCall, $pageParam))->display();
+            if (is_callable([$class, 'display']))
+                (new $class($pageCall, $pageParam))->display();
+            else if (isset($_GET['power']))
+                die('$WowheadPower.register(0, '.User::$localeId.', {})');
+            else                                            // in conjunction with a proper rewriteRule in .htaccess...
+                (new GenericPage($pageCall))->error();
         }
 
         break;

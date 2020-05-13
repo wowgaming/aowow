@@ -21,11 +21,6 @@ if (!defined('AOWOW_REVISION'))
         ]
     else
         => listviews
-
-todo    26: Listview - template: 'profile',     id: 'characters',    name: LANG.tab_characters,          visibleCols: ['race','classs','level','talents','gearscore','achievementpoints'],
-        27: Profiles..?
-        28: Guilds..?
-        29: Arena Teams..?
 */
 
 
@@ -37,6 +32,7 @@ class SearchPage extends GenericPage
     protected $mode          = CACHE_TYPE_SEARCH;
     protected $js            = ['swfobject.js'];
     protected $lvTabs        = [];                          // [file, data, extraInclude, osInfo]       // osInfo:[type, appendix, nMatches, param1, param2]
+    protected $forceTabs     = true;
     protected $search        = '';                          // output
     protected $invalid       = [];
 
@@ -45,6 +41,7 @@ class SearchPage extends GenericPage
     private   $query         = '';                          // lookup
     private   $included      = [];
     private   $excluded      = [];
+    private   $statWeights   = [];
     private   $searches      = array(
         '_searchCharClass',   '_searchCharRace',    '_searchTitle',     '_searchWorldEvent',      '_searchCurrency',
         '_searchItemset',     '_searchItem',        '_searchAbility',   '_searchTalent',          '_searchGlyph',
@@ -56,12 +53,29 @@ class SearchPage extends GenericPage
 
     public function __construct($pageCall, $pageParam)
     {
-        $this->search = trim(urlDecode($pageParam));
-        $this->query  = strtr($this->search, '?*', '_%');
+        $this->search =
+        $this->query  = trim(urlDecode($pageParam));
 
         // restricted access
         if ($this->reqUGroup && !User::isInGroup($this->reqUGroup))
             $this->error();
+
+        // sanitize stat weights
+        if (!empty($_GET['wt']) && !empty($_GET['wtv']))
+        {
+            $wt   = explode(':', $_GET['wt']);
+            $wtv  = explode(':', $_GET['wtv']);
+            $nwt  = count($wt);
+            $nwtv = count($wtv);
+
+            if ($nwt > $nwtv)
+                array_splice($wt, $nwtv);
+            else if ($nwtv > $nwt)
+                array_splice($wtv, $nwt);
+
+            if ($wt && $wtv)
+                $this->statWeights = [array_map('intVal', $wt), array_map('intVal', $wtv)];
+        }
 
         // select search mode
         if (isset($_GET['json']))
@@ -96,7 +110,9 @@ class SearchPage extends GenericPage
         $this->tokenizeQuery();
 
         // invalid conditions: not enough characters to search OR no types to search
-        if ((!$this->included || !($this->searchMask & SEARCH_MASK_ALL)) && !CFG_MAINTENANCE && !(($this->searchMask & SEARCH_TYPE_JSON) && intVal($this->search)))
+        if ((CFG_MAINTENANCE && !User::isInGroup(U_GROUP_EMPLOYEE)) ||
+            (!$this->included && ($this->searchMask & (SEARCH_TYPE_OPEN | SEARCH_TYPE_REGULAR))) ||
+            (($this->searchMask & SEARCH_TYPE_JSON) && !$this->included && !$this->statWeights))
         {
             $this->mode = CACHE_TYPE_NONE;
             $this->notFound();
@@ -108,23 +124,25 @@ class SearchPage extends GenericPage
         if (!$this->query)
             return;
 
-        foreach (explode(' ', $this->query) as $p)
+        foreach (explode(' ', $this->query) as $raw)
         {
-            if (!$p)                                        // multiple spaces
+            $clean = str_replace(['\\', '%'], '', $raw);
+
+            if (!$clean)                                    // multiple spaces
                 continue;
-            else if ($p[0] == '-')
+            else if ($clean[0] == '-')
             {
-                if (mb_strlen($p) < 4)
-                    $this->invalid[] = mb_substr($p, 1);
+                if (mb_strlen($clean) < 4)
+                    $this->invalid[] = mb_substr($raw, 1);
                 else
-                    $this->excluded[] = mb_substr($p, 1);
+                    $this->excluded[] = mb_substr(str_replace('_', '\\_', $clean), 1);
             }
-            else if ($p !== '')
+            else if ($clean !== '')
             {
-                if (mb_strlen($p) < 3)
-                    $this->invalid[] = $p;
+                if (mb_strlen($clean) < 3)
+                    $this->invalid[] = $raw;
                 else
-                    $this->included[] = $p;
+                    $this->included[] = str_replace('_', '\\_', $clean);
             }
         }
     }
@@ -156,7 +174,7 @@ class SearchPage extends GenericPage
         if ($this->searchMask & SEARCH_TYPE_REGULAR)
         {
             $foundTotal = 0;
-            foreach ($this->lvTabs as list($file, $tabData, $_, $osInfo))
+            foreach ($this->lvTabs as [$file, $tabData, , $osInfo])
                 $foundTotal += count($tabData['data']);
 
             if ($foundTotal == 1)                           // only one match -> redirect to find
@@ -285,13 +303,13 @@ class SearchPage extends GenericPage
             [], [], [], [], [], [], []
         );
 
-        foreach ($this->lvTabs as list($_, $_, $_, $osInfo))
+        foreach ($this->lvTabs as [ , , , $osInfo])
             $foundTotal += $osInfo[2];
 
         if (!$foundTotal || $asError)
             return '["'.Util::jsEscape($this->search).'", []]';
 
-        foreach ($this->lvTabs as list($_, $tabData, $_, $osInfo))
+        foreach ($this->lvTabs as [ , $tabData, , $osInfo])
         {
             $max = max(1, intVal($limit * $osInfo[2] / $foundTotal));
             $limit -= $max;
@@ -563,13 +581,12 @@ class SearchPage extends GenericPage
             $cnd[] = $cndAdd;
 
             $slots = isset($_GET['slots']) ? explode(':', $_GET['slots']) : [];
-            array_walk($slots, function(&$v, $k) { $v = intVal($v); });
-            if ($_ = array_filter($slots))
+            if ($_ = array_filter(array_map('intVal', $slots)))
                 $cnd[] = ['slot', $_];
 
             // trick ItemListFilter into evaluating weights
-            if (isset($_GET['wt']) && isset($_GET['wtv']))
-                $_GET['filter'] = 'wt='.$_GET['wt'].';wtv='.$_GET['wtv'];
+            if ($this->statWeights)
+                $_GET['filter'] = 'wt='.implode(':', $this->statWeights[0]).';wtv='.implode(':', $this->statWeights[1]);
 
             $itemFilter = new ItemListFilter();
             if ($_ = $itemFilter->createConditionsForWeights())
@@ -625,7 +642,7 @@ class SearchPage extends GenericPage
     private function _searchAbility($cndBase)               // 7 Abilities (Player + Pet) $searchMask & 0x0000080
     {
         $cnd       = array_merge($cndBase, array(              // hmm, inclued classMounts..?
-            ['s.typeCat', [7, -2, -3]],
+            ['s.typeCat', [7, -2, -3, -4]],
             [['s.cuFlags', (SPELL_CU_TRIGGERED | SPELL_CU_TALENT), '&'], 0],
             [['s.attributes0', 0x80, '&'], 0],
             $this->createLookup()
@@ -1263,7 +1280,8 @@ class SearchPage extends GenericPage
             [
                 'OR',
                 ['s.typeCat', [0, -9]],
-                ['AND', ['s.cuFlags', SPELL_CU_TRIGGERED, '&'], ['s.typeCat', [7, -2]]]
+                ['s.cuFlags', SPELL_CU_TRIGGERED, '&'],
+                ['s.attributes0', 0x80, '&']
             ],
             $this->createLookup()
         ));
@@ -1379,11 +1397,6 @@ class SearchPage extends GenericPage
 
         return false;
     }
-
-
-    // private function _searchCharacter($cndBase) { }      // 28 Characters $searchMask & 0x10000000
-    // private function _searchGuild($cndBase) { }          // 29 Guilds $searchMask & 0x20000000
-    // private function _searchArenaTeam($cndBase) { }      // 30 Arena Teams $searchMask & 0x40000000
 }
 
 ?>
