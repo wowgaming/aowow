@@ -405,7 +405,7 @@ class Game
                 ct.`Type` AS `talkType`,
                 ct.TextRange AS `range`,
                 IFNULL(bct.`LanguageID`, ct.`Language`) AS lang,
-                IFNULL(NULLIF(bct.MaleText, ""), IFNULL(NULLIF(bct.FemaleText, ""), IFNULL(ct.`Text`, ""))) AS text_loc0
+                IFNULL(NULLIF(bct.MaleText, ""), IFNULL(NULLIF(bct.FemaleText, ""), IFNULL(ct.`Text`, ""))) AS text_loc0,
                {IFNULL(NULLIF(bctl.MaleText, ""), IFNULL(NULLIF(bctl.FemaleText, ""), IFNULL(ctl.Text, ""))) AS text_loc?d,}
                 IF(bct.SoundEntriesID > 0, bct.SoundEntriesID, ct.Sound) AS soundId
             FROM
@@ -518,5 +518,3 @@ class Game
         }
     }
 }
-
-?>
