@@ -8,7 +8,7 @@ class ItemsetList extends BaseType
 {
     use ListviewHelper;
 
-    public static   $type       = TYPE_ITEMSET;
+    public static   $type       = Type::ITEMSET;
     public static   $brickFile  = 'itemset';
     public static   $dataTable  = '?_itemset';
 
@@ -80,14 +80,14 @@ class ItemsetList extends BaseType
         $data = [];
 
         if ($this->classes && ($addMask & GLOBALINFO_RELATED))
-            $data[TYPE_CLASS] = array_combine($this->classes, $this->classes);
+            $data[Type::CHR_CLASS] = array_combine($this->classes, $this->classes);
 
         if ($this->pieceToSet && ($addMask & GLOBALINFO_SELF))
-            $data[TYPE_ITEM] = array_combine(array_keys($this->pieceToSet), array_keys($this->pieceToSet));
+            $data[Type::ITEM] = array_combine(array_keys($this->pieceToSet), array_keys($this->pieceToSet));
 
         if ($addMask & GLOBALINFO_SELF)
             foreach ($this->iterate() as $id => $__)
-                $data[TYPE_ITEMSET][$id] = ['name' => $this->getField('name', true)];
+                $data[Type::ITEMSET][$id] = ['name' => $this->getField('name', true)];
 
         return $data;
     }
@@ -98,19 +98,21 @@ class ItemsetList extends BaseType
             return array();
 
         $x  = '<table><tr><td>';
-        $x .= '<span class="q'.$this->getField('quality').'">'.Util::jsEscape($this->getField('name', true)).'</span><br />';
+        $x .= '<span class="q'.$this->getField('quality').'">'.$this->getField('name', true).'</span><br />';
 
-        $nClasses = 0;
+        $nCl = 0;
         if ($_ = $this->getField('classMask'))
         {
-            $cl = Lang::getClassString($_, $__, $nClasses);
-            $x .= Util::ucFirst($nClasses > 1 ? Lang::game('classes') : Lang::game('class')).Lang::main('colon').$cl.'<br />';
+            $jsg = [];
+            $cl  = Lang::getClassString($_, $jsg);
+            $nCl = count($jsg);
+            $x .= Util::ucFirst($nCl > 1 ? Lang::game('classes') : Lang::game('class')).Lang::main('colon').$cl.'<br />';
         }
 
         if ($_ = $this->getField('contentGroup'))
-            $x .= Util::jsEscape(Lang::itemset('notes', $_)).($this->getField('heroic') ? ' <i class="q2">('.Lang::item('heroic').')</i>' : '').'<br />';
+            $x .= Lang::itemset('notes', $_).($this->getField('heroic') ? ' <i class="q2">('.Lang::item('heroic').')</i>' : '').'<br />';
 
-        if (!$nClasses || !$this->getField('contentGroup'))
+        if (!$nCl || !$this->getField('contentGroup'))
             $x.= Lang::itemset('types', $this->getField('type')).'<br />';
 
         if ($bonuses = $this->getBonuses())
@@ -118,7 +120,7 @@ class ItemsetList extends BaseType
             $x .= '<span>';
 
             foreach ($bonuses as $b)
-                $x .= '<br /><span class=\"q13\">'.$b['bonus'].' '.Lang::itemset('_pieces').Lang::main('colon').'</span>'.Util::jsEscape($b['desc']);
+                $x .= '<br /><span class="q13">'.$b['bonus'].' '.Lang::itemset('_pieces').Lang::main('colon').'</span>'.$b['desc'];
 
             $x .= '</span>';
         }

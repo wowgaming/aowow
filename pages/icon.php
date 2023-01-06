@@ -10,7 +10,7 @@ class IconPage extends GenericPage
 {
     use TrDetailPage;
 
-    protected $type          = TYPE_ICON;
+    protected $type          = Type::ICON;
     protected $typeId        = 0;
     protected $tpl           = 'icon';
     protected $path          = [0, 31];
@@ -25,11 +25,11 @@ class IconPage extends GenericPage
 
         $this->subject = new IconList(array(['id', $this->typeId]));
         if ($this->subject->error)
-            $this->notFound(Util::ucFirst(Lang::game('icon')), Lang::icon('notFound'));
+            $this->notFound(Lang::game('icon'), Lang::icon('notFound'));
 
         $this->extendGlobalData($this->subject->getJSGlobals());
 
-        $this->name = Util::ucFirst($this->subject->getField('name'));
+        $this->name = $this->subject->getField('name');
         $this->icon = $this->subject->getField('name', true, true);
     }
 

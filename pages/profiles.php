@@ -12,13 +12,15 @@ class ProfilesPage extends GenericPage
 
     protected $roster   = 0;                                // $_GET['roster'] = 1|2|3|4 .. 2,3,4 arenateam-size (4 => 5-man), 1 guild .. it puts a resync button on the lv...
 
-    protected $type     = TYPE_PROFILE;
+    protected $type     = Type::PROFILE;
 
     protected $tabId    = 1;
     protected $path     = [1, 5, 0];
     protected $tpl      = 'profiles';
-    protected $js       = ['filters.js', 'profile_all.js', 'profile.js'];
-    protected $css      = [['path' => 'Profiler.css']];
+    protected $js       = [[JS_FILE, 'filters.js'], [JS_FILE, 'profile_all.js'], [JS_FILE, 'profile.js']];
+    protected $css      = [[CSS_FILE, 'Profiler.css']];
+
+    protected $_get     = ['filter' => ['filter' => FILTER_UNSAFE_RAW]];
 
     public function __construct($pageCall, $pageParam)
     {
@@ -60,7 +62,7 @@ class ProfilesPage extends GenericPage
 
     protected function generateContent()
     {
-        $this->addJS('?data=weight-presets.realms&locale='.User::$localeId.'&t='.$_SESSION['dataKey']);
+        $this->addScript([JS_FILE, '?data=weight-presets.realms&locale='.User::$localeId.'&t='.$_SESSION['dataKey']]);
 
         $conditions = [];
 
@@ -76,7 +78,7 @@ class ProfilesPage extends GenericPage
 
         // recreate form selection
         $this->filter             = $this->filterObj->getForm();
-        $this->filter['query']    = isset($_GET['filter']) ? $_GET['filter'] : null;
+        $this->filter['query']    = $this->_get['filter'];
         $this->filter['initData'] = ['init' => 'profiles'];
 
         if ($x = $this->filterObj->getSetCriteria())

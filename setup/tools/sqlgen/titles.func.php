@@ -9,17 +9,12 @@ if (!CLI)
 
 SqlGen::register(new class extends SetupScript
 {
-    use TrCustomData;
+    use TrCustomData;                                       // import custom data from DB
 
     protected $command = 'titles';
 
-    protected $tblDependancyTC = ['quest_template', 'game_event_seasonal_questrelation', 'game_event', 'achievement_reward'];
+    protected $tblDependencyTC = ['quest_template', 'game_event_seasonal_questrelation', 'game_event', 'achievement_reward'];
     protected $dbcSourceFiles  = ['chartitles'];
-
-    private $customData = array(
-        137 => ['gender' => 2],
-        138 => ['gender' => 1]
-    );
 
     private $titleHoliday = array(
         137 => 201,
@@ -98,6 +93,8 @@ SqlGen::register(new class extends SetupScript
         // update side - sourceless titles (maintain query order)
         DB::Aowow()->query('UPDATE ?_titles SET side = 2 WHERE id <= 28 OR id IN (118, 119, 116, 117, 110, 127)');
         DB::Aowow()->query('UPDATE ?_titles SET side = 1 WHERE id <= 14 OR id IN (111, 115, 112, 114, 126)');
+
+        $this->reapplyCCFlags('titles', Type::TITLE);
 
         return true;
     }

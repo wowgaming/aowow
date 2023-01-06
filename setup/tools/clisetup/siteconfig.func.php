@@ -11,12 +11,12 @@ if (!CLI)
 /* Configure Site variables */
 /****************************/
 
-function siteconfig()
+function siteconfig() : void
 {
     $reqKeys    = ['site_host', 'static_host'];
     $updScripts = [];
 
-    if (!DB::isConnected(DB_AOWOW))
+    if (!DB::isConnectable(DB_AOWOW))
     {
         CLI::write();
         CLI::write("database not yet set up!\n        Please use --dbconfig for setup", CLI::LOG_WARN);
@@ -41,6 +41,9 @@ function siteconfig()
             case 'static_host':
                 array_push($updScripts, 'searchplugin', 'power', 'searchboxBody', 'searchboxScript');
                 break;
+            case 'contact_email':
+                array_push($updScripts, 'markup');
+                break;
             case 'locales':
                 array_push($updScripts, 'locales');
                 CLI::write(' * remember to rebuild all static files for the language you just added.', CLI::LOG_INFO);
@@ -57,6 +60,17 @@ function siteconfig()
                         CLI::write($msg, CLI::LOG_ERROR);
 
                     return $ok;
+                };
+                break;
+            case 'acc_auth_mode':
+                $fn = function($x) {
+                    if ($x == 1 && !extension_loaded('gmp'))
+                    {
+                        CLI::write('PHP extension GMP is required to use TrinityCore as auth source, but it is currently not enabled.', CLI::LOG_ERROR);
+                        return false;
+                    }
+
+                    return true;
                 };
                 break;
             default:                                        // nothing to do, everything is fine
@@ -155,7 +169,7 @@ function siteconfig()
         }
 
         $inp = ['idx' => ['', false, '/\d/']];
-        if (CLI::readInput($inp) && $inp && $inp['idx'] !== '')
+        if (CLI::read($inp) && $inp && $inp['idx'] !== '')
         {
             // add new php setting
             if ($inp['idx'] == $sumNum)
@@ -169,7 +183,7 @@ function siteconfig()
                         'key' => ['option name', false, '/[\w_\.\-]/i'],
                         'val' => ['value',                            ]
                     );
-                    if (CLI::readInput($setting) && $setting)
+                    if (CLI::read($setting) && $setting)
                     {
                         CLI::write();
 
@@ -259,7 +273,7 @@ function siteconfig()
                 while (true)
                 {
                     $action = ['idx' => ['', true, '/[edr]/i']];
-                    if (CLI::readInput($action, true) && $action)
+                    if (CLI::read($action, true) && $action)
                     {
                         switch (strtoupper($action['idx']))
                         {
@@ -314,11 +328,12 @@ function siteconfig()
                                 while (true)
                                 {
                                     $use = $value;
-                                    if (CLI::readInput($use, $single))
+                                    if (CLI::read($use, $single))
                                     {
                                         CLI::write();
 
-                                        if (!$validate($use ? $use['idx'] : ''))
+                                        $inp = $use['idx'] ?? '';
+                                        if (!$validate($inp))
                                         {
                                             CLI::write("value not in range", CLI::LOG_ERROR);
                                             sleep(1);
@@ -327,10 +342,10 @@ function siteconfig()
                                         else
                                         {
                                             $oldVal = DB::Aowow()->selectCell('SELECT `value` FROM ?_config WHERE `key` = ?', $key);
-                                            DB::Aowow()->query('UPDATE ?_config SET `value` = ? WHERE `key` = ?', $use['idx'], $key);
+                                            DB::Aowow()->query('UPDATE ?_config SET `value` = ? WHERE `key` = ?', $inp, $key);
 
                                             // postChange returned false => reset value
-                                            if (!$onChange($key, $use['idx']))
+                                            if (!$onChange($key, $inp))
                                             {
                                                 DB::Aowow()->query('UPDATE ?_config SET `value` = ? WHERE `key` = ?', $oldVal, $key);
                                                 sleep(1);
@@ -397,7 +412,7 @@ function siteconfig()
         else
         {
             CLI::write();
-            CLI::write('site configuration aborted', CLI::LOG_INFO);
+            CLI::write('leaving site configuration...', CLI::LOG_INFO);
             break;
         }
 
@@ -420,6 +435,9 @@ function siteconfig()
             $updScripts = [];
         }
     }
+
+    // actually load set constants
+    loadConfig(true);
 }
 
 ?>

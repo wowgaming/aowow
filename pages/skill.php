@@ -10,7 +10,7 @@ class SkillPage extends GenericPage
 {
     use TrDetailPage;
 
-    protected $type          = TYPE_SKILL;
+    protected $type          = Type::SKILL;
     protected $typeId        = 0;
     protected $tpl           = 'detail-page-generic';
     protected $path          = [0, 14];
@@ -55,7 +55,7 @@ class SkillPage extends GenericPage
         if ($_ = $this->subject->getField('iconId'))
         {
             $infobox[] = Util::ucFirst(lang::game('icon')).Lang::main('colon').'[icondb='.$_.' name=true]';
-            $this->extendGlobalIds(TYPE_ICON, $_);
+            $this->extendGlobalIds(Type::ICON, $_);
         }
 
         /****************/
@@ -249,22 +249,35 @@ class SkillPage extends GenericPage
         // tab: trainers [npcs]
         if (in_array($this->cat, [-5, 6, 7, 8, 9, 11]))
         {
-            $mask = 0;
-            foreach (Game::$skillLineMask[-3] as $idx => $pair)
-                if ($pair[1] == $this->typeId)
-                    $mask |= 1 << $idx;
+            $list = [];
+            if (!empty(Game::$trainerTemplates[TYPE_SKILL][$this->typeId]))
+                $list = DB::World()->selectCol('SELECT DISTINCT ID FROM npc_trainer WHERE SpellID IN (?a) AND ID < 200000', Game::$trainerTemplates[TYPE_SKILL][$this->typeId]);
+            else
+            {
+                $mask = 0;
+                foreach (Game::$skillLineMask[-3] as $idx => $pair)
+                    if ($pair[1] == $this->typeId)
+                        $mask |= 1 << $idx;
 
-            $spellIds = DB::Aowow()->selectCol(
-                'SELECT id FROM ?_spell WHERE (skillLine1 = ?d OR (skillLine1 > 0 AND skillLine2OrMask = ?d) {OR (skillLine1 = -3 AND skillLine2OrMask = ?d)})',
-                $this->typeId,
-                $this->typeId,
-                $mask ?: DBSIMPLE_SKIP
-            );
+                $spellIds = DB::Aowow()->selectCol(
+                    'SELECT id FROM ?_spell WHERE typeCat IN (-11, 9) AND (skillLine1 = ?d OR (skillLine1 > 0 AND skillLine2OrMask = ?d) {OR (skillLine1 = -3 AND skillLine2OrMask = ?d)})',
+                    $this->typeId,
+                    $this->typeId,
+                    $mask ?: DBSIMPLE_SKIP
+                );
 
-            $list = $spellIds ? DB::World()->selectCol('SELECT cdt.CreatureId FROM creature_default_trainer cdt JOIN trainer_spell ts ON ts.TrainerId = cdt.TrainerId WHERE ts.SpellID IN (?a)', $spellIds) : [];
+                $list = $spellIds ? DB::World()->selectCol('
+                    SELECT    IF(t1.ID > 200000, t2.ID, t1.ID)
+                    FROM      npc_trainer t1
+                    LEFT JOIN npc_trainer t2 ON t2.SpellID = -t1.ID
+                    WHERE     t1.SpellID IN (?a)',
+                    $spellIds
+                ) : [];
+            }
+
             if ($list)
             {
-                $this->addJS('?data=zones&locale='.User::$localeId.'&t='.$_SESSION['dataKey']);
+                $this->addScript([JS_FILE, '?data=zones&locale='.User::$localeId.'&t='.$_SESSION['dataKey']]);
 
                 $trainer = new CreatureList(array(CFG_SQL_LIMIT_NONE, ['ct.id', $list], ['s.guid', NULL, '!'], ['ct.npcflag', 0x10, '&']));
 

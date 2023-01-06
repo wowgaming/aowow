@@ -10,7 +10,7 @@ class FactionPage extends GenericPage
 {
     use TrDetailPage;
 
-    protected $type          = TYPE_FACTION;
+    protected $type          = Type::FACTION;
     protected $typeId        = 0;
     protected $tpl           = 'detail-page-generic';
     protected $path          = [0, 7];
@@ -48,7 +48,7 @@ class FactionPage extends GenericPage
 
     protected function generateContent()
     {
-        $this->addJS('?data=zones&locale='.User::$localeId.'&t='.$_SESSION['dataKey']);
+        $this->addScript([JS_FILE, '?data=zones&locale='.User::$localeId.'&t='.$_SESSION['dataKey']]);
 
         /***********/
         /* Infobox */
@@ -58,7 +58,7 @@ class FactionPage extends GenericPage
         // Quartermaster if any
         if ($ids = $this->subject->getField('qmNpcIds'))
         {
-            $this->extendGlobalIds(TYPE_NPC, $ids);
+            $this->extendGlobalIds(Type::NPC, ...$ids);
 
             $qmStr = Lang::faction('quartermaster').Lang::main('colon');
 
@@ -142,7 +142,7 @@ class FactionPage extends GenericPage
                     case 'creature_rate':         $buff .= '[tr][td]'.Lang::game('npcs')                                     .Lang::main('colon').'[/td]'; break;
                     case 'spell_rate':            $buff .= '[tr][td]'.Lang::game('spells')                                   .Lang::main('colon').'[/td]'; break;
                     default:
-                        continue;
+                        continue 2;
                 }
 
                 $buff .= '[td width=35px align=right][span class=q'.($v < 1 ? '10]' : '2]+').intVal(($v - 1) * 100).'%[/span][/td][/tr]';

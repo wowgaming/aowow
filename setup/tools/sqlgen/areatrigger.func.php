@@ -11,8 +11,8 @@ SqlGen::register(new class extends SetupScript
 {
     protected $command = 'areatrigger';
 
-    protected $tblDependancyTC = ['areatrigger_involvedrelation', 'areatrigger_scripts', 'areatrigger_tavern', 'areatrigger_teleport', 'quest_template', 'quest_template_addon'];
-    protected $dbcSourceFiles  = ['areatrigger'];
+    protected $tblDependencyTC = ['areatrigger_involvedrelation', 'areatrigger_scripts', 'areatrigger_tavern', 'areatrigger_teleport', 'quest_template', 'quest_template_addon'];
+    protected $dbcSourceFiles  = ['areatrigger', 'worldmaparea', 'dungeonmap'];
 
     public function generate(array $ids = []) : bool
     {
@@ -40,22 +40,7 @@ SqlGen::register(new class extends SetupScript
         ');
         foreach ($addData as $id => $ad)
         {
-            // todo (low): unify with spawns function
-            $queryPost = 'SELECT dm.id, wma.areaId, IFNULL(dm.floor, 0) AS floor, ' .
-                         '100 - ROUND(IF(dm.id IS NOT NULL, (?f - dm.minY) * 100 / (dm.maxY - dm.minY), (?f - wma.right)  * 100 / (wma.left - wma.right)), 1) AS `posX`, ' .
-                         '100 - ROUND(IF(dm.id IS NOT NULL, (?f - dm.minX) * 100 / (dm.maxX - dm.minX), (?f - wma.bottom) * 100 / (wma.top - wma.bottom)), 1) AS `posY`, ' .
-                         '((abs(IF(dm.id IS NOT NULL, (?f - dm.minY) * 100 / (dm.maxY - dm.minY), (?f - wma.right)  * 100 / (wma.left - wma.right)) - 50) / 50) * ' .
-                         ' (abs(IF(dm.id IS NOT NULL, (?f - dm.minX) * 100 / (dm.maxX - dm.minX), (?f - wma.bottom) * 100 / (wma.top - wma.bottom)) - 50) / 50)) AS quality ' .
-                         'FROM dbc_worldmaparea wma ' .
-                         'LEFT JOIN dbc_dungeonmap dm ON dm.mapId = IF(?d AND (wma.mapId NOT IN (0, 1, 530, 571) OR wma.areaId = 4395), wma.mapId, -1) ' .
-                         'WHERE wma.mapId = ?d AND wma.areaId <> 0 ' .
-                         'HAVING (`posX` BETWEEN 0.1 AND 99.9 AND `posY` BETWEEN 0.1 AND 99.9) ' .
-                         'ORDER BY quality ASC';
-
-            $points = DB::Aowow()->select($queryPost, $ad['posX'], $ad['posX'], $ad['posY'], $ad['posY'], $ad['posX'], $ad['posX'], $ad['posY'], $ad['posY'], 1, $ad['map']);
-            if (!$points)
-                $points = DB::Aowow()->select($queryPost, $ad['posX'], $ad['posX'], $ad['posY'], $ad['posY'], $ad['posX'], $ad['posX'], $ad['posY'], $ad['posY'], 0, $ad['map']);
-
+            $points = Game::worldPosToZonePos($ad['map'], $ad['posX'], $ad['posY']/*, 0*/);
             if (!$points)
             {
                 CLI::write('   * AT '.$id.' teleporter endpoint '.CLI::bold($ad['name']).' could not be matched to displayable area [M:'.$ad['map'].'; X:'.$ad['posY'].'; Y:'.$ad['posX'].']', CLI::LOG_WARN);
@@ -94,6 +79,8 @@ SqlGen::register(new class extends SetupScript
         $addData = DB::World()->select('SELECT entry AS ARRAY_KEY, IF(ScriptName = "SmartTrigger", NULL, ScriptName) AS `name`, IF(ScriptName = "SmartTrigger", 4, 5) AS `type` FROM areatrigger_scripts');
         foreach ($addData as $id => $ad)
             DB::Aowow()->query('UPDATE ?_areatrigger SET ?a WHERE id = ?d', $ad, $id);
+
+        $this->reapplyCCFlags('areatrigger', Type::AREATRIGGER);
 
         return true;
     }

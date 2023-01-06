@@ -15,6 +15,8 @@ class DB
     private static $optionsCache    = [];
     private static $connectionCache = [];
 
+    private static $logs            = [];
+
     private static function createConnectSyntax(&$options)
     {
         return 'mysqli://'.$options['user'].':'.$options['pass'].'@'.$options['host'].'/'.$options['db'];
@@ -29,7 +31,7 @@ class DB
         $interface = DbSimple_Generic::connect(self::createConnectSyntax($options));
 
         if (!$interface || $interface->error)
-            die('Failed to connect to database.');
+            die('Failed to connect to database on index #'.$idx.".\n");
 
         $interface->setErrorHandler(['DB', 'errorHandler']);
         $interface->query('SET NAMES ?', 'utf8mb4');
@@ -47,6 +49,25 @@ class DB
         self::$connectionCache[$idx] = true;
     }
 
+    public static function test(array $options, ?string &$err = '') : bool
+    {
+        $defPort = ini_get('mysqli.default_port');
+        $port = 0;
+        if (strstr($options['host'], ':'))
+            [$options['host'], $port] = explode(':', $options['host']);
+
+        try {
+            $link = @mysqli_connect($options['host'], $options['user'], $options['pass'], $options['db'], $port ?: $defPort);
+            mysqli_close($link);
+        }
+        catch (Exception $e)
+        {
+            $err = '['.mysqli_connect_errno().'] '.mysqli_connect_error();
+            return false;
+        }
+            return true;
+    }
+
     public static function errorHandler($message, $data)
     {
         if (!error_reporting())
@@ -56,6 +77,35 @@ class DB
 
         echo CLI ? strip_tags($error) : $error;
         exit;
+    }
+
+    public static function logger($self, $query, $trace)
+    {
+        if ($trace)                                         // actual query
+            self::$logs[] = [substr(str_replace("\n", ' ', $query), 0, 200)];
+        else                                                // the statistics
+        {
+            end(self::$logs);
+            self::$logs[key(self::$logs)][] = substr(explode(';', $query)[0], 5);
+        }
+    }
+
+    public static function getLogs()
+    {
+        $out = '<pre><table style="font-size:12;"><tr><th></th><th>Time</th><th>Query</th></tr>';
+        foreach (self::$logs as $i => [$l, $t])
+        {
+            $c = 'inherit';
+            preg_match('/(\d+)/', $t, $m);
+            if ($m[1] > 100)
+                $c = '#FFA0A0';
+            else if ($m[1] > 20)
+                $c = '#FFFFA0';
+
+            $out .= '<tr><td>'.$i.'.</td><td style="background-color:'.$c.';">'.$t.'</td><td>'.$l.'</td></tr>';
+        }
+
+        return Util::jsEscape($out).'</table></pre>';
     }
 
     public static function getDB($idx)

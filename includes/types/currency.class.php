@@ -6,7 +6,7 @@ if (!defined('AOWOW_REVISION'))
 
 class CurrencyList extends BaseType
 {
-    public static   $type      = TYPE_CURRENCY;
+    public static   $type      = Type::CURRENCY;
     public static   $brickFile = 'currency';
     public static   $dataTable = '?_currencies';
 
@@ -57,7 +57,7 @@ class CurrencyList extends BaseType
             else
                 $icon = [$this->curTpl['iconString'], $this->curTpl['iconString']];
 
-            $data[TYPE_CURRENCY][$this->id] = ['name' => $this->getField('name', true), 'icon' => $icon];
+            $data[Type::CURRENCY][$this->id] = ['name' => $this->getField('name', true), 'icon' => $icon];
         }
 
         return $data;
@@ -69,11 +69,11 @@ class CurrencyList extends BaseType
             return array();
 
         $x  = '<table><tr><td>';
-        $x .= '<b>'.Util::jsEscape($this->getField('name', true)).'</b><br>';
+        $x .= '<b>'.$this->getField('name', true).'</b><br>';
 
         // cata+ (or go fill it by hand)
         if ($_ = $this->getField('description', true))
-            $x .= '<div style="max-width: 300px" class="q">'.Util::jsEscape($_).'</div>';
+            $x .= '<div style="max-width: 300px" class="q">'.$_.'</div>';
 
         if ($_ = $this->getField('cap'))
             $x .= '<br><span class="q">'.Lang::currency('cap').Lang::main('colon').'</span>'.Lang::nf($_).'<br>';

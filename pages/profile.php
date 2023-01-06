@@ -13,20 +13,34 @@ class ProfilePage extends GenericPage
     protected $gDataKey  = true;
     protected $mode      = CACHE_TYPE_PAGE;
 
-    protected $type      = TYPE_PROFILE;
+    protected $type      = Type::PROFILE;
 
     protected $tabId     = 1;
     protected $path      = [1, 5, 1];
     protected $tpl       = 'profile';
-    protected $js        = ['filters.js', 'TalentCalc.js', 'swfobject.js', 'profile_all.js', 'profile.js', 'Profiler.js'];
+    protected $js        = array(
+        [JS_FILE, 'filters.js'],
+        [JS_FILE, 'TalentCalc.js'],
+        [JS_FILE, 'swfobject.js'],
+        [JS_FILE, 'profile_all.js'],
+        [JS_FILE, 'profile.js'],
+        [JS_FILE, 'Profiler.js']
+    );
     protected $css       = array(
-        ['path' => 'talentcalc.css'],
-        ['path' => 'Profiler.css']
+        [CSS_FILE, 'talentcalc.css'],
+        [CSS_FILE, 'Profiler.css']
     );
 
-    private   $isCustom = false;
-    private   $profile  = null;
-    private   $rnItr    = 0;
+    protected $_get      = array(
+        'domain' => ['filter' => FILTER_CALLBACK, 'options' => 'GenericPage::checkDomain'],
+        'new'    => ['filter' => FILTER_CALLBACK, 'options' => 'GenericPage::checkEmptySet']
+    );
+
+    private   $isCustom  = false;
+    private   $profile   = null;
+    private   $subject   = null;
+    private   $rnItr     = 0;
+    private   $powerTpl  = '$WowheadPower.registerProfile(%s, %d, %s);';
 
     public function __construct($pageCall, $pageParam)
     {
@@ -37,19 +51,20 @@ class ProfilePage extends GenericPage
         if ($params[0])
             $params[0] = Profiler::urlize($params[0]);
         if (isset($params[1]))
-            $params[1] = Profiler::urlize($params[1]);
+            $params[1] = Profiler::urlize($params[1], true);
 
         parent::__construct($pageCall, $pageParam);
 
         // temp locale
-        if ($this->mode == CACHE_TYPE_TOOLTIP && isset($_GET['domain']))
-            Util::powerUseLocale($_GET['domain']);
+        if ($this->mode == CACHE_TYPE_TOOLTIP && $this->_get['domain'])
+            Util::powerUseLocale($this->_get['domain']);
 
         if (count($params) == 1 && intval($params[0]))
         {
             // redundancy much?
             $this->subjectGUID = intval($params[0]);
             $this->profile     = intval($params[0]);
+            $this->isCustom    = true;                      // until proven otherwise
 
             $this->subject = new LocalProfileList(array(['id', intval($params[0])]));
             if ($this->subject->error)
@@ -58,9 +73,7 @@ class ProfilePage extends GenericPage
             if (!$this->subject->isVisibleToUser())
                 $this->notFound();
 
-            if ($this->subject->isCustom())
-                $this->isCustom  = true;
-            else
+            if (!$this->subject->isCustom())
                 header('Location: '.$this->subject->getProfileUrl(), true, 302);
         }
         else if (count($params) == 3)
@@ -96,13 +109,13 @@ class ProfilePage extends GenericPage
                     $this->notFound();
             }
             // 2) not yet synced but exists on realm (and not a gm character)
-            else if (!$this->rnItr && ($char = DB::Characters($this->realmId)->selectRow('SELECT c.guid AS realmGUID, c.name, c.race, c.class, c.level, c.gender, g.guildid AS guildGUID, IFNULL(g.name, "") AS guildName, IFNULL(gm.rank, 0) AS guildRank FROM characters c LEFT JOIN guild_member gm ON gm.guid = c.guid LEFT JOIN guild g ON g.guildid = gm.guildid WHERE c.name = ? AND level <= ?d AND (extra_flags & ?d) = 0', Util::ucFirst($this->subjectName), MAX_LEVEL, Profiler::CHAR_GMFLAGS)))
+            else if (!$this->rnItr && ($char = DB::Characters($this->realmId)->selectRow('SELECT c.guid AS realmGUID, c.name, c.race, c.class, c.level, c.gender, c.at_login, g.guildid AS guildGUID, IFNULL(g.name, "") AS guildName, IFNULL(gm.rank, 0) AS guildRank FROM characters c LEFT JOIN guild_member gm ON gm.guid = c.guid LEFT JOIN guild g ON g.guildid = gm.guildid WHERE c.name = ? AND level <= ?d AND (extra_flags & ?d) = 0', Util::ucFirst($this->subjectName), MAX_LEVEL, Profiler::CHAR_GMFLAGS)))
             {
                 $char['realm']   = $this->realmId;
                 $char['cuFlags'] = PROFILER_CU_NEEDS_RESYNC;
 
                 if ($char['at_login'] & 0x1)
-                    $char['renameItr'] = DB::Aowow()->selectCell('SELECT MAX(renameItr) FROM ?_profiler_profiles WHERE realm = ?d AND realmGUID IS NOT NULL AND name = ?', $realmId, $char['name']);
+                    $char['renameItr'] = DB::Aowow()->selectCell('SELECT MAX(renameItr) FROM ?_profiler_profiles WHERE realm = ?d AND realmGUID IS NOT NULL AND name = ?', $this->realmId, $char['name']);
 
                 if ($char['guildGUID'])
                 {
@@ -125,9 +138,9 @@ class ProfilePage extends GenericPage
             else
                 $this->notFound();
         }
-        else if (($params && $params[0]) || !isset($_GET['new']))
+        else if (($params && $params[0]) || !$this->_get['new'])
             $this->notFound();
-        else if (isset($_GET['new']))
+        else if ($this->_get['new'])
             $this->mode = CACHE_TYPE_NONE;
     }
 
@@ -137,7 +150,7 @@ class ProfilePage extends GenericPage
             return;
 
         // + .titles ?
-        $this->addJS('?data=enchants.gems.glyphs.itemsets.pets.pet-talents.quick-excludes.realms.statistics.weight-presets.achievements&locale='.User::$localeId.'&t='.$_SESSION['dataKey']);
+        $this->addScript([JS_FILE, '?data=enchants.gems.glyphs.itemsets.pets.pet-talents.quick-excludes.realms.statistics.weight-presets.achievements&locale='.User::$localeId.'&t='.$_SESSION['dataKey']]);
 
         // as demanded by the raid activity tracker
         $bossIds = array(
@@ -154,11 +167,11 @@ class ProfilePage extends GenericPage
 /*          Anub,  Faerlina, Maexxna, Noth,  Heigan, Loatheb, Razuvious, Gothik, Patchwerk, Grobbulus, Gluth, Thaddius, Sapphiron, Kel'Thuzad */
 /* nax  */  15956, 15953,    15952,   15954, 15936,  16011,   16061,     16060,  16028,     15931,     15932, 15928,    15989,     15990
         );
-        $this->extendGlobalIds(TYPE_NPC, $bossIds);
+        $this->extendGlobalIds(Type::NPC, ...$bossIds);
 
         // dummy title from dungeon encounter
         foreach (Lang::profiler('encounterNames') as $id => $name)
-            $this->extendGlobalData([TYPE_NPC => [$id => ['name_'.User::$localeString => $name]]]);
+            $this->extendGlobalData([Type::NPC => [$id => ['name_'.User::$localeString => $name]]]);
     }
 
     protected function generatePath()
@@ -171,64 +184,53 @@ class ProfilePage extends GenericPage
         array_unshift($this->title, Util::ucFirst(Lang::game('profile')));
     }
 
-    protected function generateTooltip($asError = false)
+    protected function generateTooltip()
     {
         $id = $this->profile;
         if (!$this->isCustom)
-            $id = "'".$this->profile[0].'.'.$this->profile[1].'.'.urlencode($this->profile[2])."'";
+            $id = "'".$this->profile[0].'.'.urlencode($this->profile[1]).'.'.urlencode($this->profile[2])."'";
 
-        $x = '$WowheadPower.registerProfile('.$id.', '.User::$localeId.', {';
-        if ($asError)
-            return $x."});";
+        $power = new StdClass();
+        if ($this->subject && !$this->subject->error && $this->subject->isVisibleToUser())
+        {
+            $n = $this->subject->getField('name');
+            $l = $this->subject->getField('level');
+            $r = $this->subject->getField('race');
+            $c = $this->subject->getField('class');
+            $g = $this->subject->getField('gender');
 
-        $name       = $this->subject->getField('name');
-        $guild      = $this->subject->getField('guild');
-        $guildRank  = $this->subject->getField('guildrank');
-        $lvl        = $this->subject->getField('level');
-        $ra         = $this->subject->getField('race');
-        $cl         = $this->subject->getField('class');
-        $gender     = $this->subject->getField('gender');
-        $title      = '';
-        if ($_ = $this->subject->getField('title'))
-            $title = (new TitleList(array(['id', $_])))->getField($gender ? 'female' : 'male', true);
+            if ($this->isCustom)
+                $n .= Lang::profiler('customProfile');
+            else if ($_ = $this->subject->getField('title'))
+                if ($title = (new TitleList(array(['id', $_])))->getField($g ? 'female' : 'male', true))
+                    $n = sprintf($title, $n);
 
-        if ($this->isCustom)
-            $name .= Lang::profiler('customProfile');
-        else if ($title)
-            $name = sprintf($title, $name);
+            $power->{'name_'.User::$localeString}    = $n;
+            $power->{'tooltip_'.User::$localeString} = $this->subject->renderTooltip();
+            $power->icon                             = '$$WH.g_getProfileIcon('.$r.', '.$c.', '.$g.', '.$l.', \''.$this->subject->getIcon().'\')';
+        }
 
-        $x .= "\n";
-        $x .= "\tname_".User::$localeString.": '".Util::jsEscape($name)."',\n";
-        $x .= "\ttooltip_".User::$localeString.": '".$this->subject->renderTooltip()."',\n";
-        $x .= "\ticon: \$WH.g_getProfileIcon(".$ra.", ".$cl.", ".$gender.", ".$lvl.", '".$this->subject->getIcon()."'),\n";   // (race, class, gender, level, iconOrId, 'medium')
-        $x .= "});";
-
-        return $x;
+        return sprintf($this->powerTpl, $id, User::$localeId, Util::toJSON($power, JSON_AOWOW_POWER));
     }
 
-    public function display($override = '')
+    public function display(string $override = ''): void
     {
         if ($this->mode != CACHE_TYPE_TOOLTIP)
-            return parent::display($override);
+            parent::display($override);
 
         // do not cache profile tooltips
-        header('Content-type: application/x-javascript; charset=utf-8');
+        header(MIME_TYPE_JSON);
         die($this->generateTooltip());
     }
 
-    public function notFound($title = '', $msg = '')
+    public function notFound(string $title = '', string $msg = '') : void
     {
-        if ($this->mode != CACHE_TYPE_TOOLTIP)
-            return parent::notFound($title ?: Util::ucFirst(Lang::profiler('profiler')), $msg ?: Lang::profiler('notFound', 'profile'));
-
-        header('Content-type: application/x-javascript; charset=utf-8');
-        echo $this->generateTooltip(true);
-        exit();
+        parent::notFound($title ?: Util::ucFirst(Lang::profiler('profiler')), $msg ?: Lang::profiler('notFound', 'profile'));
     }
 
     private function handleIncompleteData($params, $guid)
     {
-        if ($this->mode == CACHE_TYPE_TOOLTIP)      // enable tooltip display with basic data we just added
+        if ($this->mode == CACHE_TYPE_TOOLTIP)              // enable tooltip display with basic data we just added
         {
             $this->subject = new LocalProfileList(array(['id', $this->subjectGUID]), ['sv' => $params[1]]);
             if ($this->subject->error)
@@ -236,15 +238,18 @@ class ProfilePage extends GenericPage
 
             $this->profile = $params;
         }
-        else                                        // display empty page and queue status
+        else                                                // display empty page and queue status
         {
             $this->mode = CACHE_TYPE_NONE;
 
             // queue full fetch
-            $newId = Profiler::scheduleResync(TYPE_PROFILE, $this->realmId, $guid);
-
-            $this->doResync = ['profile', $newId];
-            $this->initialSync();
+            if ($newId = Profiler::scheduleResync(Type::PROFILE, $this->realmId, $guid))
+            {
+                $this->doResync = ['profile', $newId];
+                $this->initialSync();
+            }
+            else                                            // todo: base info should have been created in __construct .. why are we here..?
+                header('Location: ?profiles='.$params[0].'.'.$params[1].'&filter=na='.Util::ucFirst($this->subjectName).';ex=on');
         }
     }
 }

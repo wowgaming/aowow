@@ -8,7 +8,7 @@ class SoundList extends BaseType
 {
     use spawnHelper;
 
-    public static   $type       = TYPE_SOUND;
+    public static   $type       = Type::SOUND;
     public static   $brickFile  = 'sound';
     public static   $dataTable  = '?_sounds';
     public static   $contribute = CONTRIBUTE_CO;
@@ -60,13 +60,6 @@ class SoundList extends BaseType
         }
     }
 
-    public static function getName($id)
-    {
-        $this->getEntry($id);
-
-        return $this->getField('name');
-    }
-
     public function getListviewData()
     {
         $data = [];
@@ -90,7 +83,7 @@ class SoundList extends BaseType
 
         foreach ($this->iterate() as $__)
             $data[self::$type][$this->id] = array(
-                'name'  => Util::jsEscape($this->getField('name', true)),
+                'name'  => $this->getField('name', true),
                 'type'  => $this->getField('cat'),
                 'files' => array_values(array_filter($this->getField('files')))
             );

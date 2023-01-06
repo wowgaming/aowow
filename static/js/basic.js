@@ -194,6 +194,12 @@ $WH.str_replace = function(z, a, b) {
     return z;
 }
 
+$WH.htmlentities = function(a) {
+    return a.replace(/[\u00A0-\u9999<>\&]/gim, function(b) {
+        return "&#" + b.charCodeAt(0) + ";"
+    })
+};
+
 // Encode URL for internal use (e.g. Ajax)
 $WH.urlencode = function(z) {
     z = encodeURIComponent(z);
@@ -373,6 +379,14 @@ $WH.gE = function(z, y) {
     return z.getElementsByTagName(y);
 }
 
+$WH.qs = function (y, z) {
+    return (z || document).querySelector(y);
+};
+
+$WH.qsa = function (y, z) {
+    return (z || document).querySelectorAll(y);
+};
+
 // Create element
 $WH.ce = function(z, p, c) {
     var a = document.createElement(z);
@@ -506,6 +520,8 @@ $WH.sc = function(z, y, x, w, v) {
 
     a.setDate(a.getDate() + y);
     b += "expires=" + a.toUTCString() + "; ";
+
+    b += "SameSite=strict;";
 
     if (w) {
         b += "path=" + w + "; ";
@@ -933,24 +949,26 @@ $WH.g_getIdFromTypeName = function (typeName) {
 
     return (lookup[typeName] ? lookup[typeName] : -1)
 };
+
 $WH.g_getIdFromTypeName.L = {
-    npc: 1,
-    object: 2,
-    item: 3,
-    itemset: 4,
-    quest: 5,
-    spell: 6,
-    zone: 7,
-    faction: 8,
-    pet: 9,
-    achievement: 10,
-    title: 11,
-    event: 12,
-    "class": 13,
-    race: 14,
-    skill: 15,
-    currency: 17,
-    profile: 100
+    npc:           1,
+    object:        2,
+    item:          3,
+    itemset:       4,
+    quest:         5,
+    spell:         6,
+    zone:          7,
+    faction:       8,
+    pet:           9,
+    achievement:  10,
+    title:        11,
+    event:        12,
+    "class":      13,
+    race:         14,
+    skill:        15,
+    currency:     17,
+    profile:     100,
+    guide:       300
 
 };
 
@@ -1942,11 +1960,11 @@ $WH.Tooltip = {
 
         var
             tooltip = $WH.Tooltip.tooltip,
-            tow     = $WH.Tooltip.tooltipTable.offsetWidth,
-            toh     = $WH.Tooltip.tooltipTable.offsetHeight,
+            tow     = $WH.Tooltip.tooltipTable.offsetWidth + 1,
+            toh     = $WH.Tooltip.tooltipTable.offsetHeight + 1,
             tt2     = $WH.Tooltip.tooltip2,
-            tt2w    = $WH.Tooltip.showSecondary ? $WH.Tooltip.tooltipTable2.offsetWidth : 0,
-            tt2h    = $WH.Tooltip.showSecondary ? $WH.Tooltip.tooltipTable2.offsetHeight : 0,
+            tt2w    = $WH.Tooltip.showSecondary ? $WH.Tooltip.tooltipTable2.offsetWidth + 1 : 0,
+            tt2h    = $WH.Tooltip.showSecondary ? $WH.Tooltip.tooltipTable2.offsetHeight + 1 : 0,
             _;
 
         tooltip.style.width = tow + 'px';
@@ -1979,11 +1997,11 @@ $WH.Tooltip = {
             bakLeft = left,
             bakTop  = top,
             tooltip = $WH.Tooltip.tooltip,
-            tow     = $WH.Tooltip.tooltipTable.offsetWidth,
-            toh     = $WH.Tooltip.tooltipTable.offsetHeight,
+            tow     = $WH.Tooltip.tooltipTable.offsetWidth + 1,
+            toh     = $WH.Tooltip.tooltipTable.offsetHeight + 1,
             tt2     = $WH.Tooltip.tooltip2,
-            tt2w    = $WH.Tooltip.showSecondary ? $WH.Tooltip.tooltipTable2.offsetWidth : 0,
-            tt2h    = $WH.Tooltip.showSecondary ? $WH.Tooltip.tooltipTable2.offsetHeight : 0,
+            tt2w    = $WH.Tooltip.showSecondary ? $WH.Tooltip.tooltipTable2.offsetWidth + 1 : 0,
+            tt2h    = $WH.Tooltip.showSecondary ? $WH.Tooltip.tooltipTable2.offsetHeight + 1 : 0,
             winSize = $WH.g_getWindowSize(),
             scroll  = $WH.g_getScroll(),
             bcw     = winSize.w,
@@ -2313,6 +2331,23 @@ $WH.g_createButton = function(text, href, opts)
 
     return btn;
 }
+
+$WH.g_isVisible = function (el) {
+    return !(el.offsetWidth === 0 && el.offsetHeight === 0);
+}
+
+$WH.g_getHeaderHeight = function () {
+    let el = ['header', 'toptabs', 'topbar', 'main-precontents']
+    let h  = 0;
+
+    for (i in el) {
+        let e = $WH.ge(el[i]);
+        if (e)
+        h += e.getBoundingClientRect().height;
+    }
+
+    return h;
+};
 /* Aowow: end replacement */
 
 if ($WH.isset('$WowheadPower')) {

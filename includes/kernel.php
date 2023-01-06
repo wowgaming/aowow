@@ -93,43 +93,48 @@ if (!empty($AoWoWconf['characters']))
 
 
 // load config to constants
-$sets = DB::isConnectable(DB_AOWOW) ? DB::Aowow()->select('SELECT `key` AS ARRAY_KEY, `value`, `flags` FROM ?_config') : [];
-foreach ($sets as $k => $v)
+function loadConfig(bool $noPHP = false) : void
 {
-    $php = $v['flags'] & CON_FLAG_PHP;
-
-    // this should not have been possible
-    if (!strlen($v['value']) && !($v['flags'] & CON_FLAG_TYPE_STRING) && !$php)
+    $sets = DB::isConnectable(DB_AOWOW) ? DB::Aowow()->select('SELECT `key` AS ARRAY_KEY, `value`, `flags` FROM ?_config') : [];
+    foreach ($sets as $k => $v)
     {
-        trigger_error('Aowow config value CFG_'.strtoupper($k).' is empty - config will not be used!', E_USER_ERROR);
-        continue;
-    }
+        $php = $v['flags'] & CON_FLAG_PHP;
+        if ($php && $noPHP)
+            continue;
 
-    if ($v['flags'] & CON_FLAG_TYPE_INT)
-        $val = intVal($v['value']);
-    else if ($v['flags'] & CON_FLAG_TYPE_FLOAT)
-        $val = floatVal($v['value']);
-    else if ($v['flags'] & CON_FLAG_TYPE_BOOL)
-        $val = (bool)$v['value'];
-    else if ($v['flags'] & CON_FLAG_TYPE_STRING)
-        $val = preg_replace("/[\p{C}]/ui", '', $v['value']);
-    else if ($php)
-    {
-        trigger_error('PHP config value '.strtolower($k).' has no type set - config will not be used!', E_USER_ERROR);
-        continue;
-    }
-    else // if (!$php)
-    {
-        trigger_error('Aowow config value CFG_'.strtoupper($k).' has no type set - value forced to 0!', E_USER_ERROR);
-        $val = 0;
-    }
+        // this should not have been possible
+        if (!strlen($v['value']) && !($v['flags'] & CON_FLAG_TYPE_STRING) && !$php)
+        {
+            trigger_error('Aowow config value CFG_'.strtoupper($k).' is empty - config will not be used!', E_USER_ERROR);
+            continue;
+        }
 
-    if ($php)
-        ini_set(strtolower($k), $val);
-    else
-        define('CFG_'.strtoupper($k), $val);
+        if ($v['flags'] & CON_FLAG_TYPE_INT)
+            $val = intVal($v['value']);
+        else if ($v['flags'] & CON_FLAG_TYPE_FLOAT)
+            $val = floatVal($v['value']);
+        else if ($v['flags'] & CON_FLAG_TYPE_BOOL)
+            $val = (bool)$v['value'];
+        else if ($v['flags'] & CON_FLAG_TYPE_STRING)
+            $val = preg_replace("/[\p{C}]/ui", '', $v['value']);
+        else if ($php)
+        {
+            trigger_error('PHP config value '.strtolower($k).' has no type set - config will not be used!', E_USER_ERROR);
+            continue;
+        }
+        else // if (!$php)
+        {
+            trigger_error('Aowow config value CFG_'.strtoupper($k).' has no type set - value forced to 0!', E_USER_ERROR);
+            $val = 0;
+        }
+
+        if ($php)
+            ini_set(strtolower($k), $val);
+        else if (!defined('CFG_'.strtoupper($k)))
+            define('CFG_'.strtoupper($k), $val);
+    }
 }
-
+loadConfig();
 
 // handle non-fatal errors and notices
 error_reporting(!empty($AoWoWconf['aowow']) && CFG_DEBUG ? E_AOWOW : 0);
@@ -157,10 +162,12 @@ set_error_handler(function($errNo, $errStr, $errFile, $errLine)
         $errName = 'E_RECOVERABLE_ERROR';
 
     Util::addNote($uGroup, $errName.' - '.$errStr.' @ '.$errFile. ':'.$errLine);
+    if (CLI)
+        CLI::write($errName.' - '.$errStr.' @ '.$errFile. ':'.$errLine, $errNo & 0x40A ? CLI::LOG_WARN : CLI::LOG_ERROR);
 
     if (DB::isConnectable(DB_AOWOW))
         DB::Aowow()->query('INSERT INTO ?_errors (`date`, `version`, `phpError`, `file`, `line`, `query`, `userGroups`, `message`) VALUES (UNIX_TIMESTAMP(), ?d, ?d, ?, ?d, ?, ?d, ?) ON DUPLICATE KEY UPDATE `date` = UNIX_TIMESTAMP()',
-            AOWOW_REVISION, $errNo, $errFile, $errLine, CLI ? 'CLI' : $_SERVER['QUERY_STRING'], User::$groups, $errStr
+            AOWOW_REVISION, $errNo, $errFile, $errLine, CLI ? 'CLI' : ($_SERVER['QUERY_STRING'] ?? ''), User::$groups, $errStr
         );
 
     return true;
@@ -173,11 +180,11 @@ set_exception_handler(function ($ex)
 
     if (DB::isConnectable(DB_AOWOW))
         DB::Aowow()->query('INSERT INTO ?_errors (`date`, `version`, `phpError`, `file`, `line`, `query`, `userGroups`, `message`) VALUES (UNIX_TIMESTAMP(), ?d, ?d, ?, ?d, ?, ?d, ?) ON DUPLICATE KEY UPDATE `date` = UNIX_TIMESTAMP()',
-            AOWOW_REVISION, $ex->getCode(), $ex->getFile(), $ex->getLine(), CLI ? 'CLI' : $_SERVER['QUERY_STRING'], User::$groups, $ex->getMessage()
+            AOWOW_REVISION, $ex->getCode(), $ex->getFile(), $ex->getLine(), CLI ? 'CLI' : ($_SERVER['QUERY_STRING'] ?? ''), User::$groups, $ex->getMessage()
         );
 
     if (!CLI)
-        (new GenericPage(null))->error();
+        (new GenericPage())->error();
     else
         echo 'Exception - '.$ex->getMessage()."\n   ".$ex->getFile(). '('.$ex->getLine().")\n".$ex->getTraceAsString()."\n";
 });
@@ -191,7 +198,7 @@ register_shutdown_function(function()
 
         if (DB::isConnectable(DB_AOWOW))
             DB::Aowow()->query('INSERT INTO ?_errors (`date`, `version`, `phpError`, `file`, `line`, `query`, `userGroups`, `message`) VALUES (UNIX_TIMESTAMP(), ?d, ?d, ?, ?d, ?, ?d, ?) ON DUPLICATE KEY UPDATE `date` = UNIX_TIMESTAMP()',
-                AOWOW_REVISION, $e['type'], $e['file'], $e['line'], CLI ? 'CLI' : $_SERVER['QUERY_STRING'], User::$groups, $e['message']
+                AOWOW_REVISION, $e['type'], $e['file'], $e['line'], CLI ? 'CLI' : ($_SERVER['QUERY_STRING'] ?? ''), User::$groups, $e['message']
             );
 
         if (CLI)
@@ -230,21 +237,39 @@ if (!CLI)
     if (!empty($AoWoWconf['aowow']) && User::init())
         User::save();                                       // save user-variables in session
 
+    // set up some logging (~10 queries will execute before we init the user and load the config)
+    if (CFG_DEBUG && User::isInGroup(U_GROUP_DEV | U_GROUP_ADMIN))
+    {
+        DB::Aowow()->setLogger(['DB', 'logger']);
+        DB::World()->setLogger(['DB', 'logger']);
+        if (DB::isConnected(DB_AUTH))
+            DB::Auth()->setLogger(['DB', 'logger']);
+
+        if (!empty($AoWoWconf['characters']))
+            foreach ($AoWoWconf['characters'] as $idx => $__)
+                if (DB::isConnected(DB_CHARACTERS . $idx))
+                    DB::Characters($idx)->setLogger(['DB', 'logger']);
+    }
+
     // hard-override locale for this call (should this be here..?)
     // all strings attached..
     if (!empty($AoWoWconf['aowow']))
     {
-        if (isset($_GET['locale']) && (CFG_LOCALES & (1 << (int)$_GET['locale'])))
-            User::useLocale($_GET['locale']);
+        if (isset($_GET['locale']))
+        {
+            $loc = intVal($_GET['locale']);
+            if ($loc <= MAX_LOCALES && $loc >= 0 && (CFG_LOCALES & (1 << $loc)))
+                User::useLocale($loc);
+        }
 
         Lang::load(User::$localeString);
     }
 
     // parse page-parameters .. sanitize before use!
-    $str = explode('&', mb_strtolower($_SERVER['QUERY_STRING']), 2)[0];
+    $str = explode('&', mb_strtolower($_SERVER['QUERY_STRING'] ?? ''), 2)[0];
     $_   = explode('=', $str, 2);
     $pageCall  = $_[0];
-    $pageParam = isset($_[1]) ? $_[1] : null;
+    $pageParam = $_[1] ?? '';
 
     Util::$wowheadLink = 'http://'.Util::$subDomains[User::$localeId].'.wowhead.com/'.$str;
 }

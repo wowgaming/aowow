@@ -9,13 +9,15 @@ class QuestsPage extends GenericPage
 {
     use TrListPage;
 
-    protected $type          = TYPE_QUEST;
+    protected $type          = Type::QUEST;
     protected $tpl           = 'quests';
     protected $path          = [0, 3];
     protected $tabId         = 0;
     protected $mode          = CACHE_TYPE_PAGE;
     protected $validCats     = [];
-    protected $js            = ['filters.js'];
+    protected $js            = [[JS_FILE, 'filters.js']];
+
+    protected $_get          = ['filter' => ['filter' => FILTER_UNSAFE_RAW]];
 
     public function __construct($pageCall, $pageParam)
     {
@@ -51,7 +53,7 @@ class QuestsPage extends GenericPage
 
         // recreate form selection
         $this->filter             = $this->filterObj->getForm();
-        $this->filter['query']    = isset($_GET['filter']) ? $_GET['filter'] : null;
+        $this->filter['query']    = $this->_get['filter'];
         $this->filter['initData'] = ['init' => 'quests'];
 
         $rCols = $this->filterObj->getReputationCols();

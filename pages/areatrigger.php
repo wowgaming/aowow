@@ -10,7 +10,7 @@ class AreaTriggerPage extends GenericPage
 {
     use TrDetailPage;
 
-    protected $type          = TYPE_AREATRIGGER;
+    protected $type          = Type::AREATRIGGER;
     protected $typeId        = 0;
     protected $tpl           = 'detail-page-generic';
     protected $path          = [0, 102];
@@ -20,7 +20,6 @@ class AreaTriggerPage extends GenericPage
 
     public function __construct($pageCall, $id)
     {
-        $this->hasComContent = false;
         $this->contribute    = CONTRIBUTE_NONE;
 
         parent::__construct($pageCall, $id);
@@ -29,7 +28,7 @@ class AreaTriggerPage extends GenericPage
 
         $this->subject = new AreaTriggerList(array(['id', $this->typeId]));
         if ($this->subject->error)
-            $this->notFound(Util::ucFirst(Lang::game('areatrigger')), Lang::areatrigger('notFound'));
+            $this->notFound(Lang::game('areatrigger'), Lang::areatrigger('notFound'));
 
         $this->name = $this->subject->getField('name') ?: 'AT #'.$this->typeId;
     }
@@ -46,7 +45,7 @@ class AreaTriggerPage extends GenericPage
 
     protected function generateContent()
     {
-        $this->addJS('?data=zones&locale='.User::$localeId.'&t='.$_SESSION['dataKey']);
+        $this->addScript([JS_FILE, '?data=zones&locale='.User::$localeId.'&t='.$_SESSION['dataKey']]);
 
         $_type = $this->subject->getField('type');
 
@@ -99,14 +98,13 @@ class AreaTriggerPage extends GenericPage
         {
             $sai = new SmartAI(SAI_SRC_TYPE_AREATRIGGER, $this->typeId, ['name' => $this->name, 'teleportA' => $this->subject->getField('teleportA')]);
             if ($sai->prepare())
-                foreach ($sai->getJSGlobals() as $type => $typeIds)
-                    $this->extendGlobalIds($type, $typeIds);
+                $this->extendGlobalData($sai->getJSGlobals());
         }
 
 
         $this->map        = $map;
         $this->infobox    = false;
-        $this->extraText  = $sai ? $sai->getMarkdown() : null;
+        $this->smartAI    = $sai ? $sai->getMarkdown() : null;
         $this->redButtons = array(
             BUTTON_LINKS   => false,
             BUTTON_WOWHEAD => false

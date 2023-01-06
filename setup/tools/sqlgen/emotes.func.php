@@ -95,6 +95,8 @@ SqlGen::register(new class extends SetupScript
             }
         }
 
+        $this->reapplyCCFlags('emotes', Type::EMOTE);
+
         return $allOK;
     }
 });

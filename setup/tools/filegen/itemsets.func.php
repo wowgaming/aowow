@@ -54,6 +54,7 @@ if (!CLI)
 
                 $setOut = array(
                     'id'       => $set['id'],
+                    'idbak'    => $set['refSetId'],
                     'name'     => (7 - $set['quality']).Util::jsEscape(Util::localizedString($set, 'name')),
                     'pieces'   => [],
                     'heroic'   => !!$set['heroic'],         // should be bool
@@ -76,9 +77,6 @@ if (!CLI)
                 if ($set['contentGroup'])
                     $setOut['note'] = $set['contentGroup'];
 
-                if ($set['id'] < 0)
-                    $setOut['idbak'] = $set['refSetId'];
-
                 for ($i = 1; $i < 11; $i++)
                     if ($set['item'.$i])
                         $setOut['pieces'][] = $set['item'.$i];
@@ -94,9 +92,11 @@ if (!CLI)
 
                     if (!isset($setOut['setbonus'][$set['bonus'.$i]]))
                         $setOut['setbonus'][$set['bonus'.$i]] = $jsonBonus[$set['spell'.$i]];
-                    else
-                        foreach ($jsonBonus[$set['spell'.$i]] as $k => $v)
-                            @$setOut['setbonus'][$set['bonus'.$i]][$k] += $v;
+                    else {
+                        if ($jsonBonus[$set['spell'.$i]]) {
+                            Util::arraySumByKey($setOut['setbonus'][$set['bonus'.$i]], $jsonBonus[$set['spell'.$i]]);
+                        }
+                    }
                 }
 
                 foreach ($setOut['setbonus'] as $k => $v)

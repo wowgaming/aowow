@@ -6,14 +6,13 @@ if (!defined('AOWOW_REVISION'))
 
 class AjaxHandler
 {
+    use TrRequestData;
+
     protected $validParams = [];
     protected $params      = [];
     protected $handler;
 
-    protected $contentType = 'application/x-javascript; charset=utf-8';
-
-    protected $_post       = [];
-    protected $_get        = [];
+    protected $contentType = MIME_TYPE_JSON;
 
     public    $doRedirect = false;
 
@@ -21,11 +20,7 @@ class AjaxHandler
     {
         $this->params = $params;
 
-        foreach ($this->_post as $k => &$v)
-            $v = isset($_POST[$k]) ? filter_input(INPUT_POST, $k, $v[0], $v[1]) : null;
-
-        foreach ($this->_get  as $k => &$v)
-            $v = isset($_GET[$k])  ? filter_input(INPUT_GET,  $k, $v[0], $v[1]) : null;
+        $this->initRequestData();
     }
 
     public function handle(string &$out) : bool
@@ -55,47 +50,22 @@ class AjaxHandler
         return $this->contentType;
     }
 
-    protected function checkEmptySet(string $val) : bool
+    protected function reqPOST(string ...$keys) : bool
     {
-        return $val === '';                                 // parameter is expected to be empty
+        foreach ($keys as $k)
+            if (!isset($this->_post[$k]) || $this->_post[$k] === null || $this->_post[$k] === '')
+                return false;
+
+        return true;
     }
 
-    protected function checkLocale(string $val) : int
+    protected function reqGET(string ...$keys) : bool
     {
-        if (preg_match('/^'.implode('|', array_keys(array_filter(Util::$localeStrings))).'$/', $val))
-            return intVal($val);
+        foreach ($keys as $k)
+            if (!isset($this->_get[$k]) || $this->_get[$k] === null || $this->_get[$k] === '')
+                return false;
 
-        return -1;
-    }
-
-    protected function checkInt(string $val) : int
-    {
-        if (preg_match('/^-?\d+$/', $val))
-            return intVal($val);
-
-        return 0;
-    }
-
-    protected function checkIdList(string $val) : array
-    {
-        if (preg_match('/^-?\d+(,-?\d+)*$/', $val))
-            return array_map('intVal', explode(',', $val));
-
-        return [];
-    }
-
-    protected function checkIdListUnsigned(string $val) : array
-    {
-        if (preg_match('/\d+(,\d+)*/', $val))
-            return array_map('intVal', explode(',', $val));
-
-        return [];
-    }
-
-    protected function checkFulltext(string $val) : string
-    {
-        // trim non-printable chars
-        return preg_replace('/[\p{C}]/ui', '', $val);
+        return true;
     }
 }
 ?>

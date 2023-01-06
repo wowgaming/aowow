@@ -6,12 +6,18 @@ if (!defined('AOWOW_REVISION'))
 
 class AdminPage extends GenericPage
 {
-
     protected $tpl       = null;                            // depends on the subject
     protected $reqUGroup = U_GROUP_NONE;                    // actual group dependant on the subPage
     protected $reqAuth   = true;
     protected $path      = [4];
     protected $tabId     = 4;
+
+    protected $_get      = array(
+        'all'    => ['filter' => FILTER_UNSAFE_RAW],
+        'type'   => ['filter' => FILTER_CALLBACK, 'options' => 'GenericPage::checkInt'],
+        'typeid' => ['filter' => FILTER_CALLBACK, 'options' => 'GenericPage::checkInt'],
+        'user'   => ['filter' => FILTER_CALLBACK, 'options' => 'urldecode']
+    );
 
     private   $generator = '';
 
@@ -51,13 +57,37 @@ class AdminPage extends GenericPage
                 array_push($this->path, 2, 16);
                 $this->name = 'Weight Presets';
                 break;
+            case 'guides':
+                $this->reqUGroup = U_GROUP_STAFF;
+                $this->generator = 'handleGuideApprove';
+                $this->tpl       = 'list-page-generic';
+
+                array_push($this->path, 1, 25);
+                $this->name = 'Pending Guides';
+                break;
+            case 'out-of-date':
+                $this->reqUGroup = U_GROUP_ADMIN | U_GROUP_BUREAU | U_GROUP_MOD;
+                $this->generator = 'handleOutOfDate';
+                $this->tpl       = 'list-page-generic';
+
+                array_push($this->path, 1, 23);
+                $this->name = 'Out of Date Comments';
+                break;
+            case 'reports':
+                $this->reqUGroup = U_GROUP_ADMIN | U_GROUP_BUREAU | U_GROUP_EDITOR | U_GROUP_MOD | U_GROUP_LOCALIZER | U_GROUP_SCREENSHOT | U_GROUP_VIDEO;
+                $this->generator = 'handleReports';
+                $this->tpl       = 'admin/reports';
+
+                array_push($this->path, 5);
+                $this->name = 'Reports';
+                break;
             default:                                        // error out through unset template
         }
 
         parent::__construct($pageCall, $pageParam);
     }
 
-    protected function generateContent()
+    protected function generateContent() : void
     {
         if (!$this->generator || function_exists($this->generator))
             return;
@@ -65,17 +95,17 @@ class AdminPage extends GenericPage
         $this->{$this->generator}();
     }
 
-    private function handleConfig()
+    private function handleConfig() : void
     {
-        $this->addCSS(array(
-            ['string' => '.grid input[type=\'text\'], .grid input[type=\'number\'] { width:250px; text-align:left; }'],
-            ['string' => '.grid input[type=\'button\'] { width:65px; padding:2px; }'],
-            ['string' => '.grid a.tip { margin:0px 5px; opacity:0.8; }'],
-            ['string' => '.grid a.tip:hover  { opacity:1; }'],
-            ['string' => '.grid tr { height:30px; }'],
-            ['string' => '.grid .disabled { opacity:0.4 !important; }'],
-            ['string' => '.grid .status { position:absolute; right:5px; }'],
-        ));
+        $this->addScript(
+            [CSS_STRING, '.grid input[type=\'text\'], .grid input[type=\'number\'] { width:250px; text-align:left; }'],
+            [CSS_STRING, '.grid input[type=\'button\'] { width:65px; padding:2px; }'],
+            [CSS_STRING, '.grid a.tip { margin:0px 5px; opacity:0.8; }'],
+            [CSS_STRING, '.grid a.tip:hover  { opacity:1; }'],
+            [CSS_STRING, '.grid tr { height:30px; }'],
+            [CSS_STRING, '.grid .disabled { opacity:0.4 !important; }'],
+            [CSS_STRING, '.grid .status { position:absolute; right:5px; }']
+        );
 
         $head = '<table class="grid"><tr><th><b>Key</b></th><th><b>Value</b></th><th style="width:150px;"><b>Options</b></th></tr>';
         $mainTab = [];
@@ -115,10 +145,10 @@ class AdminPage extends GenericPage
             )];
     }
 
-    private function handlePhpInfo()
+    private function handlePhpInfo() : void
     {
-        $this->addCSS([
-            'string' => "\npre {margin: 0px; font-family: monospace;}\n" .
+        $this->addScript([
+            CSS_STRING, "\npre {margin: 0px; font-family: monospace;}\n" .
                         "td, th { border: 1px solid #000000; vertical-align: baseline;}\n" .
                         ".p {text-align: left;}\n" .
                         ".e {background-color: #ccccff; font-weight: bold; color: #000000;}\n" .
@@ -179,30 +209,29 @@ class AdminPage extends GenericPage
         }
     }
 
-    private function handleScreenshots()
+    private function handleScreenshots() : void
     {
-        $this->addJS('screenshot.js');
-        $this->addCSS(array(
-            ['string' => '.layout {margin: 0px 25px; max-width: inherit; min-width: 1200px; }'],
-            ['string' => '#highlightedRow { background-color: #322C1C; }']
-        ));
+        $this->addScript(
+            [JS_FILE,    'screenshot.js'],
+            [CSS_STRING, '.layout {margin: 0px 25px; max-width: inherit; min-width: 1200px; }'],
+            [CSS_STRING, '#highlightedRow { background-color: #322C1C; }']
+        );
 
-        $ssGetAll = isset($_GET['all']) && empty($_GET['all']);
+        $ssGetAll = $this->_get['all'];
         $ssPages  = [];
         $ssData   = [];
         $nMatches = 0;
 
-        if (!empty($_GET['type']) && !empty($_GET['typeid']))
+        if ($this->_get['type'] && $this->_get['typeId'])
         {
-            $ssData   = CommunityContent::getScreenshotsForManager(intVal($_GET['type']), intVal($_GET['typeid']));
+            $ssData   = CommunityContent::getScreenshotsForManager($this->_get['type'], $this->_get['typeid']);
             $nMatches = count($ssData);
         }
-        else if (!empty($_GET['user']))
+        else if ($this->_get['user'])
         {
-            $name = urldecode($_GET['user']);
-            if (mb_strlen($name) >= 3)
+            if (mb_strlen($this->_get['user']) >= 3)
             {
-                if ($uId = DB::Aowow()->selectCell('SELECT id FROM ?_account WHERE displayName = ?', ucFirst($name)))
+                if ($uId = DB::Aowow()->selectCell('SELECT id FROM ?_account WHERE displayName = ?', ucFirst($this->_get['user'])))
                 {
                     $ssData   = CommunityContent::getScreenshotsForManager(0, 0, $uId);
                     $nMatches = count($ssData);
@@ -218,10 +247,12 @@ class AdminPage extends GenericPage
         $this->ssNFound = $nMatches;                        // ssm_numPagesFound
     }
 
-    private function handleWeightPresets()
+    private function handleWeightPresets() : void
     {
-        $this->addCSS(['string' => '.wt-edit {display:inline-block; vertical-align:top; width:350px;}']);
-        $this->addJS('filters.js');
+        $this->addScript(
+            [JS_FILE,    'filters.js'],
+            [CSS_STRING, '.wt-edit {display:inline-block; vertical-align:top; width:350px;}']
+        );
 
         $head = $body = '';
 
@@ -243,6 +274,42 @@ class AdminPage extends GenericPage
         $this->extraText = '[table class=grid][tr]'.$head.'[/tr][tr]'.$body.'[/tr][/table]';
 
         $this->extraHTML = '<script type="text/javascript">var wt_presets = '.Util::toJSON($weights).";</script>\n\n";
+    }
+
+    private function handleGuideApprove() : void
+    {
+        $pending = new GuideList([['status', GUIDE_STATUS_REVIEW]]);
+        if ($pending->error)
+            $data = [];
+        else
+        {
+            $data   = $pending->getListviewData();
+            $latest = DB::Aowow()->selectCol('SELECT `typeId` AS ARRAY_KEY, MAX(`rev`) FROM ?_articles WHERE `type` = ?d AND `typeId` IN (?a) GROUP BY `rev`', Type::GUIDE, $pending->getFoundIDs());
+            foreach ($latest as $id => $rev)
+                $data[$id]['rev'] = $rev;
+        }
+
+        $this->lvTabs[] = ['guide', array(
+            'data'       => array_values($data),
+            'hiddenCols' => ['patch', 'comments', 'views', 'rating'],
+            'extraCols'  => '$_'
+        ), 'guideAdminCol'];
+    }
+
+    private function handleOutOfDate() : void
+    {
+        $data = CommunityContent::getCommentPreviews(['flags' => CC_FLAG_OUTDATED]);
+
+        $this->lvTabs[] = ['commentpreview', array(
+            'data'      => $data,
+            'extraCols' => '$_'
+        ), 'commentAdminCol'];
+    }
+
+    private function handleReports() : void
+    {
+        // todo: handle reports listing
+        //
     }
 
     private function configAddRow($r)

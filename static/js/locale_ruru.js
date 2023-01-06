@@ -20,6 +20,37 @@ var l_reputation_names = [
     "[Moderator Suspension]"
 ];
 
+var l_guide_categories = [
+    '', // 0
+    "Классы", // 1
+    "Профессии", // 2
+    "Игровые события", // 3
+    "Новые игроки", // 4
+    "Подземелья и рейды", // 5
+    "Экономика и деньги", // 6
+    "Достижения", // 7
+    "Забавные предметы", // 8
+    "Разное" // 9
+]
+
+var l_guide_states = [
+    "",
+    "Черновик",
+    "Ожидание проверки",
+    "Принято",
+    "Отклонено",
+    "Архивирован"
+];
+
+var l_guide_states_color = [
+    "",
+    "#71D5FF",
+    "#FFFF00",
+    "#1EFF00",
+    "#FF4040",
+    "#FFD100"
+];
+
 var mn_classes = [
     [6,"Рыцарь смерти",,,{className:"c6",tinyIcon:"class_deathknight"}],
     [11,"Друид",,,{className:"c11",tinyIcon:"class_druid"}],
@@ -290,7 +321,7 @@ var mn_objects = [
     [9,"Книги"],
     [3,"Контейнеры"],
     [-5,"Сундуки"],
-    [25,"[Fishing Pools]"],
+    [25,"Рыболовные лунки"],
     [-3,"Травы"],
     [-4,"Полезные ископаемые"],
     [-2,"Задание"],
@@ -916,11 +947,24 @@ var mn_database = [
     [11,"Игровые события","?events",mn_holidays],
     [6,"Местности","?zones",mn_zones],
     [, "Другое"],
-    [31, "Иконки", ":wowhead.com/icons", mn_icons],
+    [31, "Иконки", "?icons", mn_icons],
     [19,"Звуки","?sounds",mn_sounds],
     [102, 'Areatrigger', '?areatriggers', mn_areatrigger, {requiredAccess: 1726}],    // aowow - custom
     [103, 'Mails', '?mails']                                // aowow - custom
 ];
+
+var mn_guides = [
+    [7, "Достижения", '?guides=7'],
+    [1, "Классы", '?guides=1'],
+    [6, "Экономика и деньги", '?guides=6'],
+    [4, "Новые игроки", '?guides=4'],
+    [2, "Профессии", '?guides=2'],
+    [5, "Подземелья и рейды", '?guides=5'],
+    [8, "Забавные предметы", '?guides=8'],
+    [3, "Игровые события", '?guides=3'],
+    [9, "Разное", '?guides=9']
+];
+
 var mn_tools = [
     [0,"Расчёт талантов","?talent",mn_talentCalc],
     [2,"Расчёт умений питомцев","?petcalc",mn_petCalc],
@@ -933,22 +977,10 @@ var mn_tools = [
     ]],
     [1,"Карты","?maps"],
     [,"Другое"],
-    [6,"Гайды","",[
-        [,"Игровые события"],
-        ["lunar-festival","Лунный фестиваль","?guide=lunar-festival"],
-        ["love-is-in-the-air","Любовная лихорадка","?guide=love-is-in-the-air"],
-        ["noblegarden","Сад чудес","?guide=noblegarden"],
-        ["childrens-week","Детская неделя","?guide=childrens-week"],
-        ["winter-veil","Зимний Покров","?guide=winter-veil"],
-        ["hallows-end","Тыквовин","?guide=hallows-end"],
-        ["midsummer-fire-festival","Огненный солнцеворот","?guide=midsummer-fire-festival"],
-        ["winter-veil","Зимний Покров","?guide=winter-veil"],
-        ["pilgrims-bounty","Пиршество странников","?guide=pilgrims-bounty"]
-    ]],
     [8,"Дополнительно",,[
         [,"База данных"],
-        [0,"Последние добавления","?latest-additions"],
-        [1,"Новые статьи","?latest-articles"],
+        // [0,"Последние добавления","?latest-additions"],
+        // [1,"Новые статьи","?latest-articles"],
         [2,"Последние комментарии","?latest-comments"],
         [3,"Последние изображения","?latest-screenshots"],
         [11,"Последние видео","?latest-videos"],
@@ -1010,11 +1042,13 @@ var mn_more = [
     [16,"Окно поиска","?searchbox"],
     [10,"Всплывающие подсказки","?tooltips"]
 ];
+
 var mn_path = [
-    [0,"База данных",,mn_database],
-    [1,"Инструменты",,mn_tools],
-    [3,"Сообщество",,mn_community],
-    [2,"Дополнительно",,mn_more]
+    [0, "База данных",   null,      mn_database],
+    [1, "Инструменты",   null,      mn_tools],
+    [3, "Сообщество",    null,      mn_community],
+    [6, "Гайды",         '?guides', mn_guides],
+    [2, "Дополнительно", null,      mn_more]
 ];
 
 var g_contact_reasons = {
@@ -1416,7 +1450,7 @@ var g_object_types = {
        9: 'Книга',
        3: 'Контейнер',
     "-5": 'Сундук',
-      25: '[Fishing Pool]',
+      25: 'Рыболовные лунки',
     "-3": 'Растение',
     "-4": 'Полезное ископаемое',
     "-2": 'Задание',
@@ -2102,14 +2136,14 @@ var g_zone_areas = {
     209:  ['Внутренний двор', 'Обеденный зал', 'Свободная берлога', 'Нижняя обсерватория', 'Верхняя обсерватория', 'Палата лорда Годфри', 'Крепостной вал'],
     719:  ['Пруд Аск\'ара', 'Алтарь святилища Луны', 'Забытый пруд'],
     721:  ['Машинный зал', 'Спальни', 'Пусковая установка', 'Двор Механиков'],
-796: ['[Кладбище]', '[Библиотека]', '[Арсенал]', '[Собор]'],
+    796:  ['[Кладбище]', '[Библиотека]', '[Арсенал]', '[Собор]'],
     1196: ['Подножие', 'Вершина'],
     1337: ['Зал Хранителей', 'Трон Каз\'горота'],
     1581: ['Мертвые копи', 'Потайная бухта'],
     1583: ['Тазз\'Алаор', 'Паучий лабиринт', 'Ордамар', 'Зал Чернорука', 'Зал Драконов', 'Гнездовье', 'Стадион Черной горы'],
     1584: ['Тюремный блок', 'Тенегорн'],
     2017: ['Площадь рыцарей', 'Улица Испытаний'],
-2057: ['Хранилище реликвий', 'Чертог Призыва', 'Кабинет ректора', '[Barov Family Vault]'],
+    2057: ['Хранилище реликвий', 'Чертог Призыва', 'Кабинет ректора', '[Barov Family Vault]'],
     2100: ['Пещеры Мародона', 'Могила Зейтара'],
     2557: ['Палаты Гордока', 'Центральный сад', 'Двор высокорожденных', 'Тюрьма Бессмер\'тера', 'Квартал Криводревов', 'Святилище Элдретарра'],
     2677: ['Гарнизон Драконьей Пасти', 'Залы Раздора', 'Багровые лаборатории', 'Логово Нефариана'],
@@ -2121,7 +2155,7 @@ var g_zone_areas = {
     3791: ['Гнездовье Сетекк', 'Залы Плача'],
     3848: ['Изоляционная камера: Трион', 'Изоляционная камера: Максимус', 'Ядро Сдерживания'],
     3849: ['Механар', 'Комната Вычислений'],
-    3959: ['Campo de Treinamento Illidari', 'Esgotos de Karabor', 'Santuário das Sombras', 'Salões da Angústia', 'Vigia do Sanguinávido', 'Covil dos Prazeres Mortais', 'Câmara de Comando', 'Ápice do Templo'],
+    3959: ['Черный храм', 'Канализация', 'Святилище Теней', 'Залы Страданий', 'Пост Кровожада', 'Приют Земных Наслаждений', 'Чертог Власти', 'Храмовая вершина'],
     4075: ['Плато Солнечного Колодца', 'Святилище Затмения'],
     4100: ['Дорога к Стратхольму', 'Стратхольм'],
     4131: ['Пристанище Великого Магистра', 'Обзорная площадка'],
@@ -2430,7 +2464,7 @@ var g_conditions = {
     35: 'The target is$: not; $2 $1yd away',
     36: 'The target is$: not; alive',
     37: 'The target\'s health is$: not; $2 $1',
-    37: 'The target\'s health is$: not; $2 $1%'
+    38: 'The target\'s health is$: not; $2 $1%'
 };
 /* end aowow custom */
 
@@ -2454,7 +2488,7 @@ var LANG = {
 
     date:        "По дате",
     date_colon:  "Дата: ",
-    date_on:     "на",
+    date_on:     "на ",
     date_ago:    "$1 назад",
     date_at:     " в ",
     date_to:     " в ",
@@ -2857,6 +2891,7 @@ var LANG = {
     message_cantdeletecomment:    "Этот комментарий был автоматически удален из-за негативного рейтинга.",
     message_cantdetachcomment:    "Этот коментарий уже откреплен.",
     message_codenotentered:       "Вы не ввели CAPTCHA код.",
+    message_cantpostlcomment_tip: "Вы не можете комментировать этот гайд, доступны только английские комментарии.",
     message_commentdetached:      "Комментарий откреплен.",
     message_commenttooshort:      "Ваше сообщение не должно быть пустым.",
     message_descriptiontooshort:  "Ваше описание должен содержать не менее 10 символов.",
@@ -2992,6 +3027,7 @@ var LANG = {
     tooltip_reqlockpicking:            "Требуемый уровень навыка взлома замков",
     tooltip_smartloot:                 "Доступно только игрокам, изучившим<br />\nсоответствующую профессию, и не имеющим<br />\nэтот рецепт.",
     tooltip_deprecated:                "Невозможно использовать или экипировать",
+    tooltip_noequipcooldown:           "Этот предмет будет готов к использованию сразу<br />\nпосле экипирования, без 30-секундного отката.",
     tooltip_realduration:              "Длительность этого предмета считается в реальном времени.<br />\nЭто означает, что при выходе из игры время исчезновения<br />\nпредмета будет тикать.",
     tooltip_cannotrollneed:            'Нельзя говорить "Мне это нужно" при разыгрывании этого предмета.',
     tooltip_spellnotfound:             "Заклинание не найдено :(",
@@ -3243,7 +3279,9 @@ var LANG = {
         vein:           "Полезные ископаемые",
         spirithealer:   "Целители душ",
         boss:           "Боссы",
-        areatrigger:    "Areatrigger"                       // aowow - custom
+        areatrigger:    "Areatrigger",                      // aowow - custom
+        mail:           "Почтовый ящик",
+        pool:           "Рыболовные лунки",
     },
 
     markup_b:       "Жирный",
@@ -3358,6 +3396,7 @@ var LANG = {
          17: ["Валюта",         "валюта",          "Валюта",          "валюта"],
          19: ["Звук",           "звук",            "Звуки",           "звуки"],
          29: ["Иконка",         "иконка",          "Иконки",          "иконки"],
+        300: ["Гайд",           "гайд",            "Гайды",           "гайды"],
         501: ["Эмоция",         "эмоция",          "Эмоции",          "эмоции"],
         502: ["Улучшение",      "улучшение",       "Улучшения",       "улучшения"],
         503: ["Areatrigger",    "areatrigger",     "Areatriggers",    "areatriggers"],
@@ -4752,6 +4791,7 @@ var LANG = {
     build:       "Версия",
     calculators: "Калькуляторы",
     patch:       "Обновление",
+    status:      "Статус",
 
     sound_activities: {
         greeting: "Привет",
@@ -4802,6 +4842,27 @@ var LANG = {
     },
 
     /* AoWoW: start custom */
+
+    // Guide
+    myguides:          'Мои руководства',
+    listguides:        '[List of guides]',
+    createnewguide:    'Написать новое руководство',
+    needsvotes_format: '(нужны еще голоса: $1)',
+    needsvote_format:  '(нужен еще голос: $1)',
+    outofvotes_format: '(голоса: $1)',
+    outofvote_format:  '(голос: $1)',
+    guideAuthor:       'Автор руководства',
+    autoresizetextbox: 'Автоматически изменять размер поля с текстом',
+
+    restock: '[Restock]',
+
+    descriptionlengthlong_tip:          'Не может быть! Ваше описание $1 слишком велико! Вероятнее всего, оно будет сокращено.',
+    descriptionlengthoptimal_tip:       'Ваше описание имеет оптимальную длину. Отлично! Если необходимо, вы можете добавить ещё $1 символов.',
+    descriptionlengthshort_tip:         'Ваше описание слишком короткое! $1 чтобы',
+    descriptionlengthslightlylong_tip:  'Похоже, что описание становится слишком длинным! Но это все еще приемлимо.',
+    descriptionlengthslightlyshort_tip: 'Ваше описание выглядит неплохо, но могло бы быть более объемным. Попробуйте добавить ещё $1, чтобы точнее описать страницу.',
+    descriptionlengthzero_tip:          'Вы не ввели никакой текст. Описание будет создано автоматически.',
+
     // Conditions
     note_condition:       "Every one of these conditions must be met to satisfy the requirement.",
     note_condition_group: "Any one of these groups must be met in full to satisfy the requirement.",
@@ -4817,12 +4878,12 @@ var LANG = {
     ls_trigger:           "Triggers",
     ls_self:              "This",
     ls_effects:           "Effects",
-    ls_onCast:            "When Spell is cast",
-    ls_onAuraRemove:      "When Aura is removed",
-    ls_onAuraApply:       "When Spells Aura is applied or removed",
-    ls_onSpellHit:        "When Spell hits the target(s)",
-    ls_onTrigger:         "When Spell is triggered",
-    ls_onImmune:          "When immunity against Spell is applied or cleared",
+    ls_onCast:            "Spell is cast",
+    ls_onAuraRemove:      "Aura is removed",
+    ls_onAuraApply:       "Spells Aura is applied or removed",
+    ls_onSpellHit:        "Spell hits the target(s)",
+    ls_onTrigger:         "Spell is triggered",
+    ls_onImmune:          "Immunity against Spell is applied or cleared",
 
     /* AoWoW: end custom */
 };

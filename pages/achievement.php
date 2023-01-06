@@ -25,26 +25,30 @@ class AchievementPage extends GenericPage
 {
     use TrDetailPage;
 
-    protected $type          = TYPE_ACHIEVEMENT;
+    protected $type          = Type::ACHIEVEMENT;
     protected $typeId        = 0;
     protected $tpl           = 'achievement';
     protected $path          = [0, 9];
     protected $tabId         = 0;
     protected $mode          = CACHE_TYPE_PAGE;
 
+    protected $_get          = ['domain' => ['filter' => FILTER_CALLBACK, 'options' => 'GenericPage::checkDomain']];
+
+    private   $powerTpl      = '$WowheadPower.registerAchievement(%d, %d, %s);';
+
     public function __construct($pageCall, $id)
     {
         parent::__construct($pageCall, $id);
 
         // temp locale
-        if ($this->mode == CACHE_TYPE_TOOLTIP && isset($_GET['domain']))
-            Util::powerUseLocale($_GET['domain']);
+        if ($this->mode == CACHE_TYPE_TOOLTIP && $this->_get['domain'])
+            Util::powerUseLocale($this->_get['domain']);
 
         $this->typeId = intVal($id);
 
         $this->subject = new AchievementList(array(['id', $this->typeId]));
         if ($this->subject->error)
-            $this->notFound();
+            $this->notFound(Lang::game('achievement'), Lang::achievement('notFound'));
 
         $this->extendGlobalData($this->subject->getJSGlobals(GLOBALINFO_REWARDS));
 
@@ -58,7 +62,7 @@ class AchievementPage extends GenericPage
         do
         {
             array_unshift($this->path, $curCat);
-            $curCat = DB::Aowow()->SelectCell('SELECT parentCategory FROM ?_achievementcategory WHERE id = ?d', $curCat);
+            $curCat = DB::Aowow()->SelectCell('SELECT parentCat FROM ?_achievementcategory WHERE id = ?d', $curCat);
         }
         while ($curCat > 0);
 
@@ -103,7 +107,7 @@ class AchievementPage extends GenericPage
         if ($_ = $this->subject->getField('iconId'))
         {
             $infobox[] = Util::ucFirst(lang::game('icon')).Lang::main('colon').'[icondb='.$_.' name=true]';
-            $this->extendGlobalIds(TYPE_ICON, $_);
+            $this->extendGlobalIds(Type::ICON, $_);
         }
 
         // realm first available?
@@ -136,7 +140,7 @@ class AchievementPage extends GenericPage
 
                 $series[$pos][] = array(
                     'side'    => $chainAcv->getField('faction'),
-                    'typeStr' => Util::$typeStrings[TYPE_ACHIEVEMENT],
+                    'typeStr' => Type::getFileString(Type::ACHIEVEMENT),
                     'typeId'  => $aId,
                     'name'    => $chainAcv->getField('name', true)
                 );
@@ -150,13 +154,13 @@ class AchievementPage extends GenericPage
         $this->mail        = $this->createMail($reqBook);
         $this->headIcons   = [$this->subject->getField('iconString')];
         $this->infobox     = $infobox ? '[ul][li]'.implode('[/li][li]', $infobox).'[/li][/ul]' : null;
-        $this->series      = $series ? [[$series, null]] : null;
+        $this->series      = $series ? [[array_values($series), null]] : null;
         $this->description = $this->subject->getField('description', true);
         $this->redButtons  = array(
             BUTTON_WOWHEAD => !($this->subject->getField('cuFlags') & CUSTOM_SERVERSIDE),
             BUTTON_LINKS   => array(
                 'linkColor' => 'ffffff00',
-                'linkId'    => Util::$typeStrings[TYPE_ACHIEVEMENT].':'.$this->typeId.':&quot;..UnitGUID(&quot;player&quot;)..&quot;:0:0:0:0:0:0:0:0',
+                'linkId'    => Type::getFileString(Type::ACHIEVEMENT).':'.$this->typeId.':&quot;..UnitGUID(&quot;player&quot;)..&quot;:0:0:0:0:0:0:0:0',
                 'linkName'  => $this->name,
                 'type'      => $this->type,
                 'typeId'    => $this->typeId
@@ -169,13 +173,13 @@ class AchievementPage extends GenericPage
         );
 
         if ($reqBook)
-            $this->addCss(['path' => 'Book.css']);
+            $this->addScript([CSS_FILE, 'Book.css']);
 
         // create rewards
         if ($foo = $this->subject->getField('rewards'))
         {
             array_walk($foo, function(&$item) {
-                $item = $item[0] != TYPE_ITEM ? null : $item[1];
+                $item = $item[0] != Type::ITEM ? null : $item[1];
             });
 
             $bar = new ItemList(array(['i.id', $foo]));
@@ -184,9 +188,9 @@ class AchievementPage extends GenericPage
                 $this->rewards['item'][] = array(
                     'name'      => $bar->getField('name', true),
                     'quality'   => $bar->getField('quality'),
-                    'typeStr'   => Util::$typeStrings[TYPE_ITEM],
+                    'typeStr'   => Type::getFileString(Type::ITEM),
                     'id'        => $id,
-                    'globalStr' => 'g_items'
+                    'globalStr' => Type::getJSGlobalString(Type::ITEM)
                 );
             }
         }
@@ -194,7 +198,7 @@ class AchievementPage extends GenericPage
         if ($foo = $this->subject->getField('rewards'))
         {
             array_walk($foo, function(&$item) {
-                $item = $item[0] != TYPE_TITLE ? null : $item[1];
+                $item = $item[0] != Type::TITLE ? null : $item[1];
             });
 
             $bar = new TitleList(array(['id', $foo]));
@@ -362,10 +366,10 @@ class AchievementPage extends GenericPage
                     $tmp['icon'] = $iconId;
                     $this->criteria['icons'][] = array(
                         'itr'  => $iconId++,
-                        'type' => 'g_achievements',
+                        'type' => Type::getJSGlobalString(Type::ACHIEVEMENT),
                         'id'   => $obj,
                     );
-                    $this->extendGlobalIds(TYPE_ACHIEVEMENT, $obj);
+                    $this->extendGlobalIds(Type::ACHIEVEMENT, $obj);
                     break;
                 // link to quest
                 case ACHIEVEMENT_CRITERIA_TYPE_COMPLETE_QUEST:
@@ -385,11 +389,11 @@ class AchievementPage extends GenericPage
                         'href' => '?spell='.$obj,
                         'text' => ($crtName ?: SpellList::getName($obj))
                     );
-                    $this->extendGlobalIds(TYPE_SPELL, $obj);
+                    $this->extendGlobalIds(Type::SPELL, $obj);
                     $tmp['icon'] = $iconId;
                     $this->criteria['icons'][] = array(
                         'itr'  => $iconId++,
-                        'type' => 'g_spells',
+                        'type' => Type::getJSGlobalString(Type::SPELL),
                         'id'   => $obj,
                     );
                     break;
@@ -409,7 +413,7 @@ class AchievementPage extends GenericPage
                     $tmp['icon'] = $iconId;
                     $this->criteria['icons'][] = array(
                         'itr'   => $iconId++,
-                        'type'  => 'g_items',
+                        'type'  => Type::getJSGlobalString(Type::ITEM),
                         'id'    => $obj,
                         'count' => $qty,
                     );
@@ -527,43 +531,17 @@ class AchievementPage extends GenericPage
         }
     }
 
-    protected function generateTooltip($asError = false)
+    protected function generateTooltip()
     {
-        if ($asError)
-            return '$WowheadPower.registerAchievement('.$this->typeId.', '.User::$localeId.', {});';
-
-        $x = '$WowheadPower.registerAchievement('.$this->typeId.', '.User::$localeId.",{\n";
-        $x .= "\tname_".User::$localeString.": '".Util::jsEscape($this->subject->getField('name', true))."',\n";
-        $x .= "\ticon: '".rawurlencode($this->subject->getField('iconString', true, true))."',\n";
-        $x .= "\ttooltip_".User::$localeString.": '".$this->subject->renderTooltip()."'\n";
-        $x .= "});";
-
-        return $x;
-    }
-
-    public function display($override = '')
-    {
-        if ($this->mode != CACHE_TYPE_TOOLTIP)
-            return parent::display($override);
-
-        if (!$this->loadCache($tt))
+        $power = new StdClass();
+        if (!$this->subject->error)
         {
-            $tt = $this->generateTooltip();
-            $this->saveCache($tt);
+            $power->{'name_'.User::$localeString}    = $this->subject->getField('name', true);
+            $power->icon                             = rawurlencode($this->subject->getField('iconString', true, true));
+            $power->{'tooltip_'.User::$localeString} = $this->subject->renderTooltip();
         }
 
-        header('Content-type: application/x-javascript; charset=utf-8');
-        die($tt);
-    }
-
-    public function notFound($title = '', $msg = '')
-    {
-        if ($this->mode != CACHE_TYPE_TOOLTIP)
-            return parent::notFound($title ?: Lang::game('achievement'), $msg ?: Lang::achievement('notFound'));
-
-        header('Content-type: application/x-javascript; charset=utf-8');
-        echo $this->generateTooltip(true);
-        exit();
+        return sprintf($this->powerTpl, $this->typeId, User::$localeId, Util::toJSON($power, JSON_AOWOW_POWER));
     }
 
     private function createMail(&$reqCss = false)

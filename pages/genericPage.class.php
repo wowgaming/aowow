@@ -6,19 +6,18 @@ if (!defined('AOWOW_REVISION'))
 
 trait TrDetailPage
 {
-    protected $hasComContent = true;
-    protected $category      = null;                        // not used on detail pages
-    protected $lvTabs        = [];                          // most pages have this
+    protected $category   = null;                           // not used on detail pages
+    protected $lvTabs     = [];                             // most pages have this
 
-    protected $ssError       = null;
-    protected $coError       = null;
-    protected $viError       = null;
+    protected $ssError    = null;
+    protected $coError    = null;
+    protected $viError    = null;
 
-    protected $subject       = null;                        // so it will not get cached
+    protected $subject    = null;                           // so it will not get cached
 
-    protected $contribute    = CONTRIBUTE_ANY;
+    protected $contribute = CONTRIBUTE_ANY;
 
-    protected function generateCacheKey($withStaff = true)
+    protected function generateCacheKey(bool $withStaff = true) : string
     {
         $staff = intVal($withStaff && User::isInGroup(U_GROUP_EMPLOYEE));
 
@@ -32,7 +31,7 @@ trait TrDetailPage
         return implode('_', $key);
     }
 
-    protected function applyCCErrors()
+    protected function applyCCErrors() : void
     {
         if (!empty($_SESSION['error']['co']))
             $this->coError = $_SESSION['error']['co'];
@@ -56,7 +55,7 @@ trait TrListPage
 
     private   $filterObj = null;
 
-    protected function generateCacheKey($withStaff = true)
+    protected function generateCacheKey(bool $withStaff = true) : string
     {
         $staff = intVal($withStaff && User::isInGroup(U_GROUP_EMPLOYEE));
 
@@ -73,6 +72,7 @@ trait TrListPage
     }
 }
 
+
 trait TrProfiler
 {
     protected $region      = '';
@@ -85,7 +85,7 @@ trait TrProfiler
 
     protected $doResync    = null;
 
-    protected function generateCacheKey($withStaff = true)
+    protected function generateCacheKey(bool $withStaff = true) : string
     {
         $staff = intVal($withStaff && User::isInGroup(U_GROUP_EMPLOYEE));
 
@@ -95,19 +95,19 @@ trait TrProfiler
         return implode('_', $key);
     }
 
-    protected function getSubjectFromUrl($str)
+    protected function getSubjectFromUrl(string $pageParam) : void
     {
-        if (!$str)
+        if (!$pageParam)
             return;
 
         // cat[0] is always region
         // cat[1] is realm or bGroup (must be realm if cat[2] is set)
         // cat[2] is arena-team, guild or player
-        $cat = explode('.', $str, 3);
+        $cat = explode('.', $pageParam, 3);
 
         $cat = array_map('urldecode', $cat);
 
-        if ($cat[0] !== 'eu' && $cat[0] !== 'us')
+        if (array_search($cat[0], Util::$regions) === false)
             return;
 
         $this->region = $cat[0];
@@ -118,7 +118,7 @@ trait TrProfiler
         {
             foreach (Profiler::getRealms() as $rId => $r)
             {
-                if (Profiler::urlize($r['name']) == $cat[1])
+                if (Profiler::urlize($r['name'], true) == $cat[1])
                 {
                     $this->realm   = $r['name'];
                     $this->realmId = $rId;
@@ -131,12 +131,12 @@ trait TrProfiler
         }
     }
 
-    protected function initialSync()
+    protected function initialSync() : void
     {
         $this->prepareContent();
 
-        $this->hasComContent = false;
-        $this->notFound      = array(
+        $this->contribute = CONTRIBUTE_NONE;
+        $this->notFound   = array(
             'title' => sprintf(Lang::profiler('firstUseTitle'), $this->subjectName, $this->realm),
             'msg'   => ''
         );
@@ -150,26 +150,30 @@ trait TrProfiler
         exit();
     }
 
-    protected function generatePath()
+    protected function generatePath() : void
     {
         if ($this->region)
         {
             $this->path[] = $this->region;
 
             if ($this->realm)
-                $this->path[] = Profiler::urlize($this->realm);
+                $this->path[] = Profiler::urlize($this->realm, true);
             // else
                 // $this->path[] = Profiler::urlize(CFG_BATTLEGROUP);
         }
     }
 }
 
+
 class GenericPage
 {
+    use TrRequestData;
+
     protected $tpl          = '';
     protected $reqUGroup    = U_GROUP_NONE;
     protected $reqAuth      = false;
     protected $mode         = CACHE_TYPE_NONE;
+ // protected $contribute;                                  // defined in __construct()
 
     protected $jsGlobals    = [];
     protected $lvData       = [];
@@ -229,12 +233,18 @@ class GenericPage
         'title'             => ['template' => 'title',             'id' => 'titles',          'parent' => 'lv-generic', 'data' => [], 'name' => '$LANG.tab_titles'        ],
         'topusers'          => ['template' => 'topusers',          'id' => 'topusers',        'parent' => 'lv-generic', 'data' => [], 'name' => '$LANG.topusers'          ],
         'video'             => ['template' => 'video',             'id' => 'videos',          'parent' => 'lv-generic', 'data' => [], 'name' => '$LANG.tab_videos'        ],
-        'zone'              => ['template' => 'zone',              'id' => 'zones',           'parent' => 'lv-generic', 'data' => [], 'name' => '$LANG.tab_zones'         ]
+        'zone'              => ['template' => 'zone',              'id' => 'zones',           'parent' => 'lv-generic', 'data' => [], 'name' => '$LANG.tab_zones'         ],
+        'guide'             => ['template' => 'guide',             'id' => 'guides',          'parent' => 'lv-generic', 'data' => [],                                     ]
     );
 
-    public function __construct($pageCall, $pageParam = null)
+    public function __construct(string $pageCall = '', string $pageParam = '')
     {
         $this->time = microtime(true);
+
+        $this->initRequestData();
+
+        if (!isset($this->contribute))
+            $this->contribute = CONTRIBUTE_NONE;
 
         $this->fullParams = $pageCall;
         if ($pageParam)
@@ -275,7 +285,7 @@ class GenericPage
 
         // requires authed user
         if ($this->reqAuth && !User::$id)
-            $this->forwardToSignIn($_SERVER['QUERY_STRING']);
+            $this->forwardToSignIn($_SERVER['QUERY_STRING'] ?? '');
 
         // restricted access
         if ($this->reqUGroup && !User::isInGroup($this->reqUGroup))
@@ -283,7 +293,7 @@ class GenericPage
             if (User::$id)
                 $this->error();
             else
-                $this->forwardToSignIn($_SERVER['QUERY_STRING']);
+                $this->forwardToSignIn($_SERVER['QUERY_STRING'] ?? '');
         }
 
         if (CFG_MAINTENANCE && !User::isInGroup(U_GROUP_EMPLOYEE))
@@ -296,11 +306,13 @@ class GenericPage
             $this->applyCCErrors();
     }
 
+
     /**********/
     /* Checks */
     /**********/
 
-    private function isSaneInclude($path, $file)            // "template_exists"
+    // "template_exists"
+    private function isSaneInclude(string $path, string $file) : bool
     {
         if (preg_match('/[^\w\-]/i', str_replace('admin/', '', $file)))
             return false;
@@ -311,7 +323,8 @@ class GenericPage
         return true;
     }
 
-    private function isValidPage()                          // has a valid combination of categories
+    // has a valid combination of categories
+    private function isValidPage() : bool
     {
         if (!isset($this->category) || empty($this->validCats))
             return true;
@@ -341,26 +354,34 @@ class GenericPage
         return false;
     }
 
+
     /****************/
     /* Prepare Page */
     /****************/
 
-    protected function prepareContent()                     // get from cache ?: run generators
+    // get from cache ?: run generators
+    protected function prepareContent() : void
     {
         if (!$this->loadCache())
         {
-            $this->addArticle();
-
             $this->generateContent();
             $this->generatePath();
             $this->generateTitle();
+            $this->addArticle();
 
             $this->applyGlobals();
 
             $this->saveCache();
         }
 
-        if (isset($this->type) && isset($this->typeId))
+        if ($this instanceof GuidePage)
+        {
+            $this->gPageInfo = ['name' => $this->name];
+            if (isset($this->author))
+                $this->gPageInfo['author'] = $this->author;
+
+        }
+        else if (isset($this->type) && isset($this->typeId))
         {
             $this->gPageInfo = array(                       // varies slightly for special pages like maps, user-dashboard or profiler
                 'type'   => $this->type,
@@ -368,7 +389,9 @@ class GenericPage
                 'name'   => $this->name
             );
         }
-        else if (!empty($this->articleUrl))
+
+        // only adds edit links to the staff menu: precursor to guides?
+        if (!empty($this->articleUrl) && !($this instanceof GuidePage && $this->show == GuidePage::SHOW_GUIDE))
         {
             $this->gPageInfo = array(
                 'articleUrl' => $this->fullParams,          // is actually be the url-param
@@ -392,11 +415,19 @@ class GenericPage
             $this->contribute = $x::$contribute;
         }
 
-        if (!empty($this->hasComContent))                   // get comments, screenshots, videos
+        if ($this->contribute & CONTRIBUTE_CO)
+            $this->community['co'] = CommunityContent::getComments($this->type, $this->typeId);
+
+        if ($this->contribute & CONTRIBUTE_SS)
+            $this->community['ss'] = CommunityContent::getScreenshots($this->type, $this->typeId);
+
+        if ($this->contribute & CONTRIBUTE_VI)
+            $this->community['vi'] = CommunityContent::getVideos($this->type, $this->typeId);
+
+        // as comments are not cached, those globals cant be either
+        if ($this->contribute)
         {
-            $jsGlobals = [];
-            $this->community = CommunityContent::getAll($this->type, $this->typeId, $jsGlobals);
-            $this->extendGlobalData($jsGlobals);            // as comments are not cached, those globals cant be either
+            $this->extendGlobalData(CommunityContent::getJSGlobals());
             $this->applyGlobals();
         }
 
@@ -404,53 +435,55 @@ class GenericPage
         $this->sumSQLStats();
     }
 
-    public function addJS($name, $unshift = false)
+    public function addScript(array ...$structs) : void
     {
-        if (is_array($name))
+        foreach ($structs as $s)                            // iType, sContent, bFront, sIeCnd
         {
-            foreach ($name as $n)
-                $this->addJS($n, $unshift);
-        }
-        else if (!in_array($name, $this->js))
-        {
-            if ($unshift)
-                array_unshift($this->js, $name);
-            else
-                $this->js[] = $name;
+            if (empty($s[1]))
+            {
+                trigger_error('GenericPage::addScript - content empty', E_USER_WARNING);
+                continue;
+            }
+
+            $s = array_pad($s, 4, '');
+            switch ($s[0])
+            {
+                case JS_FILE:
+                case JS_STRING:
+                    if (empty($s[2]))
+                        $this->js[] = $s;
+                    else
+                        array_unshift($this->js, $s);
+                    break;
+                case CSS_FILE:
+                case CSS_STRING:
+                    if (empty($s[2]))
+                        $this->css[] = $s;
+                    else
+                        array_unshift($this->css, $s);
+                    break;
+                default:
+                    trigger_error('GenericPage::addScript - unknown script type #'.$s[0], E_USER_WARNING);
+            }
         }
     }
 
-    public function addCSS($struct, $unshift = false)
+    // get article & static infobox (run before processing jsGlobals)
+    private function addArticle() :void
     {
-        if (is_array($struct) && empty($struct['path']) && empty($struct['string']))
-        {
-            foreach ($struct as $s)
-                $this->addCSS($s, $unshift);
-        }
-        else if (!in_array($struct, $this->css))
-        {
-            if ($unshift)
-                array_unshift($this->css, $struct);
-            else
-                $this->css[] = $struct;
-        }
-    }
+        if (isset($this->article))
+            return;
 
-    private function addArticle()                           // get article & static infobox (run before processing jsGlobals)
-    {
         $article = [];
-        if (!empty($this->type) && isset($this->typeId))
-        {
-            $article = DB::Aowow()->selectRow('SELECT article, quickInfo, locale, editAccess FROM ?_articles WHERE type = ?d AND typeId = ?d AND locale = ?d UNION ALL SELECT article, quickInfo, locale, editAccess FROM ?_articles WHERE type = ?d AND typeId = ?d AND locale = 0  ORDER BY locale DESC LIMIT 1',
-                $this->type, $this->typeId, User::$localeId, $this->type, $this->typeId
-            );
-        }
+        if (isset($this->guideRevision))
+            $article = DB::Aowow()->selectRow('SELECT `article`, `quickInfo`, `locale`, `editAccess` FROM ?_articles WHERE `type` = ?d AND `typeId` = ?d AND `rev` = ?d',
+                Type::GUIDE, $this->typeId, $this->guideRevision);
         else if (!empty($this->articleUrl))
-        {
-            $article = DB::Aowow()->selectRow('SELECT article, quickInfo, locale, editAccess FROM ?_articles WHERE url = ? AND locale = ?d UNION ALL SELECT article, quickInfo, locale, editAccess FROM ?_articles WHERE url = ? AND locale = 0  ORDER BY locale DESC LIMIT 1',
-                $this->articleUrl, User::$localeId, $this->articleUrl
-            );
-        }
+            $article = DB::Aowow()->selectRow('SELECT `article`, `quickInfo`, `locale`, `editAccess` FROM ?_articles WHERE `url` = ? AND `locale` IN (?a) ORDER BY `locale`, `rev` DESC LIMIT 1',
+                $this->articleUrl, [User::$localeId, LOCALE_EN]);
+        else if (!empty($this->type) && isset($this->typeId))
+            $article = DB::Aowow()->selectRow('SELECT `article`, `quickInfo`, `locale`, `editAccess` FROM ?_articles WHERE `type` = ?d AND `typeId` = ?d AND `locale` IN (?a) ORDER BY `locale`, `rev` DESC LIMIT 1',
+                $this->type, $this->typeId, [User::$localeId, LOCALE_EN]);
 
         if ($article)
         {
@@ -492,7 +525,8 @@ class GenericPage
         }
     }
 
-    private function addAnnouncements()                     // get announcements and notes for user
+    // get announcements and notes for user
+    private function addAnnouncements() : void
     {
         if (!isset($this->announcements))
             $this->announcements = [];
@@ -539,9 +573,9 @@ class GenericPage
         }
     }
 
-    protected function getCategoryFromUrl($str)
+    protected function getCategoryFromUrl(string $urlParam) : void
     {
-        $arr    = explode('.', $str);
+        $arr    = explode('.', $urlParam);
         $params = [];
 
         foreach ($arr as $v)
@@ -551,43 +585,61 @@ class GenericPage
         $this->category = $params;
     }
 
-    protected function forwardToSignIn($next = '')
+    protected function forwardToSignIn(string $next = '') : void
     {
         $next = $next ? '&next='.$next : '';
         header('Location: ?account=signin'.$next, true, 302);
     }
 
-    protected function sumSQLStats()
+    protected function sumSQLStats() : void
     {
         Util::arraySumByKey($this->mysql, DB::Aowow()->getStatistics(), DB::World()->getStatistics());
     }
+
 
     /*******************/
     /* Special Display */
     /*******************/
 
-    public function notFound($title, $msg = '')             // unknown entry
+    // unknown entry
+    public function notFound(string $title = '', string $msg = '') : void
     {
-        array_unshift($this->title, Lang::main('nfPageTitle'));
+        if ($this->mode == CACHE_TYPE_TOOLTIP && method_exists($this, 'generateTooltip'))
+        {
+            header(MIME_TYPE_JSON);
+            echo $this->generateTooltip();
+        }
+        else if ($this->mode == CACHE_TYPE_XML && method_exists($this, 'generateXML'))
+        {
+            header(MIME_TYPE_XML);
+            echo $this->generateXML();
+        }
+        else
+        {
+            header('HTTP/1.0 404 Not Found', true, 404);
 
-        $this->hasComContent = false;
-        $this->notFound      = array(
-            'title' =>          isset($this->typeId) ? Util::ucFirst($title).' #'.$this->typeId    : $title,
-            'msg'   => !$msg && isset($this->typeId) ? sprintf(Lang::main('pageNotFound'), $title) : $msg
-        );
+            array_unshift($this->title, Lang::main('nfPageTitle'));
 
-        if (isset($this->tabId))
-            $this->pageTemplate['activeTab'] = $this->tabId;
+            $this->contribute = CONTRIBUTE_NONE;
+            $this->notFound   = array(
+                'title' =>          isset($this->typeId) ? Util::ucFirst($title).' #'.$this->typeId    : $title,
+                'msg'   => !$msg && isset($this->typeId) ? sprintf(Lang::main('pageNotFound'), $title) : $msg
+            );
 
-        $this->sumSQLStats();
+            if (isset($this->tabId))
+                $this->pageTemplate['activeTab'] = $this->tabId;
 
-        header('HTTP/1.0 404 Not Found', true, 404);
+            $this->sumSQLStats();
 
-        $this->display('list-page-generic');
+
+            $this->display('list-page-generic');
+        }
+
         exit();
     }
 
-    public function error()                                 // unknown page
+    // unknown page
+    public function error() : void
     {
         $this->path       = null;
         $this->tabId      = null;
@@ -606,7 +658,8 @@ class GenericPage
         exit();
     }
 
-    public function maintenance()                           // display brb gnomes
+    // display brb gnomes
+    public function maintenance() : void
     {
         header('HTTP/1.0 503 Service Temporarily Unavailable', true, 503);
         header('Retry-After: '.(3 * HOUR));
@@ -615,48 +668,79 @@ class GenericPage
         exit();
     }
 
+
     /*******************/
     /* General Display */
     /*******************/
 
-    public function display($override = '')                 // load given template string or GenericPage::$tpl
+    // load given template string or GenericPage::$tpl
+    public function display(string $override = '') : void
     {
         // Heisenbug: IE11 and FF32 will sometimes (under unknown circumstances) cache 302 redirects and stop
         // re-requesting them from the server but load them from local cache, thus breaking menu features.
         Util::sendNoCacheHeader();
 
-        if (isset($this->tabId))
-            $this->pageTemplate['activeTab'] = $this->tabId;
-
-        if ($override)
-        {
-            $this->addAnnouncements();
-
-            include('template/pages/'.$override.'.tpl.php');
-            die();
-        }
-        else if ($this->tpl)
-        {
-            $this->prepareContent();
-
-            if (!$this->isSaneInclude('template/pages/', $this->tpl))
-            {
-                trigger_error('Error: nonexistant template requested: template/pages/'.$this->tpl.'.tpl.php', E_USER_ERROR);
-                $this->error();
-            }
-
-            $this->addAnnouncements();
-
-            include('template/pages/'.$this->tpl.'.tpl.php');
-            die();
-        }
+        if ($this->mode == CACHE_TYPE_TOOLTIP && method_exists($this, 'generateTooltip'))
+            $this->displayExtra([$this, 'generateTooltip']);
+        else if ($this->mode == CACHE_TYPE_XML && method_exists($this, 'generateXML'))
+            $this->displayExtra([$this, 'generateXML'], MIME_TYPE_XML);
         else
-            $this->error();
+        {
+            if (isset($this->tabId))
+                $this->pageTemplate['activeTab'] = $this->tabId;
+
+            if ($override)
+            {
+                $this->addAnnouncements();
+
+                include('template/pages/'.$override.'.tpl.php');
+                die();
+            }
+            else if ($this->tpl)
+            {
+                $this->prepareContent();
+
+                if (!$this->isSaneInclude('template/pages/', $this->tpl))
+                {
+                    trigger_error('Error: nonexistant template requested: template/pages/'.$this->tpl.'.tpl.php', E_USER_ERROR);
+                    $this->error();
+                }
+
+                $this->addAnnouncements();
+
+                include('template/pages/'.$this->tpl.'.tpl.php');
+                die();
+            }
+            else
+                $this->error();
+        }
     }
 
-    public function writeGlobalVars()                       // load jsGlobal
+    // generate and cache
+    public function displayExtra(callable $generator, string $mime = MIME_TYPE_JSON) : void
+    {
+        $outString = '';
+        if (!$this->loadCache($outString))
+        {
+            $outString = $generator();
+            $this->saveCache($outString);
+        }
+
+        header($mime);
+
+        if (method_exists($this, 'postCache') && ($pc = $this->postCache()))
+            die(sprintf($outString, ...$pc));
+        else
+            die($outString);
+    }
+
+    // load jsGlobal
+    public function writeGlobalVars() : string
     {
         $buff = '';
+
+        if (!empty($this->guideRating))
+            $buff .= sprintf(Util::$guideratingString, ...$this->guideRating);
 
         foreach ($this->jsGlobals as $type => $struct)
         {
@@ -667,7 +751,7 @@ class GenericPage
                 foreach ($data as $k => $v)
                 {
                     // localizes expected fields .. except for icons .. icons are special
-                    if (in_array($k, ['name', 'namefemale']) && $struct[0]  != 'g_icons')
+                    if (in_array($k, ['name', 'namefemale']) && $struct[0] != Type::getJSGlobalString(Type::ICON))
                     {
                         $data[$k.'_'.User::$localeString] = $v;
                         unset($data[$k]);
@@ -700,7 +784,8 @@ class GenericPage
         return $buff;
     }
 
-    public function brick($file, array $localVars = [])     // load brick
+    // load brick
+    public function brick(string $file, array $localVars = []) : void
     {
         foreach ($localVars as $n => $v)
             $$n = $v;
@@ -711,7 +796,8 @@ class GenericPage
             include('template/bricks/'.$file.'.tpl.php');
     }
 
-    public function lvBrick($file)                          // load listview addIns
+    // load listview addIns
+    public function lvBrick(string $file) : void
     {
         if (!$this->isSaneInclude('template/listviews/', $file))
             trigger_error('Nonexistant Listview addin requested: template/listviews/'.$file.'.tpl.php', E_USER_ERROR);
@@ -719,7 +805,8 @@ class GenericPage
             include('template/listviews/'.$file.'.tpl.php');
     }
 
-    public function localizedBrick($file, $loc = LOCALE_EN) // load brick with more text then vars
+    // load brick with more text then vars
+    public function localizedBrick(string $file, int $loc = LOCALE_EN) : void
     {
         if (!$this->isSaneInclude('template/localized/', $file.'_'.$loc))
         {
@@ -732,32 +819,27 @@ class GenericPage
             include('template/localized/'.$file.'_'.$loc.'.tpl.php');
     }
 
+
     /**********************/
     /* Prepare js-Globals */
     /**********************/
 
-    public function extendGlobalIds($type, $data)           // add typeIds <int|array[int]> that should be displayed as jsGlobal on the page
+    // add typeIds <int|array[int]> that should be displayed as jsGlobal on the page
+    public function extendGlobalIds(int $type, int ...$ids) : void
     {
-        if (!$type || !$data)
-            return false;
+        if (!$type || !$ids)
+            return;
 
         if (!isset($this->jsgBuffer[$type]))
             $this->jsgBuffer[$type] = [];
 
-        if (is_array($data))
-        {
-            foreach ($data as $id)
-                $this->jsgBuffer[$type][] = (int)$id;
-        }
-        else if (is_numeric($data))
-            $this->jsgBuffer[$type][] = (int)$data;
+        foreach ($ids as $id)
+            $this->jsgBuffer[$type][] = $id;
     }
 
-    public function extendGlobalData($data, $extra = null)  // add jsGlobals or typeIds (can be mixed in one array: TYPE => [mixeddata]) to display on the page
+    // add jsGlobals or typeIds (can be mixed in one array: TYPE => [mixeddata]) to display on the page
+    public function extendGlobalData(array $data, ?array $extra = null) : void
     {
-        if ($data === null)
-            throw new ErrorException('ffffuuuu.....!');
-
         foreach ($data as $type => $globals)
         {
             if (!is_array($globals) || !$globals)
@@ -781,41 +863,20 @@ class GenericPage
             $this->jsGlobals[$type][2] = $extra;
     }
 
-    private function initJSGlobal($type)                    // init store for type
+    // init store for type
+    private function initJSGlobal(int $type) : void
     {
         $jsg = &$this->jsGlobals;                           // shortcut
 
         if (isset($jsg[$type]))
             return;
 
-        switch ($type)
-        {                                                // [varName,            [data], [extra]]
-            case TYPE_NPC:         $jsg[TYPE_NPC]         = ['g_npcs',               [], []]; break;
-            case TYPE_OBJECT:      $jsg[TYPE_OBJECT]      = ['g_objects',            [], []]; break;
-            case TYPE_ITEM:        $jsg[TYPE_ITEM]        = ['g_items',              [], []]; break;
-            case TYPE_ITEMSET:     $jsg[TYPE_ITEMSET]     = ['g_itemsets',           [], []]; break;
-            case TYPE_QUEST:       $jsg[TYPE_QUEST]       = ['g_quests',             [], []]; break;
-            case TYPE_SPELL:       $jsg[TYPE_SPELL]       = ['g_spells',             [], []]; break;
-            case TYPE_ZONE:        $jsg[TYPE_ZONE]        = ['g_gatheredzones',      [], []]; break;
-            case TYPE_FACTION:     $jsg[TYPE_FACTION]     = ['g_factions',           [], []]; break;
-            case TYPE_PET:         $jsg[TYPE_PET]         = ['g_pets',               [], []]; break;
-            case TYPE_ACHIEVEMENT: $jsg[TYPE_ACHIEVEMENT] = ['g_achievements',       [], []]; break;
-            case TYPE_TITLE:       $jsg[TYPE_TITLE]       = ['g_titles',             [], []]; break;
-            case TYPE_WORLDEVENT:  $jsg[TYPE_WORLDEVENT]  = ['g_holidays',           [], []]; break;
-            case TYPE_CLASS:       $jsg[TYPE_CLASS]       = ['g_classes',            [], []]; break;
-            case TYPE_RACE:        $jsg[TYPE_RACE]        = ['g_races',              [], []]; break;
-            case TYPE_SKILL:       $jsg[TYPE_SKILL]       = ['g_skills',             [], []]; break;
-            case TYPE_CURRENCY:    $jsg[TYPE_CURRENCY]    = ['g_gatheredcurrencies', [], []]; break;
-            case TYPE_SOUND:       $jsg[TYPE_SOUND]       = ['g_sounds',             [], []]; break;
-            case TYPE_ICON:        $jsg[TYPE_ICON]        = ['g_icons',              [], []]; break;
-            // well, this is awkward
-            case TYPE_USER:        $jsg[TYPE_USER]        = ['g_users',              [], []]; break;
-            case TYPE_EMOTE:       $jsg[TYPE_EMOTE]       = ['g_emotes',             [], []]; break;
-            case TYPE_ENCHANTMENT: $jsg[TYPE_ENCHANTMENT] = ['g_enchantments',       [], []]; break;
-        }
+        if ($tpl = Type::getJSGlobalTemplate($type))
+            $jsg[$type] = $tpl;
     }
 
-    private function applyGlobals()                         // lookup jsGlobals from collected typeIds
+    // lookup jsGlobals from collected typeIds
+    private function applyGlobals() : void
     {
         foreach ($this->jsgBuffer as $type => $ids)
         {
@@ -828,34 +889,9 @@ class GenericPage
 
             $this->initJSGlobal($type);
 
-            $cnd = [CFG_SQL_LIMIT_NONE, ['id', array_unique($ids, SORT_NUMERIC)]];
-
-            switch ($type)
-            {
-                case TYPE_NPC:         $obj = new CreatureList($cnd);    break;
-                case TYPE_OBJECT:      $obj = new GameobjectList($cnd);  break;
-                case TYPE_ITEM:        $obj = new ItemList($cnd);        break;
-                case TYPE_ITEMSET:     $obj = new ItemsetList($cnd);     break;
-                case TYPE_QUEST:       $obj = new QuestList($cnd);       break;
-                case TYPE_SPELL:       $obj = new SpellList($cnd);       break;
-                case TYPE_ZONE:        $obj = new ZoneList($cnd);        break;
-                case TYPE_FACTION:     $obj = new FactionList($cnd);     break;
-                case TYPE_PET:         $obj = new PetList($cnd);         break;
-                case TYPE_ACHIEVEMENT: $obj = new AchievementList($cnd); break;
-                case TYPE_TITLE:       $obj = new TitleList($cnd);       break;
-                case TYPE_WORLDEVENT:  $obj = new WorldEventList($cnd);  break;
-                case TYPE_CLASS:       $obj = new CharClassList($cnd);   break;
-                case TYPE_RACE:        $obj = new CharRaceList($cnd);    break;
-                case TYPE_SKILL:       $obj = new SkillList($cnd);       break;
-                case TYPE_CURRENCY:    $obj = new CurrencyList($cnd);    break;
-                case TYPE_SOUND:       $obj = new SoundList($cnd);       break;
-                case TYPE_ICON:        $obj = new IconList($cnd);        break;
-                // "um, eh":, he ums and ehs.
-                case TYPE_USER:        $obj = new UserList($cnd);        break;
-                case TYPE_EMOTE:       $obj = new EmoteList($cnd);       break;
-                case TYPE_ENCHANTMENT: $obj = new EnchantmentList($cnd); break;
-                default: continue 2;
-            }
+            $obj = Type::newList($type, [CFG_SQL_LIMIT_NONE, ['id', array_unique($ids, SORT_NUMERIC)]]);
+            if (!$obj)
+                continue;
 
             $this->extendGlobalData($obj->getJSGlobals(GLOBALINFO_SELF));
 
@@ -864,14 +900,16 @@ class GenericPage
         }
     }
 
+
     /*********/
     /* Cache */
     /*********/
 
-    public function saveCache($saveString = null)           // visible properties or given strings are cached
+    // visible properties or given strings are cached
+    private function saveCache(string $saveString = '') : void
     {
         if ($this->mode == CACHE_TYPE_NONE)
-            return false;
+            return;
 
         if (!CFG_CACHE_MODE || CFG_DEBUG)
             return;
@@ -885,8 +923,8 @@ class GenericPage
             {
                 try
                 {
-                    // public, protected and an undocumented flag added to properties created on the fly..?
-                    if ((new ReflectionProperty($this, $key))->getModifiers() & 0x1300)
+                    $rp = new ReflectionProperty($this, $key);
+                    if ($rp && ($rp->isPublic() || $rp->isProtected()))
                         if (!in_array($key, $noCache))
                             $cache[$key] = $val;
                 }
@@ -894,7 +932,7 @@ class GenericPage
             }
         }
         else
-            $cache = (string)$saveString;
+            $cache = $saveString;
 
         if (CFG_CACHE_MODE & CACHE_MODE_MEMCACHED)
         {
@@ -949,7 +987,7 @@ class GenericPage
         }
     }
 
-    public function loadCache(&$saveString = null)
+    private function loadCache(string &$saveString = '') : bool
     {
         if ($this->mode == CACHE_TYPE_NONE)
             return false;
@@ -1021,7 +1059,7 @@ class GenericPage
         return false;;
     }
 
-    private function memcached()
+    private function memcached() : Memcached
     {
         if (!$this->memcached && (CFG_CACHE_MODE & CACHE_MODE_MEMCACHED))
         {

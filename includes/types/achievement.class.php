@@ -8,7 +8,7 @@ class AchievementList extends BaseType
 {
     use listviewHelper;
 
-    public static   $type      = TYPE_ACHIEVEMENT;
+    public static   $type      = Type::ACHIEVEMENT;
     public static   $brickFile = 'achievement';
     public static   $dataTable = '?_achievement';
 
@@ -37,7 +37,7 @@ class AchievementList extends BaseType
             SELECT
                 ar.ID AS ARRAY_KEY, ar.TitleA, ar.TitleH, ar.ItemID, ar.Sender AS sender, ar.MailTemplateID,
                 ar.Subject AS subject_loc0, IFNULL(arl2.Subject, "") AS subject_loc2, IFNULL(arl3.Subject, "") AS subject_loc3, IFNULL(arl4.Subject, "") AS subject_loc4, IFNULL(arl6.Subject, "") AS subject_loc6, IFNULL(arl8.Subject, "") AS subject_loc8,
-                ar.Body    AS text_loc0,    IFNULL(arl2.Body,    "") AS text_loc2,    IFNULL(arl3.Body,    "") AS text_loc3,    IFNULL(arl4.Body,    "") AS text_loc4,    IFNULL(arl6.Body,    "") AS text_loc6,    IFNULL(arl8.Body,    "") AS text_loc8
+                ar.Body    AS text_loc0,    IFNULL(arl2.Text,    "") AS text_loc2,    IFNULL(arl3.Text,    "") AS text_loc3,    IFNULL(arl4.Text,    "") AS text_loc4,    IFNULL(arl6.Text,    "") AS text_loc6,    IFNULL(arl8.Text,    "") AS text_loc8
             FROM
                 achievement_reward ar
             LEFT JOIN
@@ -71,25 +71,25 @@ class AchievementList extends BaseType
                     // $mailSrc = new Loot();
                     // $mailSrc->getByContainer(LOOT_MAIL, $rewards[$_id]['MailTemplateID']);
                     // foreach ($mailSrc->iterate() as $loot)
-                        // $_curTpl['rewards'][] = [TYPE_ITEM, $loot['id']];
+                        // $_curTpl['rewards'][] = [Type::ITEM, $loot['id']];
 
                     // lets just assume for now, that mailRewards for achievements do not contain references
                     $mailRew = DB::World()->selectCol('SELECT Item FROM mail_loot_template WHERE Reference <= 0 AND entry = ?d', $rewards[$_id]['MailTemplateID']);
                     foreach ($mailRew AS $mr)
-                        $_curTpl['rewards'][] = [TYPE_ITEM, $mr];
+                        $_curTpl['rewards'][] = [Type::ITEM, $mr];
                 }
             }
 
             //"rewards":[[11,137],[3,138]]   [type, typeId]
             if (!empty($_curTpl['ItemID']))
-                $_curTpl['rewards'][] = [TYPE_ITEM, $_curTpl['ItemID']];
+                $_curTpl['rewards'][] = [Type::ITEM, $_curTpl['ItemID']];
             if (!empty($_curTpl['itemExtra']))
-                $_curTpl['rewards'][] = [TYPE_ITEM, $_curTpl['itemExtra']];
+                $_curTpl['rewards'][] = [Type::ITEM, $_curTpl['itemExtra']];
             if (!empty($_curTpl['TitleA']))
-                $_curTpl['rewards'][] = [TYPE_TITLE, $_curTpl['TitleA']];
+                $_curTpl['rewards'][] = [Type::TITLE, $_curTpl['TitleA']];
             if (!empty($_curTpl['TitleH']))
                 if (empty($_curTpl['TitleA']) || $_curTpl['TitleA'] != $_curTpl['TitleH'])
-                    $_curTpl['rewards'][] = [TYPE_TITLE, $_curTpl['TitleH']];
+                    $_curTpl['rewards'][] = [Type::TITLE, $_curTpl['TitleH']];
 
             // icon
             $_curTpl['iconString'] = $_curTpl['iconString'] ?: 'trade_engineering';
@@ -103,7 +103,7 @@ class AchievementList extends BaseType
         foreach ($this->iterate() as $__)
         {
             if ($addMask & GLOBALINFO_SELF)
-                $data[TYPE_ACHIEVEMENT][$this->id] = ['icon' => $this->curTpl['iconString'], 'name' => $this->getField('name', true)];
+                $data[Type::ACHIEVEMENT][$this->id] = ['icon' => $this->curTpl['iconString'], 'name' => $this->getField('name', true)];
 
             if ($addMask & GLOBALINFO_REWARDS)
                 foreach ($this->curTpl['rewards'] as $_)
@@ -151,7 +151,7 @@ class AchievementList extends BaseType
         if (isset($this->criteria[$this->id]))
             return $this->criteria[$this->id];
 
-        $result = DB::Aowow()->Select('SELECT * FROM ?_achievementcriteria WHERE `refAchievementId` = ?d ORDER BY `order` ASC', $this->id);
+        $result = DB::Aowow()->Select('SELECT * FROM ?_achievementcriteria WHERE `refAchievementId` = ?d ORDER BY `order` ASC', $this->curTpl['refAchievement'] ?: $this->id);
         if (!$result)
             return [];
 
@@ -226,7 +226,7 @@ class AchievementList extends BaseType
                     break;
             }
 
-            $criteria .= '<!--cr'.$crt['id'].':'.$crt['type'].':'.$crt['value1'].'-->- '.Util::jsEscape($crtName);
+            $criteria .= '<!--cr'.$crt['id'].':'.$crt['type'].':'.$crt['value1'].'-->- '.$crtName;
 
             if ($crt['completionFlags'] & ACHIEVEMENT_CRITERIA_FLAG_MONEY_COUNTER)
                 $criteria .= '&nbsp;<span class="moneygold">'.Lang::nf($crt['value2' ] / 10000).'</span>';
@@ -238,13 +238,13 @@ class AchievementList extends BaseType
         }
 
         $x  = '<table><tr><td><b class="q">';
-        $x .= Util::jsEscape($name);
+        $x .= $name;
         $x .= '</b></td></tr></table>';
         if ($description || $criteria)
             $x .= '<table><tr><td>';
 
         if ($description)
-            $x .= '<br />'.Util::jsEscape($description).'<br />';
+            $x .= '<br />'.$description.'<br />';
 
         if ($criteria)
         {
@@ -266,7 +266,7 @@ class AchievementList extends BaseType
             $data[$this->id] = array(
                 "n"  => $this->getField('name', true),
                 "s"  => $this->curTpl['faction'],
-                "t"  => TYPE_ACHIEVEMENT,
+                "t"  => Type::ACHIEVEMENT,
                 "ti" => $this->id
             );
         }

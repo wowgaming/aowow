@@ -10,7 +10,7 @@ class EmotePage extends GenericPage
 {
     use TrDetailPage;
 
-    protected $type          = TYPE_EMOTE;
+    protected $type          = Type::EMOTE;
     protected $typeId        = 0;
     protected $tpl           = 'detail-page-generic';
     protected $path          = [0, 100];
@@ -25,7 +25,7 @@ class EmotePage extends GenericPage
 
         $this->subject = new EmoteList(array(['id', $this->typeId]));
         if ($this->subject->error)
-            $this->notFound(Util::ucFirst(Lang::game('emote')), Lang::emote('notFound'));
+            $this->notFound(Lang::game('emote'), Lang::emote('notFound'));
 
         $this->name = Util::ucFirst($this->subject->getField('cmd'));
     }

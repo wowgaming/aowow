@@ -11,7 +11,7 @@ SqlGen::register(new class extends SetupScript
 {
     protected $command = 'objects';
 
-    protected $tblDependancyTC    = ['gameobject_template', 'gameobject_template_locale', 'gameobject_questitem'];
+    protected $tblDependencyTC    = ['gameobject_template', 'gameobject_template_locale', 'gameobject_questitem'];
     protected $dbcSourceFiles     = ['lock'];
 
     public function generate(array $ids = []) : bool
@@ -119,6 +119,8 @@ SqlGen::register(new class extends SetupScript
 
         // apply typeCat and reqSkill depending on locks
         DB::Aowow()->query($updateQuery, $ids ?: DBSIMPLE_SKIP);
+
+        $this->reapplyCCFlags('objects', Type::OBJECT);
 
         return true;
     }

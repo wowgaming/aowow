@@ -11,23 +11,23 @@ class AjaxComment extends AjaxHandler
     const REPLY_LENGTH_MAX   = 600;
 
     protected $_post = array(
-        'id'          => [FILTER_CALLBACK,            ['options' => 'AjaxHandler::checkIdListUnsigned']],
-        'body'        => [FILTER_CALLBACK,            ['options' => 'AjaxHandler::checkFulltext']      ],
-        'commentbody' => [FILTER_CALLBACK,            ['options' => 'AjaxHandler::checkFulltext']      ],
-        'response'    => [FILTER_SANITIZE_STRING,     FILTER_FLAG_STRIP_LOW                            ],
-        'reason'      => [FILTER_SANITIZE_STRING,     FILTER_FLAG_STRIP_LOW                            ],
-        'remove'      => [FILTER_SANITIZE_NUMBER_INT, null                                             ],
-        'commentId'   => [FILTER_SANITIZE_NUMBER_INT, null                                             ],
-        'replyId'     => [FILTER_SANITIZE_NUMBER_INT, null                                             ],
-        'sticky'      => [FILTER_SANITIZE_NUMBER_INT, null                                             ],
-     // 'username'    => [FILTER_SANITIZE_STRING,     FILTER_FLAG_STRIP_LOW | FILTER_FLAG_STRIP_HIGH   ]
+        'id'          => ['filter' => FILTER_CALLBACK, 'options' => 'AjaxHandler::checkIdListUnsigned'],
+        'body'        => ['filter' => FILTER_CALLBACK, 'options' => 'AjaxHandler::checkFulltext'      ],
+        'commentbody' => ['filter' => FILTER_CALLBACK, 'options' => 'AjaxHandler::checkFulltext'      ],
+        'response'    => ['filter' => FILTER_UNSAFE_RAW, 'flags' => FILTER_FLAG_STRIP_AOWOW ],
+        'reason'      => ['filter' => FILTER_UNSAFE_RAW, 'flags' => FILTER_FLAG_STRIP_AOWOW ],
+        'remove'      => ['filter' => FILTER_SANITIZE_NUMBER_INT],
+        'commentId'   => ['filter' => FILTER_SANITIZE_NUMBER_INT],
+        'replyId'     => ['filter' => FILTER_SANITIZE_NUMBER_INT],
+        'sticky'      => ['filter' => FILTER_SANITIZE_NUMBER_INT],
+     // 'username'    => ['filter' => FILTER_UNSAFE_RAW, 'flags' => FILTER_FLAG_STRIP_AOWOW ]
     );
 
     protected $_get  = array(
-        'id'     => [FILTER_CALLBACK, ['options' => 'AjaxHandler::checkInt']],
-        'type'   => [FILTER_CALLBACK, ['options' => 'AjaxHandler::checkInt']],
-        'typeid' => [FILTER_CALLBACK, ['options' => 'AjaxHandler::checkInt']],
-        'rating' => [FILTER_SANITIZE_NUMBER_INT, null]
+        'id'     => ['filter' => FILTER_CALLBACK, 'options' => 'AjaxHandler::checkInt'],
+        'type'   => ['filter' => FILTER_CALLBACK, 'options' => 'AjaxHandler::checkInt'],
+        'typeid' => ['filter' => FILTER_CALLBACK, 'options' => 'AjaxHandler::checkInt'],
+        'rating' => ['filter' => FILTER_SANITIZE_NUMBER_INT]
     );
 
     public function __construct(array $params)
@@ -77,14 +77,14 @@ class AjaxComment extends AjaxHandler
     // i .. have problems believing, that everything uses nifty ajax while adding comments requires a brutal header(Loacation: <wherever>), yet, thats how it is
     protected function handleCommentAdd() : string
     {
-        if (!$this->_get['typeid'] || !$this->_get['type'] || !isset(Util::$typeClasses[$this->_get['type']]))
+        if (!$this->_get['typeid'] || !$this->_get['type'] || !Type::exists($this->_get['type']))
         {
             trigger_error('AjaxComment::handleCommentAdd - malforemd request received', E_USER_ERROR);
             return '';                                      // whatever, we cant even send him back
         }
 
         // this type cannot be commented on
-        if (!(get_class_vars(Util::$typeClasses[$this->_get['type']])['contribute'] & CONTRIBUTE_CO))
+        if (!Type::checkClassAttrib($this->_get['type'], 'contribute', CONTRIBUTE_CO))
         {
             trigger_error('AjaxComment::handleCommentAdd - tried to comment on unsupported type #'.$this->_get['type'], E_USER_ERROR);
             return '';
@@ -92,7 +92,7 @@ class AjaxComment extends AjaxHandler
 
         // trim to max length
         if (!User::isInGroup(U_GROUP_MODERATOR) && mb_strlen($this->_post['commentbody']) > (self::COMMENT_LENGTH_MAX * (User::isPremium() ? 3 : 1)))
-            $this->post['commentbody'] = mb_substr($this->_post['commentbody'], 0, (self::COMMENT_LENGTH_MAX * (User::isPremium() ? 3 : 1)));
+            $this->_post['commentbody'] = mb_substr($this->_post['commentbody'], 0, (self::COMMENT_LENGTH_MAX * (User::isPremium() ? 3 : 1)));
 
         if (User::canComment())
         {
@@ -103,10 +103,10 @@ class AjaxComment extends AjaxHandler
                     Util::gainSiteReputation(User::$id, SITEREP_ACTION_COMMENT, ['id' => $postIdx]);
 
                     // every comment starts with a rating of +1 and i guess the simplest thing to do is create a db-entry with the system as owner
-                    DB::Aowow()->query('INSERT INTO ?_comments_rates (commentId, userId, value) VALUES (?d, 0, 1)', $postIdx);
+                    DB::Aowow()->query('INSERT INTO ?_user_ratings (`type`, `entry`, `userId`, `value`) VALUES (?d, ?d, 0, 1)', RATING_COMMENT, $postIdx);
 
                     // flag target with hasComment
-                    if ($tbl = get_class_vars(Util::$typeClasses[$this->_get['type']])['dataTable'])
+                    if ($tbl = Type::getClassAttrib($this->_get['type'], 'dataTable'))
                         DB::Aowow()->query('UPDATE '.$tbl.' SET cuFlags = cuFlags | ?d WHERE id = ?d', CUSTOM_HAS_COMMENT, $this->_get['typeid']);
                 }
                 else
@@ -122,7 +122,13 @@ class AjaxComment extends AjaxHandler
             $_SESSION['error']['co'] = Lang::main('cannotComment');
 
         $this->doRedirect = true;
-        return '?'.Util::$typeStrings[$this->_get['type']].'='.$this->_get['typeid'].'#comments';
+
+        $idOrUrl = $this->_get['typeid'];
+        if ($this->_get['type'] == Type::GUIDE)
+            if ($_ = DB::Aowow()->selectCell('SELECT `url` FROM ?_guides WHERE `id` = ?d', $this->_get['typeid']))
+                $idOrUrl = $_;
+
+        return '?'.Type::getFileString($this->_get['type']).'='.$idOrUrl.'#comments';
     }
 
     protected function handleCommentEdit() : void
@@ -144,7 +150,7 @@ class AjaxComment extends AjaxHandler
 
         // trim to max length
         if (!User::isInGroup(U_GROUP_MODERATOR) && mb_strlen($this->_post['body']) > (self::COMMENT_LENGTH_MAX * (User::isPremium() ? 3 : 1)))
-            $this->post['body'] = mb_substr($this->_post['body'], 0, (self::COMMENT_LENGTH_MAX * (User::isPremium() ? 3 : 1)));
+            $this->_post['body'] = mb_substr($this->_post['body'], 0, (self::COMMENT_LENGTH_MAX * (User::isPremium() ? 3 : 1)));
 
         $update = array(
             'body'       => $this->_post['body'],
@@ -171,7 +177,7 @@ class AjaxComment extends AjaxHandler
         }
 
         // in theory, there is a username passed alongside...   lets just use the current user (see user.js)
-        $ok = DB::Aowow()->query('UPDATE ?_comments SET flags = flags | ?d, deleteUserId = ?d, deleteDate = UNIX_TIMESTAMP() WHERE id IN (?a){ AND userId = ?d}',
+        $ok = DB::Aowow()->query('UPDATE ?_comments SET `flags` = `flags` | ?d, `deleteUserId` = ?d, `deleteDate` = UNIX_TIMESTAMP() WHERE `id` IN (?a){ AND `userId` = ?d}',
             CC_FLAG_DELETED,
             User::$id,
             $this->_post['id'],
@@ -181,13 +187,14 @@ class AjaxComment extends AjaxHandler
         // deflag hasComment
         if ($ok)
         {
-            $coInfo = DB::Aowow()->selectRow('SELECT IF(BIT_OR(~b.flags) & ?d, 1, 0) as hasMore, b.type, b.typeId FROM ?_comments a JOIN ?_comments b ON a.type = b.type AND a.typeId = b.typeId WHERE a.id = ?d',
+            $coInfo = DB::Aowow()->select('SELECT IF(BIT_OR(~b.`flags`) & ?d, 1, 0) AS hasMore, b.`type`, b.`typeId` FROM ?_comments a JOIN ?_comments b ON a.`type` = b.`type` AND a.`typeId` = b.`typeId` WHERE a.`id` IN (?a) GROUP BY b.`type`, b.`typeId`',
                 CC_FLAG_DELETED,
                 $this->_post['id']
             );
 
-            if (!$coInfo['hasMore'] && Util::$typeClasses[$coInfo['type']] && ($tbl = get_class_vars(Util::$typeClasses[$coInfo['type']])['dataTable']))
-                DB::Aowow()->query('UPDATE '.$tbl.' SET cuFlags = cuFlags & ~?d WHERE id = ?d', CUSTOM_HAS_COMMENT, $coInfo['typeId']);
+            foreach ($coInfo as $co)
+                if (!$co['hasMore'] && ($tbl = Type::getClassAttrib($co['type'], 'dataTable')))
+                    DB::Aowow()->query('UPDATE ?# SET `cuFlags` = `cuFlags` & ~?d WHERE `id` = ?d', $tbl, CUSTOM_HAS_COMMENT, $co['typeId']);
         }
         else
             trigger_error('AjaxComment::handleCommentDelete - user #'.User::$id.' could not flag comment #'.$this->_post['id'].' as deleted', E_USER_ERROR);
@@ -202,7 +209,7 @@ class AjaxComment extends AjaxHandler
         }
 
         // in theory, there is a username passed alongside...   lets just use the current user (see user.js)
-        $ok = DB::Aowow()->query('UPDATE ?_comments SET flags = flags & ~?d WHERE id IN (?a){ AND userId = deleteUserId AND deleteUserId = ?d}',
+        $ok = DB::Aowow()->query('UPDATE ?_comments SET `flags` = `flags` & ~?d WHERE `id` IN (?a){ AND `userId` = `deleteUserId` AND `deleteUserId` = ?d}',
             CC_FLAG_DELETED,
             $this->_post['id'],
             User::isInGroup(U_GROUP_MODERATOR) ? DBSIMPLE_SKIP : User::$id
@@ -211,9 +218,10 @@ class AjaxComment extends AjaxHandler
         // reflag hasComment
         if ($ok)
         {
-            $coInfo = DB::Aowow()->selectRow('SELECT type, typeId FROM ?_comments WHERE id = ?d', $this->_post['id']);
-            if (Util::$typeClasses[$coInfo['type']] && ($tbl = get_class_vars(Util::$typeClasses[$coInfo['type']])['dataTable']))
-                DB::Aowow()->query('UPDATE '.$tbl.' SET cuFlags = cuFlags | ?d WHERE id = ?d', CUSTOM_HAS_COMMENT, $coInfo['typeId']);
+            $coInfo = DB::Aowow()->select('SELECT `type`, `typeId` FROM ?_comments WHERE `id` IN (?a) GROUP BY `type`, `typeId`', $this->_post['id']);
+            foreach ($coInfo as $co)
+                if ($tbl = Type::getClassAttrib($co['type'], 'dataTable'))
+                    DB::Aowow()->query('UPDATE ?# SET `cuFlags` = `cuFlags` | ?d WHERE `id` = ?d', $tbl, CUSTOM_HAS_COMMENT, $co['typeId']);
         }
         else
             trigger_error('AjaxComment::handleCommentUndelete - user #'.User::$id.' could not unflag comment #'.$this->_post['id'].' as deleted', E_USER_ERROR);
@@ -224,7 +232,7 @@ class AjaxComment extends AjaxHandler
         if (!$this->_get['id'])
             return Util::toJSON(['success' => 0]);
 
-        if ($votes = DB::Aowow()->selectRow('SELECT 1 AS success, SUM(IF(value > 0, value, 0)) AS up, SUM(IF(value < 0, -value, 0)) AS down FROM ?_comments_rates WHERE commentId = ?d and userId <> 0 GROUP BY commentId', $this->_get['id']))
+        if ($votes = DB::Aowow()->selectRow('SELECT 1 AS success, SUM(IF(`value` > 0, `value`, 0)) AS up, SUM(IF(`value` < 0, -`value`, 0)) AS down FROM ?_user_ratings WHERE `type` = ?d AND `entry` = ?d AND userId <> 0 GROUP BY `entry`', RATING_COMMENT, $this->_get['id']))
             return Util::toJSON($votes);
         else
             return Util::toJSON(['success' => 1, 'up' => 0, 'down' => 0]);
@@ -235,7 +243,7 @@ class AjaxComment extends AjaxHandler
         if (!User::$id || !$this->_get['id'] || !$this->_get['rating'])
             return Util::toJSON(['error' => 1, 'message' => Lang::main('genericError')]);
 
-        $target = DB::Aowow()->selectRow('SELECT c.userId AS owner, cr.value FROM ?_comments c LEFT JOIN ?_comments_rates cr ON cr.commentId = c.id AND cr.userId = ?d WHERE c.id = ?d', User::$id, $this->_get['id']);
+        $target = DB::Aowow()->selectRow('SELECT c.`userId` AS owner, ur.`value` FROM ?_comments c LEFT JOIN ?_user_ratings ur ON ur.`type` = ?d AND ur.`entry` = c.id AND ur.`userId` = ?d WHERE c.id = ?d', RATING_COMMENT, User::$id, $this->_get['id']);
         $val    = User::canSupervote() ? 2 : 1;
         if ($this->_get['rating'] < 0)
             $val *= -1;
@@ -250,9 +258,9 @@ class AjaxComment extends AjaxHandler
         $ok = false;
         // old and new have same sign; undo vote (user may have gained/lost access to superVote in the meantime)
         if ($target['value'] && ($target['value'] < 0) == ($val < 0))
-            $ok = DB::Aowow()->query('DELETE FROM ?_comments_rates WHERE commentId = ?d AND userId = ?d', $this->_get['id'], User::$id);
+            $ok = DB::Aowow()->query('DELETE FROM ?_user_ratings WHERE `type` = ?d AND `entry` = ?d AND `userId` = ?d', RATING_COMMENT, $this->_get['id'], User::$id);
         else                                                // replace, because we may be overwriting an old, opposing vote
-            if ($ok = DB::Aowow()->query('REPLACE INTO ?_comments_rates (commentId, userId, value) VALUES (?d, ?d, ?d)', (int)$this->_get['id'], User::$id, $val))
+            if ($ok = DB::Aowow()->query('REPLACE INTO ?_user_ratings (`type`, `entry`, `userId`, `value`) VALUES (?d, ?d, ?d, ?d)', RATING_COMMENT, (int)$this->_get['id'], User::$id, $val))
                 User::decrementDailyVotes();                // do not refund retracted votes!
 
         if (!$ok)
@@ -282,7 +290,7 @@ class AjaxComment extends AjaxHandler
 
     protected function handleCommentOutOfDate() : string
     {
-        $this->contentType = 'text/plain';
+        $this->contentType = MIME_TYPE_TEXT;
 
         if (!$this->_post['id'])
         {
@@ -294,19 +302,24 @@ class AjaxComment extends AjaxHandler
         if (User::isInGroup(U_GROUP_MODERATOR))             // directly mark as outdated
         {
             if (!$this->_post['remove'])
-                $ok = DB::Aowow()->query('UPDATE ?_comments SET flags = flags |  0x4 WHERE id = ?d', $this->_post['id'][0]);
+                $ok = DB::Aowow()->query('UPDATE ?_comments SET flags = flags |  ?d WHERE id = ?d', CC_FLAG_OUTDATED, $this->_post['id'][0]);
             else
-                $ok = DB::Aowow()->query('UPDATE ?_comments SET flags = flags & ~0x4 WHERE id = ?d', $this->_post['id'][0]);
+                $ok = DB::Aowow()->query('UPDATE ?_comments SET flags = flags & ~?d WHERE id = ?d', CC_FLAG_OUTDATED, $this->_post['id'][0]);
         }
-        else if (DB::Aowow()->selectCell('SELECT 1 FROM ?_reports WHERE `mode` = ?d AND `reason`= ?d AND `subject` = ?d AND `userId` = ?d', 1, 17, $this->_post['id'][0], User::$id))
-            return Lang::main('alreadyReport');
-        else if (User::$id && !$this->_post['reason'] || mb_strlen($this->_post['reason']) < self::REPLY_LENGTH_MIN)
-            return Lang::main('textTooShort');
-        else if (User::$id)                                 // only report as outdated
-            $ok = Util::createReport(1, 17, $this->_post['id'][0], '[Outdated Comment] '.$this->_post['reason']);
+        else                                                // try to report as outdated
+        {
+            $report = new Report(Report::MODE_COMMENT, Report::CO_OUT_OF_DATE, $this->_post['id'][0]);
+            if ($report->create($this->_post['reason']))
+                $ok = true;                                 // the script expects the actual characters 'ok' not some json string like "ok"
+            else
+                return Lang::main('intError');
 
-        if ($ok)                                            // this one is very special; as in: completely retarded
-            return 'ok';                                    // the script expects the actual characters 'ok' not some string like "ok"
+            if (count($report->getSimilar()) >= 5)          // 5 or more reports on the same comment: trigger flag
+                $ok = DB::Aowow()->query('UPDATE ?_comments SET flags = flags |  ?d WHERE id = ?d', CC_FLAG_OUTDATED, $this->_post['id'][0]);
+        }
+
+        if ($ok)
+            return 'ok';
         else
             trigger_error('AjaxComment::handleCommentOutOfDate - failed to update comment in db', E_USER_ERROR);
 
@@ -320,7 +333,7 @@ class AjaxComment extends AjaxHandler
 
     protected function handleReplyAdd() : string
     {
-        $this->contentType = 'text/plain';
+        $this->contentType = MIME_TYPE_TEXT;
 
         if (!User::canComment())
             return Lang::main('cannotComment');
@@ -343,7 +356,7 @@ class AjaxComment extends AjaxHandler
 
     protected function handleReplyEdit() : string
     {
-        $this->contentType = 'text/plain';
+        $this->contentType = MIME_TYPE_TEXT;
 
         if (!User::canComment())
             return Lang::main('cannotComment');
@@ -385,7 +398,7 @@ class AjaxComment extends AjaxHandler
         }
 
         if (DB::Aowow()->query('DELETE FROM ?_comments WHERE id = ?d{ AND userId = ?d}', $this->_post['id'][0], User::isInGroup(U_GROUP_MODERATOR) ? DBSIMPLE_SKIP : User::$id))
-            DB::Aowow()->query('DELETE FROM ?_comments_rates WHERE commentId = ?d', $this->_post['id'][0]);
+            DB::Aowow()->query('DELETE FROM ?_user_ratings WHERE `type` = ?d AND `entry` = ?d', RATING_COMMENT, $this->_post['id'][0]);
         else
             trigger_error('AjaxComment::handleReplyDelete - deleting comment #'.$this->_post['id'][0].' by user #'.User::$id.' from db failed', E_USER_ERROR);
     }
@@ -417,7 +430,8 @@ class AjaxComment extends AjaxHandler
         }
 
         $ok = DB::Aowow()->query(
-            'INSERT INTO ?_comments_rates (commentId, userId, value) VALUES (?d, ?d, ?d)',
+            'INSERT INTO ?_user_ratings (`type`, `entry`, `userId`, `value`) VALUES (?d, ?d, ?d, ?d)',
+            RATING_COMMENT,
             $this->_post['id'][0],
             User::$id,
             User::canSupervote() ? 2 : 1
@@ -448,7 +462,8 @@ class AjaxComment extends AjaxHandler
         }
 
         $ok = DB::Aowow()->query(
-            'INSERT INTO ?_comments_rates (commentId, userId, value) VALUES (?d, ?d, ?d)',
+            'INSERT INTO ?_user_ratings (`type`, `entry`, `userId`, `value`) VALUES (?d, ?d, ?d, ?d)',
+            RATING_COMMENT,
             $this->_post['id'][0],
             User::$id,
             User::canSupervote() ? -2 : -1

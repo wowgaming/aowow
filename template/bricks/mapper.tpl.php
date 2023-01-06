@@ -2,18 +2,18 @@
 if (isset($this->map) && empty($this->map)):
     echo Lang::zone('noMap');
 elseif (!empty($this->map['data'])):
-    if ($this->type == TYPE_QUEST) :
+    if ($this->type == Type::QUEST) :
         echo "            <div id=\"mapper-zone-generic\"></div>\n";
-    elseif ($this->type != TYPE_ZONE):
+    elseif ($this->type != Type::ZONE):
         echo '            <div>';
 
-        if ($this->type == TYPE_OBJECT):
+        if ($this->type == Type::OBJECT):
             echo Lang::gameObject('foundIn');
-        elseif ($this->type == TYPE_SOUND):
+        elseif ($this->type == Type::SOUND):
             echo Lang::sound('foundIn');
-        elseif ($this->type == TYPE_NPC):
+        elseif ($this->type == Type::NPC):
             echo Lang::npc('foundIn');
-        elseif ($this->type == TYPE_AREATRIGGER):
+        elseif ($this->type == Type::AREATRIGGER):
             echo Lang::areatrigger('foundIn');
         else:
             echo "UNKNOWN TYPE";
@@ -23,7 +23,7 @@ elseif (!empty($this->map['data'])):
 
         $extra = $this->map['extra'];
         echo Lang::concat($this->map['mapperData'], true, function ($areaData, $areaId) use ($extra) {
-            return '<a href="javascript:;" onclick="myMapper.update({zone: '.$areaId.'}); g_setSelectedLink(this, \'mapper\'); return false" onmousedown="return false">'.$extra[$areaId].'</a>&nbsp;('.reset($areaData)['count'].')';
+            return '<a href="javascript:;" onclick="myMapper.update({zone: '.$areaId.'}); g_setSelectedLink(this, \'mapper\'); return false" onmousedown="return false">'.$extra[$areaId].'</a>&nbsp;('.array_sum(array_column($areaData, 'count')).')';
         });
 
         echo ".</span></div>\n";
@@ -74,9 +74,30 @@ elseif (!empty($this->map['data'])):
         echo "                new ShowOnMap(".Util::toJSON($this->map['som']).");\n";
     endif;
 
-    if ($this->type != TYPE_ZONE && $this->type != TYPE_QUEST):
+    if ($this->type != Type::ZONE && $this->type != Type::QUEST):
         echo "                \$WH.gE(\$WH.ge('mapper-zone-generic'), 'a')[0].onclick();\n";
     endif;
+
+if (User::isIngroup(U_GROUP_MODERATOR)):
+?>
+
+                function spawnposfix(type, typeguid, area, floor)
+                {
+                    $.ajax({
+                        type: 'GET',
+                        url: '?admin=spawn-override',
+                        data: { type: type, guid: typeguid, area : area, floor: floor, action: 1 },
+                        dataType: 'json',
+                        success: function (rsp) {
+                            if (rsp > 0)
+                                location.reload(true);
+                            else if (rsp /* == x */)
+                                alert('move failed. details tbd');
+                        },
+                    });
+                }
+<?php
+endif;
 ?>
             //]]></script>
 <?php endif; ?>

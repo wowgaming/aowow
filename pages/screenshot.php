@@ -3,6 +3,7 @@
 if (!defined('AOWOW_REVISION'))
     die('illegal access');
 
+
 // filename: Username-type-typeId-<hash>[_original].jpg
 
 class ScreenshotPage extends GenericPage
@@ -11,8 +12,8 @@ class ScreenshotPage extends GenericPage
     const     MAX_H        = 325;
 
     protected $tpl         = 'screenshot';
-    protected $js          = ['Cropper.js'];
-    protected $css         = [['path' => 'Cropper.css']];
+    protected $js          = [[JS_FILE, 'Cropper.js']];
+    protected $css         = [[CSS_FILE, 'Cropper.css']];
     protected $reqAuth     = true;
     protected $tabId       = 0;
 
@@ -25,6 +26,11 @@ class ScreenshotPage extends GenericPage
     protected $destType    = 0;
     protected $destTypeId  = 0;
     protected $imgHash     = '';
+
+    protected $_post       = array(
+        'coords'        => ['filter' => FILTER_CALLBACK, 'options' => 'ScreenshotPage::checkCoords'],
+        'screenshotalt' => ['filter' => FILTER_UNSAFE_RAW, 'flags' => FILTER_FLAG_STRIP_AOWOW]
+    );
 
     public function __construct($pageCall, $pageParam)
     {
@@ -41,23 +47,16 @@ class ScreenshotPage extends GenericPage
 
         // get screenshot destination
         // target delivered as screenshot=<command>&<type>.<typeId>.<hash:16> (hash is optional)
-        if (preg_match('/^screenshot=\w+&(-?\d+)\.(-?\d+)(\.(\w{16}))?$/i', $_SERVER['QUERY_STRING'], $m))
+        if (preg_match('/^screenshot=\w+&(-?\d+)\.(-?\d+)(\.(\w{16}))?$/i', $_SERVER['QUERY_STRING'] ?? '', $m))
         {
-            // no such type
-            if (empty(Util::$typeClasses[$m[1]]))
+            // no such type or this type cannot receive screenshots
+            if (!Type::checkClassAttrib($m[1], 'contribute', CONTRIBUTE_SS))
                 $this->error();
 
-            // this type cannot receive screenshots
-            if (!(get_class_vars(Util::$typeClasses[$m[1]])['contribute'] & CONTRIBUTE_SS))
-                $this->error();
-
-            $t = Util::$typeClasses[$m[1]];
-            $c = [['id', intVal($m[2])]];
-
-            $this->destination = new $t($c);
+            $this->destination = Type::newList($m[1], [['id', intVal($m[2])]]);
 
             // no such typeId
-            if ($this->destination->error)
+            if (!$this->destination || $this->destination->error)
                 $this->error();
 
             // only accept/expect hash for crop & complete
@@ -75,7 +74,7 @@ class ScreenshotPage extends GenericPage
             $this->error();
     }
 
-    protected function generateContent()
+    protected function generateContent() : void
     {
         switch ($this->command)
         {
@@ -83,7 +82,7 @@ class ScreenshotPage extends GenericPage
                 if ($this->handleAdd())
                     header('Location: ?screenshot=crop&'.$this->destType.'.'.$this->destTypeId.'.'.$this->imgHash, true, 302);
                 else
-                    header('Location: ?'.Util::$typeStrings[$this->destType].'='.$this->destTypeId.'#submit-a-screenshot', true, 302);
+                    header('Location: ?'.Type::getFileString($this->destType).'='.$this->destTypeId.'#submit-a-screenshot', true, 302);
                 die();
             case 'crop':
                 $this->handleCrop();
@@ -106,8 +105,7 @@ class ScreenshotPage extends GenericPage
     /* command handler */
     /*******************/
 
-
-    private function handleAdd()
+    private function handleAdd() : bool
     {
         $this->imgHash = Util::createHash(16);
 
@@ -139,15 +137,15 @@ class ScreenshotPage extends GenericPage
         else if ($rel < 1.5 && $oSize[1] > self::MAX_H)
             $rSize = [self::MAX_H * $rel, self::MAX_H];
 
-        $name  = User::$displayName.'-'.$this->destType.'-'.$this->destTypeId.'-'.$this->imgHash;
-
-        $this->writeImage($im, $oSize, $name.'_original');  // use this image for work
-        $this->writeImage($im, $rSize, $name);              // use this image to display
+        // use this image for work
+        $this->writeImage($im, $oSize[0], $oSize[1], $this->ssName().'_original');
+        // use this image to display
+        $this->writeImage($im, $rSize[0], $rSize[1], $this->ssName());
 
         return true;
     }
 
-    private function handleCrop()
+    private function handleCrop() : void
     {
         $im = imagecreatefromjpeg($this->tmpPath.$this->ssName().'_original.jpg');
 
@@ -179,11 +177,11 @@ class ScreenshotPage extends GenericPage
             $this->cropper['minCrop'] = $this->minSize;
 
         // target
-        $this->infobox = sprintf(Lang::screenshot('displayOn'), Util::ucFirst(Lang::game(Util::$typeStrings[$this->destType])), Util::$typeStrings[$this->destType], $this->destTypeId);
+        $this->infobox = sprintf(Lang::screenshot('displayOn'), Lang::typeName($this->destType), Type::getFileString($this->destType), $this->destTypeId);
         $this->extendGlobalIds($this->destType, $this->destTypeId);
     }
 
-    private function handleComplete()
+    private function handleComplete() : int
     {
         // check tmp file
         $fullPath = $this->tmpPath.$this->ssName().'_original.jpg';
@@ -191,14 +189,14 @@ class ScreenshotPage extends GenericPage
             return 1;
 
         // check post data
-        if (empty($_POST) || empty($_POST['coords']))
+        if (!$this->_post['coords'])
             return 2;
 
-        $dims = explode(',', $_POST['coords']);
+        $dims = $this->_post['coords'];
         if (count($dims) != 4)
             return 3;
 
-        Util::checkNumeric($dims, NUM_REQ_INT);
+        Util::checkNumeric($dims, NUM_CAST_FLOAT);
 
         // actually crop the image
         $srcImg = imagecreatefromjpeg($fullPath);
@@ -220,7 +218,7 @@ class ScreenshotPage extends GenericPage
             $this->destType, $this->destTypeId,
             User::$id,
             $w, $h,
-            !empty($_POST['screenshotalt']) ? $_POST['screenshotalt'] : ''
+            $this->_post['screenshotalt'] ?? ''
         );
 
         // write to file
@@ -228,12 +226,14 @@ class ScreenshotPage extends GenericPage
             imagejpeg($destImg, $this->pendingPath.$newId.'.jpg', 100);
         else
             return 6;
+
+        return 0;
     }
 
-    private function handleThankyou()
+    private function handleThankyou() : void
     {
         $this->extraHTML  = Lang::screenshot('thanks', 'contrib').'<br><br>';
-        $this->extraHTML .= sprintf(Lang::screenshot('thanks', 'goBack'), Util::$typeStrings[$this->destType], $this->destTypeId)."<br /><br />\n";
+        $this->extraHTML .= sprintf(Lang::screenshot('thanks', 'goBack'), Type::getFileString($this->destType), $this->destTypeId)."<br /><br />\n";
         $this->extraHTML .= '<i>'.Lang::screenshot('thanks', 'note').'</i>';
     }
 
@@ -242,8 +242,7 @@ class ScreenshotPage extends GenericPage
     /* helper */
     /**********/
 
-
-    private function loadFromPNG()
+    private function loadFromPNG() // : resource/gd
     {
         $image = imagecreatefrompng($_FILES['screenshotfile']['tmp_name']);
         $bg    = imagecreatetruecolor(imagesx($image), imagesy($image));
@@ -256,50 +255,54 @@ class ScreenshotPage extends GenericPage
         return $bg;
     }
 
-    private function loadFromJPG()
+    private function loadFromJPG() // : resource/gd
     {
         return imagecreatefromjpeg($_FILES['screenshotfile']['tmp_name']);
     }
 
-    private function writeImage($im, $dims, $file)
+    private function writeImage(/*resource/gd*/ $im, int $w, int $h, string $file) : bool
     {
-        if ($res = imagecreatetruecolor($dims[0], $dims[1]))
-            if (imagecopyresampled($res, $im, 0, 0, 0, 0, $dims[0], $dims[1], imagesx($im), imagesy($im)))
+        if ($res = imagecreatetruecolor($w, $h))
+            if (imagecopyresampled($res, $im, 0, 0, 0, 0, $w, $h, imagesx($im), imagesy($im)))
                 if (imagejpeg($res, $this->tmpPath.$file.'.jpg', 100))
                     return true;
 
         return false;
     }
 
-    private function validateScreenshot(&$isPNG = false)
+    private function validateScreenshot(?bool &$isPNG = false) : string
     {
         // no upload happened or some error occured
         if (!$_FILES || empty($_FILES['screenshotfile']))
             return Lang::screenshot('error', 'selectSS');
 
-        switch ($_FILES['screenshotfile']['error'])
+        switch ($_FILES['screenshotfile']['error'])         // 0 is fine
         {
-            case 1:
+            case UPLOAD_ERR_INI_SIZE:                       // 1
+            case UPLOAD_ERR_FORM_SIZE:                      // 2
                 trigger_error('validateScreenshot - the file exceeds the maximum size of '.ini_get('upload_max_filesize'), E_USER_WARNING);
                 return Lang::screenshot('error', 'selectSS');
-            case 3:
+            case UPLOAD_ERR_PARTIAL:                        // 3
                 trigger_error('validateScreenshot - upload was interrupted', E_USER_WARNING);
                 return Lang::screenshot('error', 'selectSS');
-            case 4:
-                trigger_error('validateScreenshot() - no file was received', E_USER_WARNING);
+            case UPLOAD_ERR_NO_FILE:                        // 4
+                trigger_error('validateScreenshot - no file was received', E_USER_WARNING);
                 return Lang::screenshot('error', 'selectSS');
-            case 6:
-                trigger_error('validateScreenshot - temporary upload directory is not set', E_USER_WARNING);
+            case UPLOAD_ERR_NO_TMP_DIR:                     // 6
+                trigger_error('validateScreenshot - temporary upload directory is not set', E_USER_ERROR);
                 return Lang::main('intError');
-            case 7:
-                trigger_error('validateScreenshot - could not write temporary file to disk', E_USER_WARNING);
+            case UPLOAD_ERR_CANT_WRITE:                     // 7
+                trigger_error('validateScreenshot - could not write temporary file to disk', E_USER_ERROR);
+                return Lang::main('intError');
+            case UPLOAD_ERR_EXTENSION:                      // 8
+                trigger_error('validateScreenshot - a php extension stopped the file upload.', E_USER_ERROR);
                 return Lang::main('intError');
         }
 
         // points to invalid file (hack attempt)
         if (!is_uploaded_file($_FILES['screenshotfile']['tmp_name']))
         {
-            trigger_error('validateScreenshot - uploaded file not in upload directory', E_USER_WARNING);
+            trigger_error('validateScreenshot - uploaded file not in upload directory', E_USER_ERROR);
             return Lang::main('intError');
         }
 
@@ -322,16 +325,24 @@ class ScreenshotPage extends GenericPage
         else if ($is[0] > 3840 || $is[1] > 2160)
             return Lang::screenshot('error', 'selectSS');
 
-        return null;
+        return '';
     }
 
-    private function ssName()
+    private function ssName() : string
     {
         return $this->imgHash ? User::$displayName.'-'.$this->destType.'-'.$this->destTypeId.'-'.$this->imgHash : '';
     }
 
-    protected function generatePath() { }
-    protected function generateTitle()
+    protected static function checkCoords(string $val) : array
+    {
+        if (preg_match('/^[01]\.[0-9]{3}(,[01]\.[0-9]{3}){3}$/', $val))
+            return explode(',', $val);
+
+        return [];
+    }
+
+    protected function generatePath() : void { }
+    protected function generateTitle() : void
     {
         array_unshift($this->title, Lang::screenshot('submission'));
     }

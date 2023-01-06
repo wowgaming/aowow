@@ -7,26 +7,18 @@ if (!CLI)
     die('not in cli mode');
 
 
-
 class FileGen
 {
     const MODE_NORMAL   = 1;
     const MODE_FIRSTRUN = 2;
     const MODE_UPDATE   = 3;
 
+    private static $mode = 0;
+
     public  static $tplPath = 'setup/tools/filegen/templates/';
 
-    public  static $cliOpts   = [];
-    private static $shortOpts = 'fh';
-    private static $longOpts  = array(
-        'build::', 'help',      'force',     'sync:',                       // general
-        'icons',   'glyphs',    'pagetexts', 'loadingscreens',              // whole images
-        'artwork', 'talentbgs', 'maps',      'spawn-maps',     'area-maps'  // images from image parts
-    );
-    private static $mode      = 0;
-
     public static $subScripts = [];
-    public static $tplFiles   = array(
+    public static $tplFiles   = array(                      // name => [file, path, TCDeps]
         'searchplugin'    => ['aowow.xml',      'static/download/searchplugins/', []],
         'power'           => ['power.js',       'static/widgets/',                []],
         'searchboxScript' => ['searchbox.js',   'static/widgets/',                []],
@@ -34,23 +26,24 @@ class FileGen
         'searchboxBody'   => ['searchbox.html', 'static/widgets/searchbox/',      []],
         'realmMenu'       => ['profile_all.js', 'static/js/',                     ['realmlist']],
         'locales'         => ['locale.js',      'static/js/',                     []],
+        'markup'          => ['Markup.js',      'static/js/',                     []],
         'itemScaling'     => ['item-scaling',   'datasets/',                      []]
     );
-    public static $datasets   = array(                      // name => [AowowDeps, TCDeps]
-        'realms'        => [null, ['realmlist']],
-        'statistics'    => [null, ['player_levelstats', 'player_classlevelstats']],
-        'simpleImg'     => [null, null],
-        'complexImg'    => [null, null],
-        'talentCalc'    => [null, null],
-        'pets'          => [['spawns', 'creature'], null],
-        'talentIcons'   => [null, null],
-        'glyphs'        => [['items', 'spell'], null],
-        'itemsets'      => [['itemset', 'spell'], null],
-        'enchants'      => [['items', 'spell', 'itemenchantment'], null],
-        'gems'          => [['items', 'spell', 'itemenchantment'], null],
-        'profiler'      => [['quests', 'quests_startend', 'spell', 'currencies', 'achievement', 'titles'], null],
-        'weightPresets' => [null, null],
-        'soundfiles'    => [['sounds'], null]
+    public static $datasets   = array(                      // name => [AowowDeps, TCDeps, info]
+        'realms'        => [null, ['realmlist'],                                                                  'datasets/realms'],
+        'statistics'    => [null, ['player_levelstats', 'player_classlevelstats'],                                'datasets/statistics'],
+        'simpleImg'     => [null, null,                                                                           'static/images/wow/[icons, Interface, ]/*'],
+        'complexImg'    => [null, null,                                                                           'static/images/wow/[maps, talents/backgrounds, ]/*'],
+        'talentCalc'    => [null, null,                                                                           'datasets/<locale>/talents-*'],
+        'pets'          => [['spawns', 'creature'], null,                                                         'datasets/<locale>/pets'],
+        'talentIcons'   => [null, null,                                                                           'static/images/wow/talents/icons/*'],
+        'glyphs'        => [['items', 'spell'], null,                                                             'datasets/<locale>/glyphs'],
+        'itemsets'      => [['itemset', 'spell'], null,                                                           'datasets/<locale>/itemsets'],
+        'enchants'      => [['items', 'spell', 'itemenchantment'], null,                                          'datasets/<locale>/enchants'],
+        'gems'          => [['items', 'spell', 'itemenchantment'], null,                                          'datasets/<locale>/gems'],
+        'profiler'      => [['quests', 'quests_startend', 'spell', 'currencies', 'achievement', 'titles'], null,  'datasets/<locale>/p-*'],
+        'weightPresets' => [null, null,                                                                           'datasets/weight-presets'],
+        'soundfiles'    => [['sounds'], null,                                                                     'static/wowsounds/*']
     );
 
     public  static $defaultExecTime = 30;
@@ -66,37 +59,23 @@ class FileGen
         'static/wowsounds/'
     );
 
-    public static $txtConstants = array(
-        'CFG_NAME'       => CFG_NAME,
-        'CFG_NAME_SHORT' => CFG_NAME_SHORT,
-        'HOST_URL'       => HOST_URL,
-        'STATIC_URL'     => STATIC_URL
+    private static $txtConstants = array(
+        'CFG_NAME'          => '',
+        'CFG_NAME_SHORT'    => '',
+        'CFG_CONTACT_EMAIL' => '',
+        'HOST_URL'          => '',
+        'STATIC_URL'        => ''
     );
 
-    public static function init($mode = self::MODE_NORMAL, array $updScripts = [])
+    public static function init(int $mode = self::MODE_NORMAL, array $updScripts = []) : bool
     {
         self::$defaultExecTime = ini_get('max_execution_time');
-        $doScripts = null;
+        self::$mode = $mode;
 
-        if (getopt(self::$shortOpts, self::$longOpts) || $mode == self::MODE_FIRSTRUN)
-            self::handleCLIOpts($doScripts);
-        else if ($mode != self::MODE_UPDATE)
-        {
-            self::printCLIHelp();
-            exit;
-        }
-
-        // check passed subscript names; limit to real scriptNames
-        self::$subScripts = array_merge(array_keys(self::$tplFiles), array_keys(self::$datasets));
-        if ($doScripts || $updScripts)
-            self::$subScripts = array_intersect($doScripts ?: $updScripts, self::$subScripts);
-        else if ($doScripts === null)
-            self::$subScripts = [];
-
-        if (!CLISetup::$localeIds /* todo: && this script has localized text */)
+        if (!CLISetup::$localeIds)
         {
             CLI::write('No valid locale specified. Check your config or --locales parameter, if used', CLI::LOG_ERROR);
-            exit;
+            return false;
         }
 
         // create directory structure
@@ -109,23 +88,37 @@ class FileGen
         CLI::write('created '.$pathOk.' extra paths'.($pathOk == count(self::$reqDirs) ? '' : ' with errors'));
         CLI::write();
 
-        self::$mode = $mode;
+        // handle command prompts
+        if (!self::handleCLIOpts($doScripts) && !$updScripts)
+            return false;
+
+        // check passed subscript names; limit to real scriptNames
+        self::$subScripts = array_merge(array_keys(self::$tplFiles), array_keys(self::$datasets));
+        if ($doScripts || $updScripts)
+            self::$subScripts = array_intersect($doScripts ?: $updScripts, self::$subScripts);
+
+        return true;
     }
 
-    private static function handleCLIOpts(&$doScripts)
+    private static function handleCLIOpts(?array &$doScripts) : bool
     {
-        $_ = getopt(self::$shortOpts, self::$longOpts);
+        $doScripts = [];
 
-        if ((isset($_['help']) || isset($_['h'])) && empty($_['build']))
+        if (CLISetup::getOpt('help') && self::$mode == self::MODE_NORMAL)
         {
-            self::printCLIHelp();
-            exit;
+            if (in_array('simpleImg', CLISetup::getOpt('build')))
+                CLISetup::optHelp(1 << 3);
+            else if (in_array('complexImg', CLISetup::getOpt('build')))
+                CLISetup::optHelp(1 << 4);
+            else
+                self::printCLIHelp();
+
+            return false;
         }
 
         // required subScripts
-        if (!empty($_['sync']))
+        if ($sync = CLISetup::getOpt('sync'))
         {
-            $sync = explode(',', $_['sync']);
             foreach (self::$tplFiles as $name => $info)
                 if (!empty($info[2]) && array_intersect($sync, $info[2]))
                     $doScripts[] = $name;
@@ -139,52 +132,38 @@ class FileGen
                     $doScripts[] = $name;
             }
 
-            $doScripts = $doScripts ? array_unique($doScripts) : null;
+            if (!$doScripts)
+                return false;
+
+            $doScripts = array_unique($doScripts);
+            return true;
         }
-        else if (!empty($_['build']))
-            $doScripts = explode(',', $_['build']);
-
-        // optional, overwrite existing files
-        if (isset($_['f']))
-            self::$cliOpts['force'] = true;
-
-        if (isset($_['h']))
-            self::$cliOpts['help'] = true;
-
-        // mostly build-instructions from longOpts
-        foreach (self::$longOpts as $opt)
-            if (!strstr($opt, ':') && isset($_[$opt]))
-                self::$cliOpts[$opt] = true;
-    }
-
-    public static function hasOpt(string ...$opts) : int
-    {
-        $result = 0x0;
-        foreach ($opts as $idx => $arg)
+        else if (is_array($_ = CLISetup::getOpt('build')))
         {
-            if (!is_string($arg))
-                continue;
-
-            if (isset(self::$cliOpts[$arg]))
-                $result |= (1 << $idx);
+            $doScripts = $_;
+            return true;
         }
 
-        return $result;
+        return false;
     }
 
-    public static function printCLIHelp()
+    private static function printCLIHelp()
     {
-        echo "\nusage: php aowow --build=<subScriptList,> [-h --help] [-f --force]\n\n";
-        echo "--build    : available subScripts:\n";
+        CLI::write();
+        CLI::write('  usage: php aowow --build=<subScriptList,> [--mpqDataDir: --locales:]', -1, false);
+        CLI::write();
+        CLI::write('  Compiles files for a given subScript. Existing files are kept by default. Dependencies are taken into account by the triggered calls of --sync and --update', -1, false);
+
+        $lines = [['available subScripts', 'affected files', 'TC dependencies', 'AoWoW dependencies']];
         foreach (array_merge(array_keys(self::$tplFiles), array_keys(self::$datasets)) as $s)
-        {
-            echo " * ".str_pad($s, 20).str_pad(isset(self::$tplFiles[$s]) ? self::$tplFiles[$s][1].self::$tplFiles[$s][0] : 'static data file', 45).
-                (!empty(self::$tplFiles[$s][2]) ? ' - TC deps: '.implode(', ', self::$tplFiles[$s][2]) : (!empty(self::$datasets[$s][1]) ? ' - TC deps: '.implode(', ', self::$datasets[$s][1]) : '')).
-                (!empty(self::$datasets[$s][0]) ? ' - Aowow deps: '.implode(', ', self::$datasets[$s][0]) : '')."\n";
-        }
+            $lines[] = array(
+                ' * '.$s,
+                isset(self::$tplFiles[$s]) ? self::$tplFiles[$s][1].self::$tplFiles[$s][0] : self::$datasets[$s][2],
+                !empty(self::$tplFiles[$s][2]) ? implode(' ', self::$tplFiles[$s][2]) : (!empty(self::$datasets[$s][1]) ? implode(' ', self::$datasets[$s][1]) : ''),
+                !empty(self::$datasets[$s][0]) ? implode(' ', self::$datasets[$s][0]) : ''
+            );
 
-        echo "-h --help  : shows this info\n";
-        echo "-f --force : enforces overwriting existing files\n";
+        CLI::writeTable($lines);
     }
 
     public static function generate($key, array $updateIds = [])
@@ -206,10 +185,14 @@ class FileGen
         {
             [$file, $destPath, $deps] = self::$tplFiles[$key];
 
-            if ($content = file_get_contents(FileGen::$tplPath.$file.'.in'))
+            foreach (self::$txtConstants as $n => &$c)
+                if (!$c && defined($n))
+                    $c = constant($n);
+
+            if ($content = file_get_contents(self::$tplPath.$file.'.in'))
             {
                 // replace constants
-                $content = strtr($content, FileGen::$txtConstants);
+                $content = strtr($content, self::$txtConstants);
 
                 // check for required auxiliary DBC files
                 foreach ($reqDBC as $req)
@@ -240,7 +223,7 @@ class FileGen
                         $success = true;
             }
             else
-                CLI::write(sprintf(ERR_READ_FILE, CLI::bold(FileGen::$tplPath.$file.'.in')), CLI::LOG_ERROR);
+                CLI::write(sprintf(ERR_READ_FILE, CLI::bold(self::$tplPath.$file.'.in')), CLI::LOG_ERROR);
         }
         else if (!empty(self::$datasets[$key]))
         {
@@ -257,7 +240,7 @@ class FileGen
                 CLI::write(' - subscript \''.$key.'\' not defined in included file', CLI::LOG_ERROR);
         }
 
-        set_time_limit(FileGen::$defaultExecTime);      // reset to default for the next script
+        set_time_limit(self::$defaultExecTime);             // reset to default for the next script
 
         return $success;
     }

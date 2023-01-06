@@ -11,7 +11,7 @@ SqlGen::register(new class extends SetupScript
 {
     protected $command = 'events';
 
-    protected $tblDependancyTC = ['game_event', 'game_event_prerequisite'];
+    protected $tblDependencyTC = ['game_event', 'game_event_prerequisite'];
 
     public function generate(array $ids = []) : bool
     {
@@ -41,6 +41,8 @@ SqlGen::register(new class extends SetupScript
 
         foreach ($events as $e)
             DB::Aowow()->query('REPLACE INTO ?_events VALUES (?a)', array_values($e));
+
+        $this->reapplyCCFlags('events', Type::WORLDEVENT);
 
         return true;
     }

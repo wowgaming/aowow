@@ -32,14 +32,27 @@ trait TrDBCcopy
 trait TrCustomData
 {
     // apply post generator custom data
-    public function applyCustomData() : void
+    public function applyCustomData() : bool
     {
-        if (!$this->customData)
-            return;
+        $ok = true;
+        $this->customData = $this->customData ?? [];
+        if ($cd = DB::Aowow()->selectCol('SELECT `entry` AS ARRAY_KEY, `field` AS ARRAY_KEY2, `value` FROM ?_setup_custom_data WHERE `command` = ?', $this->command))
+            $this->customData += $cd;
 
         foreach ($this->customData as $id => $data)
-            if ($data)
+        {
+            try
+            {
                 DB::Aowow()->query('UPDATE ?_'.$this->command.' SET ?a WHERE id = ?d', $data, $id);
+            }
+            catch (Exception $e)
+            {
+                trigger_error('Custom Data for entry #'.$id.': '.$e->getMessage(), E_USER_ERROR);
+                $ok = false;
+            }
+        }
+
+        return $ok;
     }
 }
 
@@ -48,8 +61,8 @@ abstract class SetupScript
     protected $fileTemplatePath = '';
     protected $fileTemplateFile = '';
 
-    protected $tblDependancyAowow = [];
-    protected $tblDependancyTC    = [];
+    protected $tblDependencyAowow = [];
+    protected $tblDependencyTC    = [];
 
     protected $dbcSourceFiles     = [];
 
@@ -62,14 +75,29 @@ abstract class SetupScript
         return $this->dbcSourceFiles;
     }
 
-    public function getDependancies(bool $aowow) : array
+    public function getDependencies(bool $aowow) : array
     {
-        return $aowow ? $this->tblDependancyAowow : $this->tblDependancyTC;
+        return $aowow ? $this->tblDependencyAowow : $this->tblDependencyTC;
     }
 
     public function getName() : string
     {
         return $this->command;
+    }
+
+    protected function reapplyCCFlags(string $tbl, int $type) : void
+    {
+        // reaply flags for community content as these are lost when the table is rebuild
+
+        if (preg_match('/[^a-z]/i', $tbl))
+        {
+            trigger_error('SetupScript::reapplyCCFlags() - invalid table name');
+            return;
+        }
+
+        DB::Aowow()->query('UPDATE ?_'.$tbl.' x, ?_comments    y SET x.`cuFlags` = x.`cuFlags` | ?d WHERE x.`id` = y.`typeId` AND y.`type` = ?d AND y.`flags`  & ?d', CUSTOM_HAS_COMMENT,    $type, CC_FLAG_APPROVED);
+        DB::Aowow()->query('UPDATE ?_'.$tbl.' x, ?_screenshots y SET x.`cuFlags` = x.`cuFlags` | ?d WHERE x.`id` = y.`typeId` AND y.`type` = ?d AND y.`status` & ?d', CUSTOM_HAS_SCREENSHOT, $type, CC_FLAG_APPROVED);
+        DB::Aowow()->query('UPDATE ?_'.$tbl.' x, ?_videos      y SET x.`cuFlags` = x.`cuFlags` | ?d WHERE x.`id` = y.`typeId` AND y.`type` = ?d AND y.`status` & ?d', CUSTOM_HAS_VIDEO,      $type, CC_FLAG_APPROVED);
     }
 }
 

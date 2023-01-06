@@ -12,13 +12,13 @@ class GuildPage extends GenericPage
 
     protected $lvTabs   = [];
 
-    protected $type     = TYPE_GUILD;
+    protected $type     = Type::GUILD;
 
     protected $tabId    = 1;
     protected $path     = [1, 5, 2];
     protected $tpl      = 'roster';
-    protected $js       = ['profile_all.js', 'profile.js'];
-    protected $css      = [['path' => 'Profiler.css']];
+    protected $js       = [[JS_FILE, 'profile_all.js'], [JS_FILE, 'profile.js']];
+    protected $css      = [[CSS_FILE, 'Profiler.css']];
 
     public function __construct($pageCall, $pageParam)
     {
@@ -97,7 +97,7 @@ class GuildPage extends GenericPage
         if ($this->doResync)
             return;
 
-        $this->addJS('?data=realms.weight-presets&locale='.User::$localeId.'&t='.$_SESSION['dataKey']);
+        $this->addScript([JS_FILE, '?data=realms.weight-presets&locale='.User::$localeId.'&t='.$_SESSION['dataKey']]);
 
         $this->redButtons[BUTTON_RESYNC] = [$this->subjectGUID, 'guild'];
 
@@ -109,7 +109,7 @@ class GuildPage extends GenericPage
         // statistic calculations here
 
         // smuggle the guild ranks into the html
-        if ($ranks = DB::Aowow()->selectCol('SELECT rank AS ARRAY_KEY, name FROM ?_profiler_guild_rank WHERE guildId = ?d', $this->subjectGUID))
+        if ($ranks = DB::Aowow()->selectCol('SELECT `rank` AS ARRAY_KEY, name FROM ?_profiler_guild_rank WHERE guildId = ?d', $this->subjectGUID))
             $this->extraHTML = '<script type="text/javascript">var guild_ranks = '.Util::toJSON($ranks).';</script>';
 
 
@@ -130,15 +130,15 @@ class GuildPage extends GenericPage
         }
     }
 
-    public function notFound($title = '', $msg = '')
+    public function notFound(string $title = '', string $msg = '') : void
     {
-        return parent::notFound($title ?: Util::ucFirst(Lang::profiler('profiler')), $msg ?: Lang::profiler('notFound', 'guild'));
+        parent::notFound($title ?: Util::ucFirst(Lang::profiler('profiler')), $msg ?: Lang::profiler('notFound', 'guild'));
     }
 
     private function handleIncompleteData($teamGuid)
     {
         //display empty page and queue status
-        $newId = Profiler::scheduleResync(TYPE_GUILD, $this->realmId, $teamGuid);
+        $newId = Profiler::scheduleResync(Type::GUILD, $this->realmId, $teamGuid);
 
         $this->doResync = ['guild', $newId];
         $this->initialSync();

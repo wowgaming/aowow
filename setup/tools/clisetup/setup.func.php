@@ -11,7 +11,7 @@ if (!CLI)
 /* string setup steps together for first use */
 /*********************************************/
 
-function firstrun()
+function setup() : void
 {
     require_once 'setup/tools/sqlGen.class.php';
     require_once 'setup/tools/fileGen.class.php';
@@ -19,16 +19,18 @@ function firstrun()
     SqlGen::init(SqlGen::MODE_FIRSTRUN);
     FileGen::init(FileGen::MODE_FIRSTRUN);
 
+
     /****************/
     /* define steps */
     /****************/
 
+    $upd   = [[], []];                                      // ref to pass commands from 'update' to 'sync'
     $steps = array(
         // clisetup, params, test function, introText, errorText
-        ['dbconfig',          null,                      'testDB',    'Please enter your database credentials.', 'could not establish connection to:'],
-        ['siteconfig',        null,                      'testSelf',  'SITE_HOST and STATIC_HOST '.CLI::bold('must').' be set. Also enable FORCE_SSL if needed. You may also want to change other variables such as NAME, NAME_SHORT or LOCALES.', 'could not access:'],
+        ['dbconfig',          [null],                     'testDB',    'Please enter your database credentials.', 'could not establish connection to:'],
+        ['siteconfig',        [null],                     'testSelf',  'SITE_HOST and STATIC_HOST '.CLI::bold('must').' be set. Also enable FORCE_SSL if needed. You may also want to change other variables such as NAME, NAME_SHORT or LOCALES.', 'could not access:'],
         // sql- and build- stuff here
-        ['SqlGen::generate',  'achievementcategory',      null, null, null],
+        ['SqlGen::generate',  'areatrigger',              null, null, null],
         ['SqlGen::generate',  'achievementcriteria',      null, null, null],
         ['SqlGen::generate',  'glyphproperties',          null, null, null],
         ['SqlGen::generate',  'itemenchantment',          null, null, null],
@@ -97,48 +99,44 @@ function firstrun()
         ['FileGen::generate', 'profiler',                 null, null, null],
         ['FileGen::generate', 'weightPresets',            null, null, null],
         // apply sql-updates from repository
-        ['update',            null,                       null, null, null],
-        ['account',           null,                       'testAcc',  'Please create your admin account.', 'There is no user with administrator priviledges in the DB.'],
-        ['endSetup',          null,                       null, null, null],
+        ['update',            &$upd,                      null, null, null],
+        ['sync',              &$upd,                      null, null, null],
+        ['account',           [null],                    'testAcc',  'Please create your admin account.', 'There is no user with administrator privileges in the DB.']
     );
+
 
     /**********/
     /* helper */
     /**********/
 
-    $saveProgress = function($nStep)
+    $saveProgress = function(int $nStep) : void
     {
         $h = fopen('cache/firstrun', 'w');
         fwrite($h, AOWOW_REVISION."\n".($nStep + 1)."\n");
         fclose($h);
     };
 
-    function testDB(&$error)
+    function testDB(array &$error) : bool
     {
         require 'config/config.php';
 
         $error   = [];
-        $defPort = ini_get('mysqli.default_port');
-
-        foreach (['world', 'aowow', 'auth'] as $what)
+        foreach (['aowow', 'world', 'auth'] as $idx => $what)
         {
             if ($what == 'auth' && (empty($AoWoWconf['auth']) || empty($AoWoWconf['auth']['host'])))
                 continue;
 
-            $port = 0;
-            if (strstr($AoWoWconf[$what]['host'], ':'))
-                [$AoWoWconf[$what]['host'], $port] = explode(':', $AoWoWconf[$what]['host']);
-
-            if ($link = @mysqli_connect($AoWoWconf[$what]['host'], $AoWoWconf[$what]['user'], $AoWoWconf[$what]['pass'], $AoWoWconf[$what]['db'], $port ?: $defPort))
-                mysqli_close($link);
+            // init proper access for further setup
+            if (DB::test($AoWoWconf[$what], $err))
+                DB::load($idx, $AoWoWconf[$what]);
             else
-                $error[] = ' * '.$what.': '.'['.mysqli_connect_errno().'] '.mysqli_connect_error();
+                $error[] = ' * '.$what.': '.$err;
         }
 
         return empty($error);
     }
 
-    function testSelf(&$error)
+    function testSelf(array &$error) : bool
     {
         $error = [];
         $test  = function(&$protocol, &$host, $testFile, &$rCode)
@@ -185,8 +183,8 @@ function firstrun()
                     {
                         CLI::write('self test received status '.CLI::bold($resp).' (page moved) for '.$conf.', pointing to: '.$protocol.$host.$testFile, CLI::LOG_WARN);
                         $inp = ['x' => ['should '.CLI::bold($conf).' be set to '.CLI::bold($host).' and force_ssl be updated? (y/n)', true, '/y|n/i']];
-                        if (!CLI::readInput($inp, true) || !$inp || strtolower($inp['x']) == 'n')
-                            $error[] = ' * could not access '.$protocol.$host.$testFile.' ['.$resp.']';
+                        if (!CLI::read($inp, true) || !$inp || strtolower($inp['x']) == 'n')
+                            $error[] = ' * '.$protocol.$host.$testFile.' ['.$resp.']';
                         else
                         {
                             DB::Aowow()->query('UPDATE ?_config SET `value` = ?  WHERE `key` = ?', $host, $conf);
@@ -196,7 +194,7 @@ function firstrun()
                         CLI::write();
                     }
                     else
-                        $error[] = ' * could not access '.$protocol.$host.$testFile.' ['.$resp.']';
+                        $error[] = ' * '.$protocol.$host.$testFile.' ['.$resp.']';
                 }
             }
             else
@@ -206,16 +204,12 @@ function firstrun()
         return empty($error);
     }
 
-    function testAcc(&$error)
+    function testAcc(array &$error) : bool
     {
         $error = [];
-        return !!DB::Aowow()->selectCell('SELECT id FROM ?_account WHERE userPerms = 1');
+        return !!DB::Aowow()->selectCell('SELECT `id` FROM ?_account WHERE `userPerms` = 1');
     }
 
-    function endSetup()
-    {
-        return DB::Aowow()->query('UPDATE ?_config SET value = 0 WHERE `key` = "maintenance"');
-    }
 
     /********************/
     /* get current step */
@@ -229,13 +223,33 @@ function firstrun()
             $startStep = (int)$rows[1];
     }
 
+    if (CLISetup::getOpt('help'))
+    {
+        CLI::write();
+        CLI::write('  usage: php aowow --setup [--locales: --mpqDataDir:]', -1, false);
+        CLI::write();
+        CLI::write('  Initially essential connection information are set up and basic connectivity tests are run afterwards.', -1, false);
+        CLI::write('  In the main stage dbc and world data is compiled into the database and required sound, image and data files are generated.', -1, false);
+        CLI::write('    This does not require further input and will take about 15-20 minutes, plus 10 minutes per additional locale.', -1, false);
+        CLI::write('  Lastly pending updates are applied and you are prompted to create an administrator account.', -1, false);
+
+        if ($startStep)
+        {
+            CLI::write();
+            CLI::write('  You are currently on step '.($startStep + 1).' / '.count($steps).'. You can resume or restart the setup process.', -1, false);
+        }
+
+        CLI::write();
+        return;
+    }
+
     if ($startStep)
     {
 
-        CLI::write('Found firstrun progression info. (Halted on subscript '.($steps[$startStep][1] ?: $steps[$startStep][0]).')', CLI::LOG_INFO);
+        CLI::write('Found firstrun progression info. (Halted on subscript '.($steps[$startStep][1][0] ? $steps[$startStep][1] : $steps[$startStep][0]).')', CLI::LOG_INFO);
         $inp = ['x' => ['continue setup? (y/n)', true, '/y|n/i']];
         $msg = '';
-        if (!CLI::readInput($inp, true) || !$inp || strtolower($inp['x']) == 'n')
+        if (!CLI::read($inp, true) || !$inp || strtolower($inp['x']) == 'n')
         {
             $msg = 'Starting setup from scratch...';
             $startStep = 0;
@@ -248,9 +262,12 @@ function firstrun()
         sleep(1);
     }
 
+
     /*******/
     /* run */
     /*******/
+
+    CLISetup::siteLock(CLISetup::LOCK_ON);
 
     foreach ($steps as $idx => $step)
     {
@@ -263,19 +280,23 @@ function firstrun()
         if ($step[3])
         {
             CLI::write($step[3]);
-            $inp = ['x' => ['Press any key to continue', true]];
 
-            if (!CLI::readInput($inp, true))                // we don't actually care about the input
+            $inp = ['x' => ['Press any key to continue', true]];
+            if (!CLI::read($inp, true))                // we don't actually care about the input
                 return;
         }
 
         while (true)
         {
-            $res = call_user_func($step[0], $step[1]);
+            if (strpos($step[0], '::'))
+                $res = call_user_func($step[0], $step[1]);
+            else
+                $res = $step[0](...$step[1]);
 
             // check script result
             if ($step[2])
             {
+                $errors = [];
                 if (!$step[2]($errors))
                 {
                     CLI::write($step[4], CLI::LOG_ERROR);
@@ -295,7 +316,7 @@ function firstrun()
             }
 
             $inp = ['x' => ['['.CLI::bold('c').']ontinue anyway? ['.CLI::bold('r').']etry? ['.CLI::bold('a').']bort?', true, '/c|r|a/i']];
-            if (CLI::readInput($inp, true) && $inp)
+            if (CLI::read($inp, true) && $inp)
             {
                 CLI::write();
                 switch(strtolower($inp['x']))
@@ -318,7 +339,9 @@ function firstrun()
     }
 
     unlink('cache/firstrun');
+    CLISetup::siteLock(CLISetup::LOCK_OFF);
     CLI::write('setup finished', CLI::LOG_OK);
+    return;
 }
 
 ?>

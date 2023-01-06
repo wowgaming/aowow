@@ -6,12 +6,12 @@ if (!defined('AOWOW_REVISION'))
 class AjaxData extends AjaxHandler
 {
     protected $_get = array(
-        'locale'    => [FILTER_CALLBACK,            ['options' => 'AjaxHandler::checkLocale']     ],
-        't'         => [FILTER_SANITIZE_STRING,     FILTER_FLAG_STRIP_LOW | FILTER_FLAG_STRIP_HIGH],
-        'catg'      => [FILTER_SANITIZE_NUMBER_INT, null                                          ],
-        'skill'     => [FILTER_CALLBACK,            ['options' => 'AjaxData::checkSkill']         ],
-        'class'     => [FILTER_SANITIZE_NUMBER_INT, null                                          ],
-        'callback'  => [FILTER_CALLBACK,            ['options' => 'AjaxData::checkCallback']      ]
+        'locale'    => ['filter' => FILTER_CALLBACK,             'options' => 'AjaxHandler::checkLocale'],
+        't'         => ['filter' => FILTER_UNSAFE_RAW,           'flags'   => FILTER_FLAG_STRIP_AOWOW   ],
+        'catg'      => ['filter' => FILTER_SANITIZE_NUMBER_INT                                          ],
+        'skill'     => ['filter' => FILTER_CALLBACK,             'options' => 'AjaxData::checkSkill'    ],
+        'class'     => ['filter' => FILTER_SANITIZE_NUMBER_INT                                          ],
+        'callback'  => ['filter' => FILTER_CALLBACK,             'options' => 'AjaxData::checkCallback' ]
     );
 
     public function __construct(array $params)
@@ -117,12 +117,12 @@ class AjaxData extends AjaxHandler
         return $result;
     }
 
-    protected function checkSkill(string $val) : array
+    protected static function checkSkill(string $val) : array
     {
         return array_intersect([171, 164, 333, 202, 182, 773, 755, 165, 186, 393, 197, 185, 129, 356], explode(',', $val));
     }
 
-    protected function checkCallback(string $val) : bool
+    protected static function checkCallback(string $val) : bool
     {
         return substr($val, 0, 29) === '$WowheadProfiler.loadOnDemand';
     }

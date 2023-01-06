@@ -10,12 +10,15 @@ class ItemsPage extends GenericPage
 {
     use TrListPage;
 
-    protected $type          = TYPE_ITEM;
+    protected $type          = Type::ITEM;
     protected $tpl           = 'items';
     protected $path          = [0, 0];
     protected $tabId         = 0;
     protected $mode          = CACHE_TYPE_PAGE;
-    protected $js            = ['filters.js', 'swfobject.js'];
+    protected $js            = [[JS_FILE, 'filters.js'], [JS_FILE, 'swfobject.js']];
+
+    protected $_get          = ['filter' => ['filter' => FILTER_UNSAFE_RAW]];
+
     protected $validCats     = array(                       // if > 0 class => subclass
          2 => [15, 13, 0, 4, 7, 6, 10, 1, 5, 8, 2, 18, 3, 16, 19, 20, 14],
          4 => array(
@@ -88,12 +91,12 @@ class ItemsPage extends GenericPage
         parent::__construct($pageCall, $pageParam);
 
         $this->name   = Util::ucFirst(Lang::game('items'));
-        $this->subCat = $pageParam !== null ? '='.$pageParam : '';
+        $this->subCat = $pageParam !== '' ? '='.$pageParam : '';
     }
 
     protected function generateContent()
     {
-        $this->addJS('?data=weight-presets&locale='.User::$localeId.'&t='.$_SESSION['dataKey']);
+        $this->addScript([JS_FILE, '?data=weight-presets&locale='.User::$localeId.'&t='.$_SESSION['dataKey']]);
 
         $conditions = [];
 
@@ -109,7 +112,7 @@ class ItemsPage extends GenericPage
             $conditions[] = $_;
 
         $this->filter             = $this->filterObj->getForm();
-        $this->filter['query']    = isset($_GET['filter']) ? $_GET['filter'] : null;
+        $this->filter['query']    = $this->_get['filter'];
         $this->filter['initData'] = ['init' => 'items'];
 
         if ($x = $this->filterObj->getSetCriteria())

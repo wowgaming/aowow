@@ -7,21 +7,21 @@ class AjaxAccount extends AjaxHandler
 {
     protected $validParams = ['exclude', 'weightscales', 'favorites'];
     protected $_post       = array(
-        'groups'     => [FILTER_SANITIZE_NUMBER_INT, null                                     ],
-        'save'       => [FILTER_SANITIZE_NUMBER_INT, null                                     ],
-        'delete'     => [FILTER_SANITIZE_NUMBER_INT, null                                     ],
-        'id'         => [FILTER_CALLBACK,            ['options' => 'AjaxHandler::checkIdList']],
-        'name'       => [FILTER_CALLBACK,            ['options' => 'AjaxAccount::checkName']  ],
-        'scale'      => [FILTER_CALLBACK,            ['options' => 'AjaxAccount::checkScale'] ],
-        'reset'      => [FILTER_SANITIZE_NUMBER_INT, null                                     ],
-        'mode'       => [FILTER_SANITIZE_NUMBER_INT, null                                     ],
-        'type'       => [FILTER_SANITIZE_NUMBER_INT, null                                     ],
-        'add'        => [FILTER_SANITIZE_NUMBER_INT, null                                     ],
-        'remove'     => [FILTER_SANITIZE_NUMBER_INT, null                                     ],
-     // 'sessionKey' => [FILTER_SANITIZE_NUMBER_INT, null                                     ]
+        'groups'     => ['filter' => FILTER_SANITIZE_NUMBER_INT],
+        'save'       => ['filter' => FILTER_SANITIZE_NUMBER_INT],
+        'delete'     => ['filter' => FILTER_SANITIZE_NUMBER_INT],
+        'id'         => ['filter' => FILTER_CALLBACK, 'options' => 'AjaxHandler::checkIdList'],
+        'name'       => ['filter' => FILTER_CALLBACK, 'options' => 'AjaxAccount::checkName'  ],
+        'scale'      => ['filter' => FILTER_CALLBACK, 'options' => 'AjaxAccount::checkScale' ],
+        'reset'      => ['filter' => FILTER_SANITIZE_NUMBER_INT],
+        'mode'       => ['filter' => FILTER_SANITIZE_NUMBER_INT],
+        'type'       => ['filter' => FILTER_SANITIZE_NUMBER_INT],
+        'add'        => ['filter' => FILTER_SANITIZE_NUMBER_INT],
+        'remove'     => ['filter' => FILTER_SANITIZE_NUMBER_INT],
+     // 'sessionKey' => ['filter' => FILTER_SANITIZE_NUMBER_INT]
     );
     protected $_get        = array(
-        'locale' => [FILTER_CALLBACK, ['options' => 'AjaxHandler::checkLocale']]
+        'locale' => ['filter' => FILTER_CALLBACK, 'options' => 'AjaxHandler::checkLocale']
     );
 
     public function __construct(array $params)
@@ -50,7 +50,7 @@ class AjaxAccount extends AjaxHandler
             $type = $this->_post['type'];
             $ids  = $this->_post['id'];
 
-            if (!isset(Util::$typeStrings[$type]) || empty($ids))
+            if (!Type::exists($type) || empty($ids))
             {
                 trigger_error('AjaxAccount::handleExclude - invalid type #'.$type.(empty($ids) ? ' or id-list empty' : ''), E_USER_ERROR);
                 return;
@@ -146,16 +146,10 @@ class AjaxAccount extends AjaxHandler
 
         if ($type = $this->_post['add'])
         {
-            if (empty(Util::$typeClasses[$type]))
+            $tc = Type::newList($type, [['id', $typeId]]);
+            if (!$tc || $tc->error)
             {
-                trigger_error('AjaxAccount::handleFavorites - invalid type #'.$type, E_USER_ERROR);
-                return;
-            }
-
-            $tc = new Util::$typeClasses[$type]([['id', $typeId]]);
-            if ($tc->error)
-            {
-                trigger_error('AjaxAccount::handleFavorites - invalid typeId #'.$typeId.' for type '.$tc::$brickFile, E_USER_ERROR);
+                trigger_error('AjaxAccount::handleFavorites - invalid typeId #'.$typeId.' for type #'.$type, E_USER_ERROR);
                 return;
             }
 
@@ -165,7 +159,7 @@ class AjaxAccount extends AjaxHandler
             DB::Aowow()->query('DELETE FROM ?_account_favorites WHERE `userId` = ?d AND `type` = ?d AND `typeId` = ?d', User::$id, $type, $typeId);
     }
 
-    protected function checkScale(string $val) : string
+    protected static function checkScale(string $val) : string
     {
         if (preg_match('/^((\w+:\d+)(,\w+:\d+)*)$/', $val))
             return $val;
@@ -173,11 +167,11 @@ class AjaxAccount extends AjaxHandler
         return '';
     }
 
-    protected function checkName(string $val) : string
+    protected static function checkName(string $val) : string
     {
         $var = trim(urldecode($val));
 
-        return filter_var($var, FILTER_SANITIZE_STRING, FILTER_FLAG_STRIP_LOW);
+        return filter_var($var, FILTER_UNSAFE_RAW, FILTER_FLAG_STRIP_AOWOW);
     }
 }
 

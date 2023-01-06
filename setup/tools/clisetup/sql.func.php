@@ -11,15 +11,17 @@ if (!CLI)
 /* Create content from world tables / dbc files */
 /************************************************/
 
-function sql($syncMe = null)
+function sql($syncMe = null) : array
 {
     require_once 'setup/tools/sqlGen.class.php';
 
-    SqlGen::init($syncMe !== null ? SqlGen::MODE_UPDATE : SqlGen::MODE_NORMAL, $syncMe ?: []);
+    if (!SqlGen::init($syncMe !== null ? SqlGen::MODE_UPDATE : SqlGen::MODE_NORMAL, $syncMe ?: []))
+        return [];
 
     $done = [];
     if (SqlGen::$subScripts)
     {
+        CLISetup::siteLock(CLISetup::LOCK_ON);
         $allOk = true;
 
         // start file generation
@@ -36,7 +38,7 @@ function sql($syncMe = null)
             else
                 $done[] = $tbl;
 
-            CLI::write(' - subscript \''.$tbl.'\' returned '.($ok ? 'sucessfully' : 'with errors'), $ok ? CLI::LOG_OK : CLI::LOG_ERROR);
+            CLI::write(' - subscript \''.$tbl.'\' returned '.($ok ? 'successfully' : 'with errors'), $ok ? CLI::LOG_OK : CLI::LOG_ERROR);
             set_time_limit(SqlGen::$defaultExecTime);      // reset to default for the next script
         }
 
@@ -46,8 +48,10 @@ function sql($syncMe = null)
             CLI::write('successfully finished sql generation', CLI::LOG_OK);
         else
             CLI::write('finished sql generation with errors', CLI::LOG_ERROR);
+
+        CLISetup::siteLock(CLISetup::LOCK_RESTORE);
     }
-    else if ($syncMe)
+    else if (SqlGen::getMode() == SqlGen::MODE_NORMAL)
         CLI::write('no valid script names supplied', CLI::LOG_ERROR);
 
     return $done;

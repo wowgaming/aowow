@@ -10,7 +10,7 @@ abstract class BaseType
     public    $error     = true;
 
     protected $templates = [];
-    protected $curTpl    = [];                              // lets iterate!
+    protected $curTpl    = [];
     protected $matches   = 0;                               // total matches unaffected by sqlLimit in config
 
     protected $dbNames   = ['Aowow'];                       // multiple DBs in profiler
@@ -59,7 +59,6 @@ abstract class BaseType
         $where     = [];
         $linking   = ' AND ';
         $limit     = CFG_SQL_LIMIT_DEFAULT;
-        $className = get_class($this);
 
         if (!$this->queryBase || $conditions === null)
             return;
@@ -270,7 +269,7 @@ abstract class BaseType
                 foreach ($rows as $id => $row)
                 {
                     if (isset($this->templates[$id]))
-                        trigger_error('guid for List already in use #'.$id, E_USER_WARNING);
+                        trigger_error('GUID for List already in use #'.$id.'. Additional occurrence omitted!', E_USER_ERROR);
                     else
                         $this->templates[$id] = $row;
                 }
@@ -441,7 +440,7 @@ abstract class BaseType
          'q':   cssQuality [Items]
          'z':   zone [set when all happens in here]
          'p':   PvP [pvpSourceId]
-         's':   TYPE_TITLE: side; TYPE_SPELL: skillId (yeah, double use. Ain't life just grand)
+         's':   Type::TITLE: side; Type::SPELL: skillId (yeah, double use. Ain't life just grand)
          'c':   category [Spells / Quests]
         'c2':   subCat [Quests]
       'icon':   iconString
@@ -557,34 +556,41 @@ trait spawnHelper
 
     private function createShortSpawns()                    // [zoneId, floor, [[x1, y1], [x2, y2], ..]] as tooltip2 if enabled by <a rel="map" ...> or anchor #map (one area, one floor, one creature, no survivors)
     {
+        $this->spawnResult[SPAWNINFO_SHORT] = new StdClass;
+
         // first get zone/floor with the most spawns
-        if ($res = DB::Aowow()->selectRow('SELECT areaId, floor FROM ?_spawns WHERE type = ?d && typeId = ?d GROUP BY areaId, floor ORDER BY count(1) DESC LIMIT 1', self::$type, $this->id))
+        if ($res = DB::Aowow()->selectRow('SELECT areaId, floor FROM ?_spawns WHERE type = ?d AND typeId = ?d AND posX > 0 AND posY > 0 GROUP BY areaId, floor ORDER BY count(1) DESC LIMIT 1', self::$type, $this->id))
         {
             // get relevant spawn points
-            $points = DB::Aowow()->select('SELECT posX, posY FROM ?_spawns WHERE type = ?d && typeId = ?d && areaId = ?d && floor = ?d', self::$type, $this->id, $res['areaId'], $res['floor']);
+            $points = DB::Aowow()->select('SELECT posX, posY FROM ?_spawns WHERE type = ?d AND typeId = ?d AND areaId = ?d AND floor = ?d AND posX > 0 AND posY > 0', self::$type, $this->id, $res['areaId'], $res['floor']);
             $spawns = [];
             foreach ($points as $p)
                 $spawns[] = [$p['posX'], $p['posY']];
 
-            $this->spawnResult[SPAWNINFO_SHORT] = [$res['areaId'], $res['floor'], $spawns];
+            $this->spawnResult[SPAWNINFO_SHORT]->zone   = $res['areaId'];
+            $this->spawnResult[SPAWNINFO_SHORT]->coords = [$res['floor'] => $spawns];
         }
     }
 
-    private function createFullSpawns()                     // for display on map (objsct/npc detail page)
+    private function createFullSpawns()                     // for display on map (object/npc detail page)
     {
-        $data   = [];
-        $wpSum  = [];
-        $wpIdx  = 0;
-        $spawns = DB::Aowow()->select("SELECT * FROM ?_spawns WHERE type = ?d AND typeId = ?d", self::$type, $this->id);
+        $data     = [];
+        $wpSum    = [];
+        $wpIdx    = 0;
+        $worldPos = [];
+        $spawns   = DB::Aowow()->select("SELECT * FROM ?_spawns WHERE type = ?d AND typeId = ?d AND posX > 0 AND posY > 0", self::$type, $this->id);
 
         if (!$spawns)
             return;
+
+        if (User::isInGroup(U_GROUP_MODERATOR))
+            $worldPos = Game::getWorldPosForGUID(self::$type, ...array_column($spawns, 'guid'));
 
         foreach ($spawns as $s)
         {
             // check, if we can attach waypoints to creature
             // we will get a nice clusterfuck of dots if we do this for more GUIDs, than we have colors though
-            if (count($spawns) < 6 && self::$type == TYPE_NPC)
+            if (count($spawns) < 6 && self::$type == Type::NPC)
             {
                 if ($wPoints = DB::Aowow()->select('SELECT * FROM ?_creature_waypoints WHERE creatureOrPath = ?d AND floor = ?d', $s['pathId'] ? -$s['pathId'] : $this->id, $s['floor']))
                 {
@@ -601,14 +607,14 @@ trait spawnHelper
                         );
 
                         // connective line
-                        if ($i > 0)
+                        if ($i > 0 && $wPoints[$i - 1]['areaId'] == $p['areaId'])
                             $opts['lines'] = [[$wPoints[$i - 1]['posX'], $wPoints[$i - 1]['posY']]];
 
-                        $data[$s['areaId']][$s['floor']]['coords'][] = [$p['posX'], $p['posY'], $opts];
-                        if (empty($wpSum[$s['areaId']][$s['floor']]))
-                            $wpSum[$s['areaId']][$s['floor']] = 1;
+                        $data[$p['areaId']][$p['floor']]['coords'][] = [$p['posX'], $p['posY'], $opts];
+                        if (empty($wpSum[$p['areaId']][$p['floor']]))
+                            $wpSum[$p['areaId']][$p['floor']] = 1;
                         else
-                            $wpSum[$s['areaId']][$s['floor']]++;
+                            $wpSum[$p['areaId']][$p['floor']]++;
                     }
                     $wpIdx++;
                 }
@@ -639,13 +645,62 @@ trait spawnHelper
                     $info[4] = Lang::game('mode').Lang::main('colon').implode(', ', $_);
                 }
 
-                if (self::$type == TYPE_AREATRIGGER)
+                if (self::$type == Type::AREATRIGGER)
                 {
                     $o = Util::O2Deg($this->getField('orientation'));
                     $info[5] = 'Orientation'.Lang::main('colon').$o[0].'° ('.$o[1].')';
                 }
 
-                // $footer = '<span class="q2">Click to move to different floor</span>';
+                // guid < 0 are vehicle accessories. those are moved by moving the vehicle
+                if (User::isInGroup(U_GROUP_MODERATOR) && $worldPos && $s['guid'] > 0)
+                {
+                    if ($points = Game::worldPosToZonePos($worldPos[$s['guid']]['mapId'], $worldPos[$s['guid']]['posX'], $worldPos[$s['guid']]['posY']))
+                    {
+                        $floors = [];
+                        foreach ($points as $p)
+                        {
+                            if (isset(Game::$areaFloors[$p['areaId']]))
+                                $floors[$p['areaId']][] = $p['floor'];
+
+                            if (isset($menu[$p['areaId']]))
+                                continue;
+                            else if ($p['areaId'] == $s['areaId'])
+                                $menu[$p['areaId']] = [$p['areaId'], '$g_zones['.$p['areaId'].']', '', null, ['class' => 'checked q0']];
+                            else
+                                $menu[$p['areaId']] = [$p['areaId'], '$g_zones['.$p['areaId'].']', '$spawnposfix.bind(null, '.self::$type.', '.$s['guid'].', '.$p['areaId'].', -1)', null, null];
+                        }
+
+                        foreach ($floors as $area => $f)
+                        {
+                            $menu[$area][2] = '';
+                            $menu[$area][3] = [];
+                            if ($menu[$area][4])
+                                $menu[$area][4]['class'] = 'checked';
+
+                            foreach ($f as $n)
+                            {
+                                $jsRef = $n;
+                                if ($area != 4273)          // Ulduar is weird maaaan.....
+                                    $jsRef--;
+
+                                // todo: 3959 (BT) and 4075 (Sunwell) start at level 0 or something
+
+                                if ($n == $s['floor'])
+                                    $menu[$area][3][] = [$jsRef, '$g_zone_areas['.$area.']['.$jsRef.']', '', null, ['class' => 'checked q0']];
+                                else
+                                    $menu[$area][3][] = [$jsRef, '$g_zone_areas['.$area.']['.$jsRef.']', '$spawnposfix.bind(null, '.self::$type.', '.$s['guid'].', '.$area.', '.$n.')'];
+                            }
+                        }
+
+                        $menu = array_values($menu);
+                    }
+
+                    if ($menu)
+                    {
+                        $footer = '<br /><span class="q2">Click to move displayed spawn point</span>';
+                        array_unshift($menu, [null, "Move to..."]);
+                    }
+                }
             }
 
             if ($info)
@@ -695,12 +750,12 @@ trait spawnHelper
         $this->spawnResult[SPAWNINFO_ZONES] = $res;
     }
 
-    private function createQuestSpawns()                    // [zoneId => [floor => [[x1, y1], [x2, y2], ..]]]
+    private function createQuestSpawns()                    // [zoneId => [floor => [[x1, y1], [x2, y2], ..]]]      mapper on quest detail page
     {
-        if (self::$type == TYPE_SOUND)
+        if (self::$type == Type::SOUND)
             return;
 
-        $res    = DB::Aowow()->select('SELECT areaId, floor, typeId, posX, posY FROM ?_spawns WHERE type = ?d && typeId IN (?a)', self::$type, $this->getFoundIDs());
+        $res    = DB::Aowow()->select('SELECT areaId, floor, typeId, posX, posY FROM ?_spawns WHERE type = ?d AND typeId IN (?a) AND posX > 0 AND posY > 0', self::$type, $this->getFoundIDs());
         $spawns = [];
         foreach ($res as $data)
         {
@@ -730,13 +785,13 @@ trait spawnHelper
     public function getSpawns($mode)
     {
         // only Creatures, GOs and SoundEmitters can be spawned
-        if (!self::$type || !$this->getfoundIDs() || (self::$type != TYPE_NPC && self::$type != TYPE_OBJECT && self::$type != TYPE_SOUND && self::$type != TYPE_AREATRIGGER))
+        if (!self::$type || !$this->getfoundIDs() || (self::$type != Type::NPC && self::$type != Type::OBJECT && self::$type != Type::SOUND && self::$type != Type::AREATRIGGER))
             return [];
 
         switch ($mode)
         {
             case SPAWNINFO_SHORT:
-                if (empty($this->spawnResult[SPAWNINFO_SHORT]))
+                if ($this->spawnResult[SPAWNINFO_SHORT] === null)
                     $this->createShortSpawns();
 
                 return $this->spawnResult[SPAWNINFO_SHORT];

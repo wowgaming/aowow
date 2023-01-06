@@ -52,19 +52,19 @@ if (!CLI)
                 switch ($questz->getField('reqSkillId'))
                 {
                     case 356:
-                        $exAdd(TYPE_QUEST, $id, PR_EXCLUDE_GROUP_REQ_FISHING);
+                        $exAdd(Type::QUEST, $id, PR_EXCLUDE_GROUP_REQ_FISHING);
                         break;
                     case 202:
-                        $exAdd(TYPE_QUEST, $id, PR_EXCLUDE_GROUP_REQ_ENGINEERING);
+                        $exAdd(Type::QUEST, $id, PR_EXCLUDE_GROUP_REQ_ENGINEERING);
                         break;
                     case 197:
-                        $exAdd(TYPE_QUEST, $id, PR_EXCLUDE_GROUP_REQ_TAILORING);
+                        $exAdd(Type::QUEST, $id, PR_EXCLUDE_GROUP_REQ_TAILORING);
                         break;
                 }
             }
 
             $_ = [];
-            $currencies = array_column($questz->rewards, TYPE_CURRENCY);
+            $currencies = array_column($questz->rewards, Type::CURRENCY);
             foreach ($currencies as $curr)
                 foreach ($curr as $cId => $qty)
                     $_[] = $cId;
@@ -110,7 +110,7 @@ if (!CLI)
             // get titles for exclusion
             foreach ($titlez->iterate() as $id => $__)
                 if (empty($titlez->sources[$id][4]) && empty($titlez->sources[$id][12]))
-                    $exAdd(TYPE_TITLE, $id, PR_EXCLUDE_GROUP_UNAVAILABLE);
+                    $exAdd(Type::TITLE, $id, PR_EXCLUDE_GROUP_UNAVAILABLE);
 
             foreach (CLISetup::$localeIds as $l)
             {
@@ -159,9 +159,9 @@ if (!CLI)
             foreach ($conditionSet as $mount => $skill)
             {
                 if ($skill == 202)
-                    $exAdd(TYPE_SPELL, $mount, PR_EXCLUDE_GROUP_REQ_ENGINEERING);
+                    $exAdd(Type::SPELL, $mount, PR_EXCLUDE_GROUP_REQ_ENGINEERING);
                 else if ($skill == 197)
-                    $exAdd(TYPE_SPELL, $mount, PR_EXCLUDE_GROUP_REQ_TAILORING);
+                    $exAdd(Type::SPELL, $mount, PR_EXCLUDE_GROUP_REQ_TAILORING);
             }
 
             foreach (CLISetup::$localeIds as $l)
@@ -313,7 +313,7 @@ if (!CLI)
                     if (!$buff)
                     {
                         // this behaviour is intended, do not create an error
-                        CLI::write('profiler - file datasets/'.User::$localeString.'/p-recipes-'.$file.' has no content => skipping', CLI::LOG_WARN);
+                        CLI::write('profiler - file datasets/'.User::$localeString.'/p-recipes-'.$file.' has no content => skipping', CLI::LOG_INFO);
                         continue;
                     }
 
@@ -375,26 +375,18 @@ if (!CLI)
         /******************/
         $scripts[] = function() use (&$exclusions)
         {
-            $s = count($exclusions);
-            $i = $n = 0;
-            CLI::write('applying '.$s.' baseline exclusions');
+            set_time_limit(2);
+
+            CLI::write('applying '.count($exclusions).' baseline exclusions');
             DB::Aowow()->query('DELETE FROM ?_profiler_excludes WHERE comment = ""');
+
             foreach ($exclusions as $ex)
-            {
                 DB::Aowow()->query('REPLACE INTO ?_profiler_excludes (?#) VALUES (?a)', array_keys($ex), array_values($ex));
-                if ($i >= 500)
-                {
-                    $i = 0;
-                    CLI::write(' * '.$n.' / '.$s.' ('.Lang::nf(100 * $n / $s, 1).'%)');
-                }
-                $i++;
-                $n++;
-            }
 
             // excludes; type => [excludeGroupBit => [typeIds]]
             $excludes = [];
 
-            $exData = DB::Aowow()->selectCol('SELECT `type` AS ARRAY_KEY, `typeId` AS ARRAY_KEY2, groups FROM ?_profiler_excludes');
+            $exData = DB::Aowow()->selectCol('SELECT `type` AS ARRAY_KEY, `typeId` AS ARRAY_KEY2, `groups` FROM ?_profiler_excludes');
             for ($i = 0; (1 << $i) < PR_EXCLUDE_GROUP_ANY; $i++)
                 foreach ($exData as $type => $data)
                     if ($ids = array_keys(array_filter($data, function ($x) use ($i) { return $x & (1 << $i); } )))

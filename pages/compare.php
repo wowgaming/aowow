@@ -12,16 +12,19 @@ class ComparePage extends GenericPage
     protected $path          = [1, 3];
     protected $mode          = CACHE_TYPE_NONE;
     protected $js            = array(
-        'profile.js',
-        'Draggable.js',
-        'filters.js',
-        'Summary.js',
-        'swfobject.js',
+        [JS_FILE, 'profile.js'],
+        [JS_FILE, 'Draggable.js'],
+        [JS_FILE, 'filters.js'],
+        [JS_FILE, 'Summary.js'],
+        [JS_FILE, 'swfobject.js'],
     );
-    protected $css           = [['path' => 'Summary.css']];
+    protected $css           = [[CSS_FILE, 'Summary.css']];
 
     protected $summary       = [];
     protected $cmpItems      = [];
+
+    protected $_get          = ['compare'        => ['filter' => FILTER_CALLBACK, 'options' => 'ComparePage::checkCompareString']];
+    protected $_cookie       = ['compare_groups' => ['filter' => FILTER_CALLBACK, 'options' => 'ComparePage::checkCompareString']];
 
     private   $compareString = '';
 
@@ -29,11 +32,11 @@ class ComparePage extends GenericPage
     {
         parent::__construct($pageCall, $__);
 
-        // prefer $_GET over $_COOKIE
-        if (!empty($_GET['compare']))
-            $this->compareString = $_GET['compare'];
-        else if (!empty($_COOKIE['compare_groups']))
-            $this->compareString = urldecode($_COOKIE['compare_groups']);
+        // prefer GET over COOKIE
+        if ($this->_get['compare'])
+            $this->compareString = $this->_get['compare'];
+        else if ($this->_cookie['compare_groups'])
+            $this->compareString = $this->_cookie['compare_groups'];
 
         $this->name = Lang::main('compareTool');
     }
@@ -41,7 +44,7 @@ class ComparePage extends GenericPage
     protected function generateContent()
     {
         // add conditional js
-        $this->addJS('?data=weight-presets.gems.enchants.itemsets&locale='.User::$localeId.'&t='.$_SESSION['dataKey']);
+        $this->addScript([JS_FILE, '?data=weight-presets.gems.enchants.itemsets&locale='.User::$localeId.'&t='.$_SESSION['dataKey']]);
 
         $this->summary = array(
             'template' => 'compare',
@@ -56,14 +59,12 @@ class ComparePage extends GenericPage
         $items = $outSet = [];
         foreach ($sets as $set)
         {
-            $itemSting = explode(':', $set);
-            $outString = [];
-            foreach ($itemSting as $substring)
+            $itemString = explode(':', $set);
+            $outString  = [];
+            foreach ($itemString as $is)
             {
-                $params  = explode('.', $substring);
+                $params  = array_pad(explode('.', $is), 7, 0);
                 $items[] = (int)$params[0];
-                while (sizeof($params) < 7)
-                    $params[] = 0;
 
                 $outString[] = $params;
             }
@@ -100,6 +101,15 @@ class ComparePage extends GenericPage
     }
 
     protected function generatePath() {}
+
+    protected static function checkCompareString(string $val) : string
+    {
+        $val = urldecode($val);
+        if (preg_match('/[^\d\.:;]/', $val))
+            return '';
+
+        return $val;
+    }
 }
 
 ?>

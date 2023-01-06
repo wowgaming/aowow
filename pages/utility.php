@@ -13,9 +13,11 @@ class UtilityPage extends GenericPage
     protected $tabId         = 1;
     protected $mode          = CACHE_TYPE_NONE;
     protected $validPages    = array(
-        'latest-additions',       'latest-articles',       'latest-comments',       'latest-screenshots',  'random',
+        null,                     null,                    'latest-comments',       'latest-screenshots',  'random',
         'unrated-comments', 11 => 'latest-videos',   12 => 'most-comments',   13 => 'missing-screenshots'
     );
+
+    protected $_get          = ['rss' => ['filter' => FILTER_CALLBACK, 'options' => 'GenericPage::checkEmptySet']];
 
     private $page            = '';
     private $rss             = false;
@@ -28,7 +30,7 @@ class UtilityPage extends GenericPage
         parent::__construct($pageCall, $pageParam);
 
         $this->page = $pageCall;
-        $this->rss  = isset($_GET['rss']);
+        $this->rss  = $this->_get['rss'];
 
         if ($this->page != 'random')
             $this->name = Lang::main('utilities', array_search($pageCall, $this->validPages));
@@ -44,15 +46,15 @@ class UtilityPage extends GenericPage
         $this->lvTabs = [];
     }
 
-    public function display($override = '')
+    public function display(string $override = '') : void
     {
         if ($this->rss)                                     // this should not be cached
         {
-            header('Content-Type: application/rss+xml; charset=UTF-8');
+            header(MIME_TYPE_RSS);
             die($this->generateRSS());
         }
         else
-            return parent::display($override);
+            parent::display($override);
     }
 
     protected function generateContent()
@@ -61,19 +63,19 @@ class UtilityPage extends GenericPage
         /* Main Content */
         /****************/
 
-        if (in_array(array_search($this->page, $this->validPages), [0, 1, 2, 3, 11, 12]))
+        if (in_array(array_search($this->page, $this->validPages), [2, 3, 11, 12]))
             $this->h1Links = '<small><a href="?'.$this->page.($this->category ? '='.$this->category[0] : null).'&rss" class="icon-rss">'.Lang::main('subscribe').'</a></small>';
 
         switch ($this->page)
         {
             case 'random':
-                $type   = array_rand(array_filter(Util::$typeClasses));
-                $typeId = (new Util::$typeClasses[$type](null))->getRandomId();
+                $type   = array_rand(Type::getClassesFor(Type::FLAG_RANDOM_SEARCHABLE));
+                $typeId = (Type::newList($type, null))?->getRandomId();
 
-                header('Location: ?'.Util::$typeStrings[$type].'='.$typeId, true, 302);
+                header('Location: ?'.Type::getFileString($type).'='.$typeId, true, 302);
                 die();
             case 'latest-comments':                         // rss
-                $data = CommunityContent::getCommentPreviews();
+                $data = CommunityContent::getCommentPreviews(dateFmt: false);
 
                 if ($this->rss)
                 {
@@ -81,82 +83,88 @@ class UtilityPage extends GenericPage
                     {
                         // todo (low): preview should be html-formated
                         $this->feedData[] = array(
-                            'title'       => [true,  [], Util::ucFirst(Lang::game(Util::$typeStrings[$d['type']])).Lang::main('colon').htmlentities($d['subject'])],
+                            'title'       => [true,  [], Lang::typeName($d['type']).Lang::main('colon').htmlentities($d['subject'])],
                             'link'        => [false, [], HOST_URL.'/?go-to-comment&amp;id='.$d['id']],
-                            'description' => [true,  [], htmlentities($d['preview'])."<br /><br />".sprintf(Lang::main('byUserTimeAgo'), $d['user'], Util::formatTime($d['elapsed'] * 1000, true))],
-                            'pubDate'     => [false, [], date(DATE_RSS, time() - $d['elapsed'])],
+                            'description' => [true,  [], htmlentities($d['preview'])."<br /><br />".Lang::main('byUser', [$d['user'], '']) . Util::formatTimeDiff($d['date'], true)],
+                            'pubDate'     => [false, [], date(DATE_RSS, $d['date'])],
                             'guid'        => [false, [], HOST_URL.'/?go-to-comment&amp;id='.$d['id']]
                          // 'domain'      => [false, [], null]
                         );
                     }
                 }
                 else
+                {
+                    array_walk($data, fn(&$d) => $d['date'] = date(Util::$dateFormatInternal, $d['date']));
                     $this->lvTabs[] = ['commentpreview', ['data' => $data]];
+                }
 
                 break;
             case 'latest-screenshots':                      // rss
-                $data = CommunityContent::getScreenshots();
+                $data = CommunityContent::getScreenshots(dateFmt: false);
 
                 if ($this->rss)
                 {
                     foreach ($data as $d)
                     {
-                        $desc = '<a href="'.HOST_URL.'/?'.Util::$typeStrings[$d['type']].'='.$d['typeId'].'#screenshots:id='.$d['id'].'"><img src="'.STATIC_URL.'/uploads/screenshots/thumb/'.$d['id'].'.jpg" alt="" /></a>';
+                        $desc = '<a href="'.HOST_URL.'/?'.Type::getFileString($d['type']).'='.$d['typeId'].'#screenshots:id='.$d['id'].'"><img src="'.STATIC_URL.'/uploads/screenshots/thumb/'.$d['id'].'.jpg" alt="" /></a>';
                         if ($d['caption'])
                             $desc .= '<br />'.$d['caption'];
-                        $desc .= "<br /><br />".sprintf(Lang::main('byUserTimeAgo'), $d['user'], Util::formatTime($d['elapsed'] * 1000, true));
+                        $desc .= "<br /><br />".Lang::main('byUser', [$d['user'], '']) . Util::formatTimeDiff($d['date'], true);
 
                         // enclosure/length => filesize('static/uploads/screenshots/thumb/'.$d['id'].'.jpg') .. always set to this placeholder value though
                         $this->feedData[] = array(
-                            'title'       => [true,  [], Util::ucFirst(Lang::game(Util::$typeStrings[$d['type']])).Lang::main('colon').htmlentities($d['subject'])],
-                            'link'        => [false, [], HOST_URL.'/?'.Util::$typeStrings[$d['type']].'='.$d['typeId'].'#screenshots:id='.$d['id']],
+                            'title'       => [true,  [], Lang::typeName($d['type']).Lang::main('colon').htmlentities($d['subject'])],
+                            'link'        => [false, [], HOST_URL.'/?'.Type::getFileString($d['type']).'='.$d['typeId'].'#screenshots:id='.$d['id']],
                             'description' => [true,  [], $desc],
-                            'pubDate'     => [false, [], date(DATE_RSS, time() - $d['elapsed'])],
+                            'pubDate'     => [false, [], date(DATE_RSS, $d['date'])],
                             'enclosure'   => [false, ['url' => STATIC_URL.'/uploads/screenshots/thumb/'.$d['id'].'.jpg', 'length' => 12345, 'type' => 'image/jpeg'], null],
-                            'guid'        => [false, [], HOST_URL.'/?'.Util::$typeStrings[$d['type']].'='.$d['typeId'].'#screenshots:id='.$d['id']],
+                            'guid'        => [false, [], HOST_URL.'/?'.Type::getFileString($d['type']).'='.$d['typeId'].'#screenshots:id='.$d['id']],
                          // 'domain'      => [false, [], live|ptr]
                         );
                     }
                 }
                 else
+                {
+                    array_walk($data, fn(&$d) => $d['date'] = date(Util::$dateFormatInternal, $d['date']));
                     $this->lvTabs[] = ['screenshot', ['data' => $data]];
+                }
 
                 break;
             case 'latest-videos':                           // rss
-                $data = CommunityContent::getVideos();
+                $data = CommunityContent::getVideos(dateFmt: false);
 
                 if ($this->rss)
                 {
                     foreach ($data as $d)
                     {
-                        $desc = '<a href="'.HOST_URL.'/?'.Util::$typeStrings[$d['type']].'='.$d['typeId'].'#videos:id='.$d['id'].'"><img src="//i3.ytimg.com/vi/'.$d['videoId'].'/default.jpg" alt="" /></a>';
+                        $desc = '<a href="'.HOST_URL.'/?'.Type::getFileString($d['type']).'='.$d['typeId'].'#videos:id='.$d['id'].'"><img src="//i3.ytimg.com/vi/'.$d['videoId'].'/default.jpg" alt="" /></a>';
                         if ($d['caption'])
                             $desc .= '<br />'.$d['caption'];
-                        $desc .= "<br /><br />".sprintf(Lang::main('byUserTimeAgo'), $d['user'], Util::formatTime($d['elapsed'] * 1000, true));
+                            $desc .= "<br /><br />".Lang::main('byUser', [$d['user'], '']) . Util::formatTimeDiff($d['date'], true);
 
                         // is enclosure/length .. is this even relevant..?
                         $this->feedData[] = array(
-                            'title'       => [true,  [], Util::ucFirst(Lang::game(Util::$typeStrings[$d['type']])).Lang::main('colon').htmlentities($row['subject'])],
-                            'link'        => [false, [], HOST_URL.'/?'.Util::$typeStrings[$d['type']].'='.$d['typeId'].'#videos:id='.$d['id']],
+                            'title'       => [true,  [], Lang::typeName($d['type']).Lang::main('colon').htmlentities($d['subject'])],
+                            'link'        => [false, [], HOST_URL.'/?'.Type::getFileString($d['type']).'='.$d['typeId'].'#videos:id='.$d['id']],
                             'description' => [true,  [], $desc],
-                            'pubDate'     => [false, [], date(DATE_RSS, time() - $row['elapsed'])],
+                            'pubDate'     => [false, [], date(DATE_RSS, $d['date'])],
                             'enclosure'   => [false, ['url' => '//i3.ytimg.com/vi/'.$d['videoId'].'/default.jpg', 'length' => 12345, 'type' => 'image/jpeg'], null],
-                            'guid'        => [false, [], HOST_URL.'/?'.Util::$typeStrings[$d['type']].'='.$d['typeId'].'#videos:id='.$d['id']],
+                            'guid'        => [false, [], HOST_URL.'/?'.Type::getFileString($d['type']).'='.$d['typeId'].'#videos:id='.$d['id']],
                          // 'domain'      => [false, [], live|ptr]
                         );
                     }
                 }
                 else
+                {
+                    array_walk($data, fn(&$d) => $d['date'] = date(Util::$dateFormatInternal, $d['date']));
                     $this->lvTabs[] = ['video', ['data' => $data]];
+                }
 
                 break;
-            case 'latest-articles':                         // rss
-                $this->lvTabs = [];
-                break;
-            case 'latest-additions':                        // rss
-                $extraText = '';
-                break;
             case 'unrated-comments':
+                if ($_ = CommunityContent::getCommentPreviews(['unrated' => true]))
+                    $this->lvTabs[] = ['commentpreview', ['data' => $_]];
+
                 $this->lvTabs[] = ['commentpreview', ['data' => []]];
                 break;
             case 'missing-screenshots':
@@ -165,14 +173,9 @@ class UtilityPage extends GenericPage
                 if (!User::isInGroup(U_GROUP_EMPLOYEE))
                     $cnd[] = [['cuFlags', CUSTOM_EXCLUDE_FOR_LISTVIEW, '&'], 0];
 
-                foreach (Util::$typeClasses as $type => $classStr)
+
+                foreach (Type::getClassesFor(Type::FLAG_NONE, 'contribute', CONTRIBUTE_SS) as $type => $classStr)
                 {
-                    if (!$classStr)
-                        continue;
-
-                    if (!($classStr::$contribute & CONTRIBUTE_SS))
-                        continue;
-
                     $typeObj = new $classStr($cnd);
                     if (!$typeObj->error)
                     {
@@ -190,11 +193,8 @@ class UtilityPage extends GenericPage
                     'sort'      => ['-ncomments']
                 );
 
-                foreach (Util::$typeClasses as $type => $classStr)
+                foreach (Type::getClassesFor() as $type => $classStr)
                 {
-                    if (!$classStr)
-                        continue;
-
                     $comments = DB::Aowow()->selectCol('
                         SELECT   `typeId` AS ARRAY_KEY, count(1) FROM ?_comments
                         WHERE    `replyTo` = 0 AND (`flags` & ?d) = 0 AND `type`= ?d AND `date` > (UNIX_TIMESTAMP() - ?d)
@@ -217,9 +217,9 @@ class UtilityPage extends GenericPage
                             foreach ($data as $typeId => &$d)
                             {
                                 $this->feedData[] = array(
-                                    'title'       => [true,  [], htmlentities(Util::$typeStrings[$type] == 'item' ? mb_substr($d['name'], 1) : $d['name'])],
-                                    'type'        => [false, [], Util::$typeStrings[$type]],
-                                    'link'        => [false, [], HOST_URL.'/?'.Util::$typeStrings[$type].'='.$d['id']],
+                                    'title'       => [true,  [], htmlentities(Type::getFileString($type) == 'item' ? mb_substr($d['name'], 1) : $d['name'])],
+                                    'type'        => [false, [], Type::getFileString($type)],
+                                    'link'        => [false, [], HOST_URL.'/?'.Type::getFileString($type).'='.$d['id']],
                                     'ncomments'   => [false, [], $comments[$typeId]]
                                 );
                             }

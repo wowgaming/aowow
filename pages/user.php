@@ -7,8 +7,8 @@ if (!defined('AOWOW_REVISION'))
 class UserPage extends GenericPage
 {
     protected $tpl      = 'user';
-    protected $js       = ['user.js', 'profile.js'];
-    protected $css      = [['path' => 'Profiler.css']];
+    protected $js       = [[JS_FILE, 'user.js'], [JS_FILE, 'profile.js']];
+    protected $css      = [[CSS_FILE, 'Profiler.css']];
     protected $mode     = CACHE_TYPE_NONE;
 
     protected $typeId   = 0;
@@ -60,7 +60,8 @@ class UserPage extends GenericPage
         // contrib -> [url=http://www.wowhead.com/client]Data uploads: n [small]([tooltip=tooltip_totaldatauploads]xx.y MB[/tooltip])[/small][/url]
 
         $co = DB::Aowow()->selectRow(
-            'SELECT COUNT(DISTINCT c.id) AS sum, SUM(IFNULL(cr.value, 0)) AS nRates FROM ?_comments c LEFT JOIN ?_comments_rates cr ON cr.commentId = c.id AND cr.userId <> 0 WHERE c.replyTo = 0 AND c.userId = ?d',
+            'SELECT COUNT(DISTINCT c.id) AS sum, SUM(IFNULL(ur.value, 0)) AS nRates FROM ?_comments c LEFT JOIN ?_user_ratings ur ON ur.entry = c.id AND ur.type = ?d AND ur.userId <> 0 WHERE c.replyTo = 0 AND c.userId = ?d',
+            RATING_COMMENT,
             $this->user['id']
         );
         if ($co['sum'])
@@ -87,7 +88,7 @@ class UserPage extends GenericPage
                     $buff[] = '[tooltip=tooltip_pending]'.$ss['nPending'].'[/tooltip]';
             }
 
-            $contrib[] = Lang::user('screenshots').Lang::main('colon').$ss['sum'].($buff ? ' [small]('.implode($buff, ' + ').')[/small]' : null);
+            $contrib[] = Lang::user('screenshots').Lang::main('colon').$ss['sum'].($buff ? ' [small]('.implode(' + ', $buff).')[/small]' : null);
         }
 
         $vi = DB::Aowow()->selectRow('SELECT COUNT(id) AS sum, SUM(IF(status & ?d, 1, 0)) AS nSticky, SUM(IF(status & ?d, 0, 1)) AS nPending FROM ?_videos WHERE userIdOwner = ?d AND (status & ?d) = 0',
@@ -111,7 +112,7 @@ class UserPage extends GenericPage
                     $buff[] = '[tooltip=tooltip_pending]'.$vi['nPending'].'[/tooltip]';
             }
 
-            $contrib[] = Lang::user('videos').Lang::main('colon').$vi['sum'].($buff ? ' [small]('.implode($buff, ' + ').')[/small]' : null);
+            $contrib[] = Lang::user('videos').Lang::main('colon').$vi['sum'].($buff ? ' [small]('.implode(' + ', $buff).')[/small]' : null);
         }
 
         // contrib -> Forum posts: 5769 [small]([tooltip=topics]579[/tooltip] + [tooltip=replies]5190[/tooltip])[/small]
@@ -236,7 +237,7 @@ class UserPage extends GenericPage
         $profiles = new LocalProfileList($conditions);
         if (!$profiles->error)
         {
-            $this->addJS('?data=weight-presets&t='.$_SESSION['dataKey']);
+            $this->addScript([JS_FILE, '?data=weight-presets&locale='.User::$localeId.'&t='.$_SESSION['dataKey']]);
 
             // Characters
             if ($chars = $profiles->getListviewData(PROFILEINFO_CHARACTER | PROFILEINFO_USER))

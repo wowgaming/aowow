@@ -10,12 +10,15 @@ class SpellsPage extends GenericPage
 {
     use TrListPage;
 
-    protected $type          = TYPE_SPELL;
+    protected $type          = Type::SPELL;
     protected $tpl           = 'spells';
     protected $path          = [0, 1];
     protected $tabId         = 0;
     protected $mode          = CACHE_TYPE_PAGE;
-    protected $js            = ['filters.js'];
+    protected $js            = [[JS_FILE, 'filters.js']];
+
+    protected $_get          = ['filter' => ['filter' => FILTER_UNSAFE_RAW]];
+
     protected $validCats     = array(
         -2  => array(                                       // Talents: Class => Skill
             1  => [ 26, 256, 257],
@@ -91,7 +94,7 @@ class SpellsPage extends GenericPage
         parent::__construct($pageCall, $pageParam);
 
         $this->name   = Util::ucFirst(Lang::game('spells'));
-        $this->subCat = $pageParam !== null ? '='.$pageParam : '';
+        $this->subCat = $pageParam !== '' ? '='.$pageParam : '';
 
         $this->classPanel = false;
         $this->glyphPanel = false;
@@ -412,7 +415,7 @@ class SpellsPage extends GenericPage
 
         // recreate form selection
         $this->filter             = $this->filterObj->getForm();
-        $this->filter['query']    = isset($_GET['filter']) ? $_GET['filter'] : NULL;
+        $this->filter['query']    = $this->_get['filter'];
         $this->filter['initData'] = ['init' => 'spells'];
 
         if ($ec = $this->filterObj->getExtraCols())

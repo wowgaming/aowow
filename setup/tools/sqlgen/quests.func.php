@@ -11,7 +11,7 @@ SqlGen::register(new class extends SetupScript
 {
     protected $command = 'quests';
 
-    protected $tblDependancyTC    = ['quest_template', 'quest_template_addon', 'quest_template_locale', 'game_event', 'game_event_seasonal_questrelation', 'disables'];
+    protected $tblDependencyTC    = ['quest_template', 'quest_template_addon', 'quest_template_locale', 'game_event', 'game_event_seasonal_questrelation', 'disables'];
     protected $dbcSourceFiles     = ['questxp', 'questfactionreward'];
 
     public function generate(array $ids = []) : bool
@@ -31,7 +31,7 @@ SqlGen::register(new class extends SetupScript
                 IFNULL(gesqr.eventEntry, 0) AS eventId,
                 IFNULL(qa.PrevQuestId, 0),
                 IFNULL(qa.NextQuestId, 0),
-                IFNULL(qa.BreadcrumbForQuestId, 0),
+                0 AS BreadcrumbForQuestId, -- IFNULL(qa.BreadcrumbForQuestId, 0),
                 IFNULL(qa.ExclusiveGroup, 0),
                 RewardNextQuest,
                 q.Flags,
@@ -259,6 +259,8 @@ SqlGen::register(new class extends SetupScript
         DB::Aowow()->query('UPDATE ?_quests SET zoneOrSort = ?d WHERE id IN (?a){ AND id IN (?a)}',  -101, [8228, 8229], $ids ?: DBSIMPLE_SKIP);
         // dungeon quests to Misc/Dungeon Finder
         DB::Aowow()->query('UPDATE ?_quests SET zoneOrSort = ?d WHERE (specialFlags & ?d OR id IN (?a)){ AND id IN (?a)}', -1010, QUEST_FLAG_SPECIAL_DUNGEON_FINDER, [24789, 24791, 24923], $ids ?: DBSIMPLE_SKIP);
+
+        $this->reapplyCCFlags('quests', Type::QUEST);
 
         return true;
     }

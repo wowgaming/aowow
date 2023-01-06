@@ -10,30 +10,31 @@ class ItemsetPage extends GenericPage
 {
     use TrDetailPage;
 
-    protected $type          = TYPE_ITEMSET;
+    protected $type          = Type::ITEMSET;
     protected $typeId        = 0;
     protected $tpl           = 'itemset';
     protected $path          = [0, 2];
     protected $tabId         = 0;
     protected $mode          = CACHE_TYPE_PAGE;
-    protected $js            = array(
-        'swfobject.js',
-        'Summary.js'
-    );
+    protected $js            = [[JS_FILE, 'swfobject.js'], [JS_FILE, 'Summary.js']];
+
+    protected $_get          = ['domain' => ['filter' => FILTER_CALLBACK, 'options' => 'GenericPage::checkDomain']];
+
+    private   $powerTpl      = '$WowheadPower.registerItemSet(%d, %d, %s);';
 
     public function __construct($pageCall, $id)
     {
         parent::__construct($pageCall, $id);
 
         // temp locale
-        if ($this->mode == CACHE_TYPE_TOOLTIP && isset($_GET['domain']))
-            Util::powerUseLocale($_GET['domain']);
+        if ($this->mode == CACHE_TYPE_TOOLTIP && $this->_get['domain'])
+            Util::powerUseLocale($this->_get['domain']);
 
         $this->typeId = intVal($id);
 
         $this->subject = new ItemsetList(array(['id', $this->typeId]));
         if ($this->subject->error)
-            $this->notFound();
+            $this->notFound(Lang::game('itemset'), Lang::itemset('notFound'));
 
         $this->name = $this->subject->getField('name', true);
         $this->extendGlobalData($this->subject->getJSGlobals());
@@ -76,7 +77,7 @@ class ItemsetPage extends GenericPage
         if ($e = $this->subject->getField('eventId'))
         {
             $infobox[] = Lang::game('eventShort').Lang::main('colon').'[event='.$e.']';
-            $this->extendGlobalIds(TYPE_WORLDEVENT, $e);
+            $this->extendGlobalIds(Type::WORLDEVENT, $e);
         }
 
         // itemLevel
@@ -92,10 +93,11 @@ class ItemsetPage extends GenericPage
         }
 
         // class
-        if ($cl = Lang::getClassString($this->subject->getField('classMask'), $jsg, $qty, false))
+        $jsg = [];
+        if ($cl = Lang::getClassString($this->subject->getField('classMask'), $jsg, false))
         {
-            $this->extendGlobalIds(TYPE_CLASS, $jsg);
-            $t = $qty == 1 ? Lang::game('class') : Lang::game('classes');
+            $this->extendGlobalIds(Type::CHR_CLASS, ...$jsg);
+            $t = count($jsg)== 1 ? Lang::game('class') : Lang::game('classes');
             $infobox[] = Util::ucFirst($t).Lang::main('colon').$cl;
         }
 
@@ -164,7 +166,7 @@ class ItemsetPage extends GenericPage
         $this->redButtons  = array(
             BUTTON_WOWHEAD => $this->typeId > 0,            // bool only
             BUTTON_LINKS   => ['type' => $this->type, 'typeId' => $this->typeId],
-            BUTTON_VIEW3D  => ['type' => TYPE_ITEMSET, 'typeId' => $this->typeId, 'equipList' => $eqList],
+            BUTTON_VIEW3D  => ['type' => Type::ITEMSET, 'typeId' => $this->typeId, 'equipList' => $eqList],
             BUTTON_COMPARE => ['eqList' => implode(':', $compare), 'qty' => $_cnt]
         );
         $this->summary     = array(
@@ -229,42 +231,16 @@ class ItemsetPage extends GenericPage
         }
     }
 
-    protected function generateTooltip($asError = false)
+    protected function generateTooltip()
     {
-        if ($asError)
-            return '$WowheadPower.registerItemSet('.$this->typeId.', '.User::$localeId.', {});';
-
-        $x = '$WowheadPower.registerItemSet('.$this->typeId.', '.User::$localeId.", {\n";
-        $x .= "\tname_".User::$localeString.": '".Util::jsEscape($this->subject->getField('name', true))."',\n";
-        $x .= "\ttooltip_".User::$localeString.": '".$this->subject->renderTooltip()."'\n";
-        $x .= "});";
-
-        return $x;
-    }
-
-    public function display($override = '')
-    {
-        if ($this->mode != CACHE_TYPE_TOOLTIP)
-            return parent::display($override);
-
-        if (!$this->loadCache($tt))
+        $power = new StdClass();
+        if (!$this->subject->error)
         {
-            $tt = $this->generateTooltip();
-            $this->saveCache($tt);
+            $power->{'name_'.User::$localeString}    = $this->subject->getField('name', true);
+            $power->{'tooltip_'.User::$localeString} = $this->subject->renderTooltip();
         }
 
-        header('Content-type: application/x-javascript; charset=utf-8');
-        die($tt);
-    }
-
-    public function notFound($title = '', $msg = '')
-    {
-        if ($this->mode != CACHE_TYPE_TOOLTIP)
-            return parent::notFound($title ?: Lang::game('itemset'), $msg ?: Lang::itemset('notFound'));
-
-        header('Content-type: application/x-javascript; charset=utf-8');
-        echo $this->generateTooltip(true);
-        exit();
+        return sprintf($this->powerTpl, $this->typeId, User::$localeId, Util::toJSON($power, JSON_AOWOW_POWER));
     }
 }
 

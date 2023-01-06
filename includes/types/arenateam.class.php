@@ -17,7 +17,7 @@ class ArenaTeamList extends BaseType
         {
             $data[$this->id] = array(
                 'name'              => $this->curTpl['name'],
-                'realm'             => Profiler::urlize($this->curTpl['realmName']),
+                'realm'             => Profiler::urlize($this->curTpl['realmName'], true),
                 'realmname'         => $this->curTpl['realmName'],
              // 'battlegroup'       => Profiler::urlize($this->curTpl['battlegroup']),  // was renamed to subregion somewhere around cata release
              // 'battlegroupname'   => $this->curTpl['battlegroup'],
@@ -88,7 +88,7 @@ class ArenaTeamListFilter extends Filter
 
     protected function cbRegionCheck(&$v)
     {
-        if ($v == 'eu' || $v == 'us')
+        if (in_array($v, Util::$regions))
         {
             $this->parentCats[0] = $v;                      // directly redirect onto this region
             $v = '';                                        // remove from filter
@@ -167,7 +167,15 @@ class RemoteArenaTeamList extends ArenaTeamList
             }
             else
             {
-                trigger_error('arena team "'.$curTpl['name'].'" belongs to nonexistant realm #'.$r, E_USER_WARNING);
+                trigger_error('arena team #'.$guid.' belongs to nonexistant realm #'.$r, E_USER_WARNING);
+                unset($this->templates[$guid]);
+                continue;
+            }
+
+            // empty name
+            if (!$curTpl['name'])
+            {
+                trigger_error('arena team #'.$guid.' on realm #'.$r.' has empty name.', E_USER_WARNING);
                 unset($this->templates[$guid]);
                 continue;
             }

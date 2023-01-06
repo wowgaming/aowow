@@ -11,8 +11,8 @@ SqlGen::register(new class extends SetupScript
 {
     protected $command = 'pet';
 
-    protected $tblDependancyAowow = ['icons'];
-    protected $tblDependancyTC    = ['creature_template', 'creature'];
+    protected $tblDependencyAowow = ['icons'];
+    protected $tblDependencyTC    = ['creature_template', 'creature'];
     protected $dbcSourceFiles     = ['talent', 'spell', 'skilllineability', 'creaturefamily'];
 
     public function generate(array $ids = []) : bool
@@ -51,7 +51,7 @@ SqlGen::register(new class extends SetupScript
             FROM
                 creature_template ct
             JOIN
-                creature c ON ct.entry = c.id
+                creature c ON ct.entry = c.id1
             WHERE
                 ct.type_flags & 0x1
             GROUP BY
@@ -118,6 +118,8 @@ SqlGen::register(new class extends SetupScript
 
         foreach ($res as $pId => $row)
             DB::Aowow()->query('UPDATE ?_pet SET ?a WHERE id = ?d', $row, $pId);
+
+        $this->reapplyCCFlags('pet', Type::PET);
 
         return true;
     }

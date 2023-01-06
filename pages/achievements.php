@@ -10,12 +10,15 @@ class AchievementsPage extends GenericPage
 {
     use TrListPage;
 
-    protected $type          = TYPE_ACHIEVEMENT;
+    protected $type          = Type::ACHIEVEMENT;
     protected $tpl           = 'achievements';
     protected $path          = [0, 9];
     protected $tabId         = 0;
     protected $mode          = CACHE_TYPE_PAGE;
-    protected $js            = ['filters.js'];
+    protected $js            = [[JS_FILE, 'filters.js']];
+
+    protected $_get          = ['filter' => ['filter' => FILTER_UNSAFE_RAW]];
+
     protected $validCats     = array(
         92  => true,
         96  => [14861, 14862, 14863],
@@ -64,7 +67,7 @@ class AchievementsPage extends GenericPage
 
         // recreate form selection
         $this->filter = $this->filterObj->getForm();
-        $this->filter['query'] = isset($_GET['filter']) ? $_GET['filter'] : null;
+        $this->filter['query'] = $this->_get['filter'];
         $this->filter['initData'] = ['init' => 'achievements'];
 
         if ($x = $this->filterObj->getSetCriteria())
@@ -76,16 +79,11 @@ class AchievementsPage extends GenericPage
         $acvList = new AchievementList($conditions);
         if (!$acvList->getMatches())
         {
-            $curCats = $catList = [!empty($this->category) ? (int)end($this->category) : 0];
-            while ($curCats)
-            {
-                $curCats = DB::Aowow()->SelectCol('SELECT Id FROM ?_achievementcategory WHERE parentCategory IN (?a)', $curCats);
-                $catList = array_merge($catList, $curCats);
-            }
+            $category   = [!empty($this->category) ? (int)end($this->category) : 0];
             $conditions = [];
             if ($fiCnd)
                 $conditions[] = $fiCnd;
-            if ($catList)
+            if ($catList = DB::Aowow()->SelectCol('SELECT Id FROM ?_achievementcategory WHERE parentCat IN (?a) OR parentCat2 IN (?a) ', $category, $category))
                 $conditions[] = ['category', $catList];
 
             $acvList = new AchievementList($conditions);
@@ -127,20 +125,14 @@ class AchievementsPage extends GenericPage
     {
         array_unshift($this->title, Util::ucFirst(Lang::game('achievements')));
         if ($this->category)
-        {
-            $catrow = DB::Aowow()->SelectRow('SELECT * FROM ?_achievementcategory WHERE id = ?d', end($this->category));
-            array_unshift($this->title, Util::localizedString($catrow, 'name'));
-        }
+            array_unshift($this->title, Lang::achievement('cat', end($this->category)));
     }
 
     protected function generatePath()
     {
         if ($this->category)
-        {
-            $catrows = DB::Aowow()->SelectCol('SELECT id FROM ?_achievementcategory WHERE id IN (?a)', $this->category);
-            foreach ($catrows as $cat)
+            foreach ($this->category as $cat)
                 $this->path[] = $cat;
-        }
     }
 }
 

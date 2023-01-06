@@ -21,7 +21,7 @@ class GuildList extends BaseType
                 'faction'           => $this->curTpl['faction'],
                 'achievementpoints' => $this->getField('achievementpoints'),
                 'gearscore'         => $this->getField('gearscore'),
-                'realm'             => Profiler::urlize($this->curTpl['realmName']),
+                'realm'             => Profiler::urlize($this->curTpl['realmName'], true),
                 'realmname'         => $this->curTpl['realmName'],
              // 'battlegroup'       => Profiler::urlize($this->curTpl['battlegroup']),          // was renamed to subregion somewhere around cata release
              // 'battlegroupname'   => $this->curTpl['battlegroup'],
@@ -126,7 +126,7 @@ class GuildListFilter extends Filter
 
     protected function cbRegionCheck(&$v)
     {
-        if ($v == 'eu' || $v == 'us')
+        if (in_array($v, Util::$regions))
         {
             $this->parentCats[0] = $v;                      // directly redirect onto this region
             $v = '';                                        // remove from filter
@@ -196,7 +196,15 @@ class RemoteGuildList extends GuildList
             }
             else
             {
-                trigger_error('character "'.$curTpl['name'].'" belongs to nonexistant realm #'.$r, E_USER_WARNING);
+                trigger_error('guild #'.$guid.' belongs to nonexistant realm #'.$r, E_USER_WARNING);
+                unset($this->templates[$guid]);
+                continue;
+            }
+
+            // empty name
+            if (!$curTpl['name'])
+            {
+                trigger_error('guild #'.$guid.' on realm #'.$r.' has empty name.', E_USER_WARNING);
                 unset($this->templates[$guid]);
                 continue;
             }

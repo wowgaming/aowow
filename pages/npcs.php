@@ -10,13 +10,15 @@ class NpcsPage extends GenericPage
 {
     use TrListPage;
 
-    protected $type          = TYPE_NPC;
+    protected $type          = Type::NPC;
     protected $tpl           = 'npcs';
     protected $path          = [0, 4];
     protected $tabId         = 0;
     protected $mode          = CACHE_TYPE_PAGE;
     protected $validCats     = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13];
-    protected $js            = ['filters.js'];
+    protected $js            = [[JS_FILE, 'filters.js']];
+
+    protected $_get          = ['filter' => ['filter' => FILTER_UNSAFE_RAW]];
 
     public function __construct($pageCall, $pageParam)
     {
@@ -31,7 +33,7 @@ class NpcsPage extends GenericPage
 
     protected function generateContent()
     {
-        $this->addJS('?data=zones&locale='.User::$localeId.'&t='.$_SESSION['dataKey']);
+        $this->addScript([JS_FILE, '?data=zones&locale='.User::$localeId.'&t='.$_SESSION['dataKey']]);
 
         $conditions = [];
 
@@ -54,7 +56,7 @@ class NpcsPage extends GenericPage
 
         // recreate form selection
         $this->filter             = $this->filterObj->getForm();
-        $this->filter['query']    = isset($_GET['filter']) ? $_GET['filter'] : null;
+        $this->filter['query']    = $this->_get['filter'];
         $this->filter['initData'] =  ['init' => 'npcs'];
 
         $rCols = $this->filterObj->getReputationCols();

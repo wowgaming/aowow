@@ -10,27 +10,31 @@ class ObjectPage extends GenericPage
 {
     use TrDetailPage;
 
-    protected $type          = TYPE_OBJECT;
+    protected $type          = Type::OBJECT;
     protected $typeId        = 0;
     protected $tpl           = 'object';
     protected $path          = [0, 5];
     protected $tabId         = 0;
     protected $mode          = CACHE_TYPE_PAGE;
-    protected $js            = ['swfobject.js'];
+    protected $js            = [[JS_FILE, 'swfobject.js']];
+
+    protected $_get          = ['domain' => ['filter' => FILTER_CALLBACK, 'options' => 'GenericPage::checkDomain']];
+
+    private   $powerTpl      = '$WowheadPower.registerObject(%d, %d, %s);';
 
     public function __construct($pageCall, $id)
     {
         parent::__construct($pageCall, $id);
 
         // temp locale
-        if ($this->mode == CACHE_TYPE_TOOLTIP && isset($_GET['domain']))
-            Util::powerUseLocale($_GET['domain']);
+        if ($this->mode == CACHE_TYPE_TOOLTIP && $this->_get['domain'])
+            Util::powerUseLocale($this->_get['domain']);
 
         $this->typeId = intVal($id);
 
         $this->subject = new GameObjectList(array(['id', $this->typeId]));
         if ($this->subject->error)
-            $this->notFound();
+            $this->notFound(Lang::game('object'), Lang::gameObject('notFound'));
 
         $this->name = $this->subject->getField('name', true);
     }
@@ -47,7 +51,7 @@ class ObjectPage extends GenericPage
 
     protected function generateContent()
     {
-        $this->addJS('?data=zones&locale='.User::$localeId.'&t='.$_SESSION['dataKey']);
+        $this->addScript([JS_FILE, '?data=zones&locale='.User::$localeId.'&t='.$_SESSION['dataKey']]);
 
         /***********/
         /* Infobox */
@@ -58,7 +62,7 @@ class ObjectPage extends GenericPage
         // Event (ignore events, where the object only gets removed)
         if ($_ = DB::World()->selectCol('SELECT DISTINCT ge.eventEntry FROM game_event ge, game_event_gameobject geg, gameobject g WHERE ge.eventEntry = geg.eventEntry AND g.guid = geg.guid AND g.id = ?d', $this->typeId))
         {
-            $this->extendGlobalIds(TYPE_WORLDEVENT, $_);
+            $this->extendGlobalIds(Type::WORLDEVENT, ...$_);
             $ev = [];
             foreach ($_ as $i => $e)
                 $ev[] = ($i % 2 ? '[br]' : ' ') . '[event='.$e.']';
@@ -66,50 +70,62 @@ class ObjectPage extends GenericPage
             $infobox[] = Util::ucFirst(Lang::game('eventShort')).Lang::main('colon').implode(',', $ev);
         }
 
+        // Faction
+        if ($_ = DB::Aowow()->selectCell('SELECT factionId FROM ?_factiontemplate WHERE id = ?d', $this->subject->getField('faction')))
+        {
+            $this->extendGlobalIds(Type::FACTION, $_);
+            $infobox[] = Util::ucFirst(Lang::game('faction')).Lang::main('colon').'[faction='.$_.']';
+        }
+
         // Reaction
         $_ = function ($r)
         {
-            if ($r == 1)  return 2;
-            if ($r == -1) return 10;
-            return;
+            if ($r == 1)  return 2;                         // q2  green
+            if ($r == -1) return 10;                        // q10 red
+            return;                                         // q   yellow
         };
         $infobox[] = Lang::npc('react').Lang::main('colon').'[color=q'.$_($this->subject->getField('A')).']A[/color] [color=q'.$_($this->subject->getField('H')).']H[/color]';
 
-        // reqSkill
+        // reqSkill +  difficulty
         switch ($this->subject->getField('typeCat'))
         {
             case -3:                                            // Herbalism
                 $infobox[] = sprintf(Lang::game('requires'), Lang::spell('lockType', 2).' ('.$this->subject->getField('reqSkill').')');
+                $infobox[] = Lang::formatSkillBreakpoints(Game::getBreakpointsForSkill(SKILL_HERBALISM, $this->subject->getField('reqSkill')));
                 break;
             case -4:                                            // Mining
                 $infobox[] = sprintf(Lang::game('requires'), Lang::spell('lockType', 3).' ('.$this->subject->getField('reqSkill').')');
+                $infobox[] = Lang::formatSkillBreakpoints(Game::getBreakpointsForSkill(SKILL_MINING, $this->subject->getField('reqSkill')));
                 break;
             case -5:                                            // Lockpicking
                 $infobox[] = sprintf(Lang::game('requires'), Lang::spell('lockType', 1).' ('.$this->subject->getField('reqSkill').')');
+                $infobox[] = Lang::formatSkillBreakpoints(Game::getBreakpointsForSkill(SKILL_LOCKPICKING, $this->subject->getField('reqSkill')));
                 break;
             default:                                            // requires key .. maybe
             {
-                $locks = Lang::getLocks($this->subject->getField('lockId'));
-                $l = '';
-                foreach ($locks as $idx => $_)
-                {
-                    if ($idx < 0)
-                        continue;
+                $locks = Lang::getLocks($this->subject->getField('lockId'), $ids, true);
+                $l = [];
 
-                    $this->extendGlobalIds(TYPE_ITEM, $idx);
-                    $l = Lang::gameObject('key').Lang::main('colon').'[item='.$idx.']';
+                foreach ($ids as $type => $typeIds)
+                    $this->extendGlobalIds($type, ...$typeIds);
+
+                foreach ($locks as $idx => $str)
+                {
+                    if ($idx > 0)
+                        $l[] = Lang::gameObject('key').Lang::main('colon').$str;
+                    else if ($idx < 0)
+                        $l[] = sprintf(Lang::game('requires'), $str);
                 }
 
-                // if no propper item is found use a skill
-                if ($locks)
-                    $infobox[] = $l ? $l : array_pop($locks);
+                if ($l)
+                    $infobox[] = implode('[br]', $l);
             }
         }
 
         // linked trap
         if ($_ = $this->subject->getField('linkedTrap'))
         {
-            $this->extendGlobalIds(TYPE_OBJECT, $_);
+            $this->extendGlobalIds(Type::OBJECT, $_);
             $infobox[] = Lang::gameObject('trap').Lang::main('colon').'[object='.$_.']';
         }
 
@@ -142,7 +158,7 @@ class ObjectPage extends GenericPage
         {
             if ($_ = $this->subject->getField('mStone'))
             {
-                $this->extendGlobalIds(TYPE_ZONE, $_[2]);
+                $this->extendGlobalIds(Type::ZONE, $_[2]);
                 $m = Lang::game('meetingStone').Lang::main('colon').'[zone='.$_[2].']';
 
                 $l = $_[0];
@@ -199,8 +215,10 @@ class ObjectPage extends GenericPage
         // pageText
         if ($this->pageText = Game::getPageText($next = $this->subject->getField('pageTextId')))
         {
-            $this->addCSS(['path' => 'Book.css']);
-            $this->addJS('Book.js');
+            $this->addScript(
+                [JS_FILE,  'Book.js'],
+                [CSS_FILE, 'Book.css']
+            );
         }
 
         // get spawns and path
@@ -248,10 +266,7 @@ class ObjectPage extends GenericPage
             }
 
             if ($sai->prepare())
-            {
-                foreach ($sai->getJSGlobals() as $type => $typeIds)
-                    $this->extendGlobalIds($type, $typeIds);
-            }
+                $this->extendGlobalData($sai->getJSGlobals());
             else
                 trigger_error('Gameobject has AIName set in template but no SmartAI defined.');
         }
@@ -263,7 +278,7 @@ class ObjectPage extends GenericPage
         $this->redButtons  = array(
             BUTTON_WOWHEAD => true,
             BUTTON_LINKS   => ['type' => $this->type, 'typeId' => $this->typeId],
-            BUTTON_VIEW3D  => ['displayId' => $this->subject->getField('displayId'), 'type' => TYPE_OBJECT, 'typeId' => $this->typeId]
+            BUTTON_VIEW3D  => ['displayId' => $this->subject->getField('displayId'), 'type' => Type::OBJECT, 'typeId' => $this->typeId]
         );
 
 
@@ -328,7 +343,7 @@ class ObjectPage extends GenericPage
 
         // tab: starts quest
         // tab: ends quest
-        $startEnd = new QuestList(array(['qse.type', TYPE_OBJECT], ['qse.typeId', $this->typeId]));
+        $startEnd = new QuestList(array(['qse.type', Type::OBJECT], ['qse.typeId', $this->typeId]));
         if (!$startEnd->error)
         {
             $this->extendGlobalData($startEnd->getJSGlobals());
@@ -408,7 +423,7 @@ class ObjectPage extends GenericPage
                     'id'        => 'contains',
                     'name'      => '$LANG.tab_contains',
                     'sort'      => ['-percent', 'name'],
-                    'extraCols' => $extraCols
+                    'extraCols' => array_unique($extraCols)
                 );
 
                 if ($hiddenCols)
@@ -433,11 +448,11 @@ class ObjectPage extends GenericPage
 
             foreach ($reqQuests->iterate() as $qId => $__)
             {
-                if (empty($reqQuests->requires[$qId][TYPE_ITEM]))
+                if (empty($reqQuests->requires[$qId][Type::ITEM]))
                     continue;
 
                 foreach ($reqIds as $rId)
-                    if (in_array($rId, $reqQuests->requires[$qId][TYPE_ITEM]))
+                    if (in_array($rId, $reqQuests->requires[$qId][Type::ITEM]))
                         $reqQuest[$rId] = $reqQuests->id;
             }
         }
@@ -481,45 +496,17 @@ class ObjectPage extends GenericPage
         }
     }
 
-    protected function generateTooltip($asError = false)
+    protected function generateTooltip()
     {
-        if ($asError)
-            return '$WowheadPower.registerObject('.$this->typeId.', '.User::$localeId.', {});';
-
-        $s = $this->subject->getSpawns(SPAWNINFO_SHORT);
-
-        $x  = '$WowheadPower.registerObject('.$this->typeId.', '.User::$localeId.", {\n";
-        $x .= "\tname_".User::$localeString.": '".Util::jsEscape($this->subject->getField('name', true))."',\n";
-        $x .= "\ttooltip_".User::$localeString.": '".Util::jsEscape($this->subject->renderTooltip())."',\n";
-        $x .= "\tmap: ".($s ? "{zone: ".$s[0].", coords: {".$s[1].":".Util::toJSON($s[2])."}}" : '{}')."\n";
-        $x .= "});";
-
-        return $x;
-    }
-
-    public function display($override = '')
-    {
-        if ($this->mode != CACHE_TYPE_TOOLTIP)
-            return parent::display($override);
-
-        if (!$this->loadCache($tt))
+        $power = new StdClass();
+        if (!$this->subject->error)
         {
-            $tt = $this->generateTooltip();
-            $this->saveCache($tt);
+            $power->{'name_'.User::$localeString}    = $this->subject->getField('name', true);
+            $power->{'tooltip_'.User::$localeString} = $this->subject->renderTooltip();
+            $power->map                              = $this->subject->getSpawns(SPAWNINFO_SHORT);
         }
 
-        header('Content-type: application/x-javascript; charset=utf-8');
-        die($tt);
-    }
-
-    public function notFound($title = '', $msg = '')
-    {
-        if ($this->mode != CACHE_TYPE_TOOLTIP)
-            return parent::notFound($title ?: Lang::game('object'), $msg ?: Lang::gameObject('notFound'));
-
-        header('Content-type: application/x-javascript; charset=utf-8');
-        echo $this->generateTooltip(true);
-        exit();
+        return sprintf($this->powerTpl, $this->typeId, User::$localeId, Util::toJSON($power, JSON_AOWOW_POWER));
     }
 }
 

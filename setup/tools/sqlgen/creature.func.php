@@ -11,7 +11,7 @@ SqlGen::register(new class extends SetupScript
 {
     protected $command = 'creature';
 
-    protected $tblDependancyTC = ['creature_template', 'creature_template_locale', 'creature_classlevelstats', 'instance_encounters'];
+    protected $tblDependencyTC = ['creature_template', 'creature_template_locale', 'creature_template_resistance', 'creature_template_spell', 'creature_classlevelstats', 'instance_encounters'];
     protected $dbcSourceFiles  = ['creaturedisplayinfo', 'creaturedisplayinfoextra'];
 
     public function generate(array $ids = []) : bool
@@ -43,15 +43,17 @@ SqlGen::register(new class extends SetupScript
                 unit_class,
                 unit_flags, unit_flags2, dynamicflags,
                 family,
-                IFNULL(t.Type, 0),
-                IFNULL(t.Requirement, 0),
+                trainer_type,
+                trainer_spell,
+                trainer_class,
+                trainer_race,
                 (CASE ct.exp WHEN 0 THEN min.damage_base WHEN 1 THEN min.damage_exp1 ELSE min.damage_exp2 END) AS dmgMin,
                 (CASE ct.exp WHEN 0 THEN max.damage_base WHEN 1 THEN max.damage_exp1 ELSE max.damage_exp2 END) AS dmgMax,
                 min.attackpower AS mleAtkPwrMin,
                 max.attackpower AS mleAtkPwrMax,
                 min.rangedattackpower AS rmgAtkPwrMin,
                 max.rangedattackpower AS rmgAtkPwrMax,
-                ct.type,
+                type,
                 type_flags,
                 lootid, pickpocketloot, skinloot,
                 IFNULL(cts0.Spell, 0), IFNULL(cts1.Spell, 0), IFNULL(cts2.Spell, 0), IFNULL(cts3.Spell, 0), IFNULL(cts4.Spell, 0), IFNULL(cts5.Spell, 0), IFNULL(cts6.Spell, 0), IFNULL(cts7.Spell, 0),
@@ -65,6 +67,7 @@ SqlGen::register(new class extends SetupScript
                 max.basemana  * ct.ManaModifier AS manaMax,
                 min.basearmor * ct.ArmorModifier AS armorMin,
                 max.basearmor * ct.ArmorModifier AS armorMax,
+                IFNULL(ctr1.Resistance, 0), IFNULL(ctr2.Resistance, 0), IFNULL(ctr3.Resistance, 0), IFNULL(ctr4.Resistance, 0), IFNULL(ctr5.Resistance, 0), IFNULL(ctr6.Resistance, 0),
                 RacialLeader,
                 mechanic_immune_mask,
                 flags_extra,
@@ -75,10 +78,6 @@ SqlGen::register(new class extends SetupScript
                 creature_classlevelstats min ON ct.unit_class = min.class AND ct.minlevel = min.level
             JOIN
                 creature_classlevelstats max ON ct.unit_class = max.class AND ct.maxlevel = max.level
-            LEFT JOIN
-                creature_default_trainer cdt ON cdt.CreatureId = ct.entry
-            LEFT JOIN
-                trainer t ON t.Id = cdt.TrainerId
             LEFT JOIN
                 creature_template_locale ctl2 ON ct.entry = ctl2.entry AND ctl2.`locale` = "frFR"
             LEFT JOIN
@@ -107,6 +106,18 @@ SqlGen::register(new class extends SetupScript
                 creature_template_spell cts6 ON ct.entry = cts6.CreatureID AND cts6.Index = 6
             LEFT JOIN
                 creature_template_spell cts7 ON ct.entry = cts7.CreatureID AND cts7.Index = 7
+            LEFT JOIN
+                creature_template_resistance ctr1 ON ct.entry = ctr1.CreatureID AND ctr1.School = 1
+            LEFT JOIN
+                creature_template_resistance ctr2 ON ct.entry = ctr2.CreatureID AND ctr2.School = 2
+            LEFT JOIN
+                creature_template_resistance ctr3 ON ct.entry = ctr3.CreatureID AND ctr3.School = 3
+            LEFT JOIN
+                creature_template_resistance ctr4 ON ct.entry = ctr4.CreatureID AND ctr4.School = 4
+            LEFT JOIN
+                creature_template_resistance ctr5 ON ct.entry = ctr5.CreatureID AND ctr5.School = 5
+            LEFT JOIN
+                creature_template_resistance ctr6 ON ct.entry = ctr6.CreatureID AND ctr6.School = 6
             WHERE
                 ct.entry > ?d
             {
@@ -168,6 +179,8 @@ SqlGen::register(new class extends SetupScript
 
         // apply cuFlag: exCludeFromListview [for nameparts indicating internal usage]
         DB::Aowow()->query('UPDATE ?_creature SET cuFlags = cuFlags | ?d WHERE name_loc0 LIKE "%[%" OR name_loc0 LIKE "%(%" OR name_loc0 LIKE "%visual%" OR name_loc0 LIKE "%trigger%" OR name_loc0 LIKE "%credit%" OR name_loc0 LIKE "%marker%"', CUSTOM_EXCLUDE_FOR_LISTVIEW);
+
+        $this->reapplyCCFlags('creature', Type::NPC);
 
         return true;
     }

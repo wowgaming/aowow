@@ -10,13 +10,16 @@ class EventPage extends GenericPage
 {
     use TrDetailPage;
 
-    protected $type          = TYPE_WORLDEVENT;
+    protected $type          = Type::WORLDEVENT;
     protected $typeId        = 0;
     protected $tpl           = 'detail-page-generic';
     protected $path          = [0, 11];
     protected $tabId         = 0;
     protected $mode          = CACHE_TYPE_PAGE;
 
+    protected $_get          = ['domain' => ['filter' => FILTER_CALLBACK, 'options' => 'GenericPage::checkDomain']];
+
+    private   $powerTpl      = '$WowheadPower.registerHoliday(%d, %d, %s);';
     private   $hId           = 0;
     private   $eId           = 0;
 
@@ -25,14 +28,14 @@ class EventPage extends GenericPage
         parent::__construct($pageCall, $id);
 
         // temp locale
-        if ($this->mode == CACHE_TYPE_TOOLTIP && isset($_GET['domain']))
-            Util::powerUseLocale($_GET['domain']);
+        if ($this->mode == CACHE_TYPE_TOOLTIP && $this->_get['domain'])
+            Util::powerUseLocale($this->_get['domain']);
 
         $this->typeId = intVal($id);
 
         $this->subject = new WorldEventList(array(['id', $this->typeId]));
         if ($this->subject->error)
-            $this->notFound();
+            $this->notFound(Lang::game('event'), Lang::event('notFound'));
 
         $this->hId   = $this->subject->getField('holidayId');
         $this->eId   = $this->typeId;
@@ -64,7 +67,7 @@ class EventPage extends GenericPage
 
     protected function generateContent()
     {
-        $this->addJS('?data=zones&locale='.User::$localeId.'&t='.$_SESSION['dataKey']);
+        $this->addScript([JS_FILE, '?data=zones&locale='.User::$localeId.'&t='.$_SESSION['dataKey']]);
 
         /***********/
         /* Infobox */
@@ -75,7 +78,7 @@ class EventPage extends GenericPage
         // boss
         if ($_ = $this->subject->getField('bossCreature'))
         {
-            $this->extendGlobalIds(TYPE_NPC, $_);
+            $this->extendGlobalIds(Type::NPC, $_);
             $this->infobox[] = Lang::npc('rank', 3).Lang::main('colon').'[npc='.$_.']';
         }
 
@@ -104,7 +107,7 @@ class EventPage extends GenericPage
         $hasFilter = in_array($this->hId, [372, 283, 285, 353, 420, 400, 284, 201, 374, 409, 141, 324, 321, 424, 335, 327, 341, 181, 404, 398, 301]);
 
         // tab: npcs
-        if ($npcIds = DB::World()->selectCol('SELECT id AS ARRAY_KEY, IF(ec.eventEntry > 0, 1, 0) AS added FROM creature c, game_event_creature ec WHERE ec.guid = c.guid AND ABS(ec.eventEntry) = ?d', $this->eId))
+        if ($npcIds = DB::World()->selectCol('SELECT id1 AS ARRAY_KEY, IF(ec.eventEntry > 0, 1, 0) AS added FROM creature c, game_event_creature ec WHERE ec.guid = c.guid AND ABS(ec.eventEntry) = ?d', $this->eId))
         {
             $creatures = new CreatureList(array(['id', array_keys($npcIds)]));
             if (!$creatures->error)
@@ -184,10 +187,10 @@ class EventPage extends GenericPage
                 $this->lvTabs[] = ['quest', $tabData];
 
                 $questItems = [];
-                foreach (array_column($quests->rewards, TYPE_ITEM) as $arr)
+                foreach (array_column($quests->rewards, Type::ITEM) as $arr)
                     $questItems = array_merge($questItems, $arr);
 
-                foreach (array_column($quests->requires, TYPE_ITEM) as $arr)
+                foreach (array_column($quests->requires, Type::ITEM) as $arr)
                     $questItems = array_merge($questItems, $arr);
 
                 if ($questItems)
@@ -200,7 +203,7 @@ class EventPage extends GenericPage
         {
             // vendor
             $cIds = $creatures->getFoundIDs();
-            if ($sells = DB::World()->selectCol('SELECT item FROM npc_vendor nv WHERE entry IN (?a) UNION SELECT item FROM game_event_npc_vendor genv JOIN creature c ON genv.guid = c.guid WHERE c.id IN (?a)', $cIds, $cIds))
+            if ($sells = DB::World()->selectCol('SELECT item FROM npc_vendor nv WHERE entry IN (?a) UNION SELECT item FROM game_event_npc_vendor genv JOIN creature c ON genv.guid = c.guid WHERE c.id1 IN (?a)', $cIds, $cIds))
                 $itemCnd[] = ['id', $sells];
         }
 
@@ -247,7 +250,7 @@ class EventPage extends GenericPage
                     if ($r <= 0)
                         continue;
 
-                    $this->extendGlobalIds(TYPE_WORLDEVENT, $r);
+                    $this->extendGlobalIds(Type::WORLDEVENT, $r);
 
                     $d = $this->subject->getListviewData();
                     $d[$this->eId]['condition'][0][$this->typeId][] = [[-CND_ACTIVE_EVENT, $r]];
@@ -264,6 +267,22 @@ class EventPage extends GenericPage
                 )];
             }
         }
+    }
+
+    protected function generateTooltip() : string
+    {
+        $power = new StdClass();
+        if (!$this->subject->error)
+        {
+            $power->{'name_'.User::$localeString} = $this->subject->getField('name', true);
+
+            if ($this->subject->getField('iconString') != 'trade_engineering')
+                $power->icon = rawurlencode($this->subject->getField('iconString', true, true));
+
+            $power->{'tooltip_'.User::$localeString} = $this->subject->renderTooltip();
+        }
+
+        return sprintf($this->powerTpl, $this->typeId, User::$localeId, Util::toJSON($power, JSON_AOWOW_POWER));
     }
 
     protected function postCache()
@@ -325,50 +344,6 @@ class EventPage extends GenericPage
 
             }
         }
-    }
-
-    protected function generateTooltip($asError = false)
-    {
-        if ($asError)
-            return '$WowheadPower.registerHoliday('.$this->typeId.', '.User::$localeId.', {});';
-
-        $x = '$WowheadPower.registerHoliday('.$this->typeId.', '.User::$localeId.", {\n";
-        $x .= "\tname_".User::$localeString.": '".Util::jsEscape($this->subject->getField('name', true))."',\n";
-
-        if ($this->subject->getField('iconString') != 'trade_engineering')
-            $x .= "\ticon: '".rawurlencode($this->subject->getField('iconString', true, true))."',\n";
-
-        $x .= "\ttooltip_".User::$localeString.": '".$this->subject->renderTooltip()."'\n";
-        $x .= "});";
-
-        return $x;
-    }
-
-    public function display($override = '')
-    {
-        if ($this->mode != CACHE_TYPE_TOOLTIP)
-            return parent::display($override);
-
-        if (!$this->loadCache($tt))
-        {
-            $tt = $this->generateTooltip();
-            $this->saveCache($tt);
-        }
-
-        [$start, $end] = $this->postCache();
-
-        header('Content-type: application/x-javascript; charset=utf-8');
-        die(sprintf($tt, $start, $end));
-    }
-
-    public function notFound($title = '', $msg = '')
-    {
-        if ($this->mode != CACHE_TYPE_TOOLTIP)
-            return parent::notFound($title ?: Lang::game('event'), $msg ?: Lang::event('notFound'));
-
-        header('Content-type: application/x-javascript; charset=utf-8');
-        echo $this->generateTooltip(true);
-        exit();
     }
 }
 

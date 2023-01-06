@@ -10,12 +10,14 @@ class GuildsPage extends GenericPage
 {
     use TrProfiler;
 
-    protected $type     = TYPE_GUILD;
+    protected $type     = Type::GUILD;
 
     protected $tabId    = 1;
     protected $path     = [1, 5, 2];
     protected $tpl      = 'guilds';
-    protected $js       = ['filters.js', 'profile_all.js', 'profile.js'];
+    protected $js       = [[JS_FILE, 'filters.js'], [JS_FILE, 'profile_all.js'], [JS_FILE, 'profile.js']];
+
+    protected $_get     = ['filter' => ['filter' => FILTER_UNSAFE_RAW]];
 
     public function __construct($pageCall, $pageParam)
     {
@@ -55,7 +57,7 @@ class GuildsPage extends GenericPage
 
     protected function generateContent()
     {
-        $this->addJS('?data=realms&locale='.User::$localeId.'&t='.$_SESSION['dataKey']);
+        $this->addScript([JS_FILE, '?data=realms&locale='.User::$localeId.'&t='.$_SESSION['dataKey']]);
 
         $conditions = array(
             ['c.deleteInfos_Account', null],
@@ -67,7 +69,7 @@ class GuildsPage extends GenericPage
 
         // recreate form selection
         $this->filter = $this->filterObj->getForm();
-        $this->filter['query']    = isset($_GET['filter']) ? $_GET['filter'] : null;
+        $this->filter['query']    = $this->_get['filter'];
         $this->filter['initData'] = ['type' => 'guilds'];
 
         $tabData = array(

@@ -10,12 +10,14 @@ class EnchantmentsPage extends GenericPage
 {
     use TrListPage;
 
-    protected $type          = TYPE_ENCHANTMENT;
+    protected $type          = Type::ENCHANTMENT;
     protected $tpl           = 'enchantments';
     protected $path          = [0, 101];
     protected $tabId         = 0;
     protected $mode          = CACHE_TYPE_PAGE;
-    protected $js            = ['filters.js'];
+    protected $js            = [[JS_FILE, 'filters.js']];
+
+    protected $_get          = ['filter' => ['filter' => FILTER_UNSAFE_RAW]];
 
     public function __construct($pageCall, $pageParam)
     {
@@ -25,7 +27,7 @@ class EnchantmentsPage extends GenericPage
         parent::__construct($pageCall, $pageParam);
 
         $this->name   = Util::ucFirst(Lang::game('enchantments'));
-        $this->subCat = $pageParam !== null ? '='.$pageParam : '';
+        $this->subCat = $pageParam !== '' ? '='.$pageParam : '';
     }
 
     protected function generateContent()
@@ -50,7 +52,7 @@ class EnchantmentsPage extends GenericPage
 
         // recreate form selection
         $this->filter             = $this->filterObj->getForm();
-        $this->filter['query']    = isset($_GET['filter']) ? $_GET['filter'] : NULL;
+        $this->filter['query']    = $this->_get['filter'];
         $this->filter['initData'] = ['init' => 'enchantments'];
 
         if ($x = $this->filterObj->getSetCriteria())
@@ -100,8 +102,8 @@ class EnchantmentsPage extends GenericPage
     protected function generatePath()
     {
         $form = $this->filterObj->getForm('form');
-        if (isset($form['ty']) && !is_array($form['ty']))
-            $this->path[] = $form['ty'];
+        if (isset($form['ty']) && count($form['ty']) == 1)
+            $this->path[] = $form['ty'][0];
     }
 }
 

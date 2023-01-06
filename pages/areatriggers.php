@@ -10,14 +10,16 @@ class AreaTriggersPage extends GenericPage
 {
     use TrListPage;
 
-    protected $type          = TYPE_AREATRIGGER;
+    protected $type          = Type::AREATRIGGER;
     protected $tpl           = 'areatriggers';
     protected $path          = [0, 102];
     protected $tabId         = 0;
     protected $mode          = CACHE_TYPE_PAGE;
     protected $validCats     = [0, 1, 2, 3, 4, 5];
-    protected $js            = ['filters.js'];
+    protected $js            = [[JS_FILE, 'filters.js']];
     protected $reqUGroup     = U_GROUP_STAFF;
+
+    protected $_get          = ['filter' => ['filter' => FILTER_UNSAFE_RAW]];
 
     public function __construct($pageCall, $pageParam)
     {
@@ -36,7 +38,7 @@ class AreaTriggersPage extends GenericPage
     {
         // recreate form selection
         $this->filter             = $this->filterObj->getForm();
-        $this->filter['query']    = isset($_GET['filter']) ? $_GET['filter'] : null;
+        $this->filter['query']    = $this->_get['filter'];
         $this->filter['initData'] = ['init' => 'areatrigger'];
 
         if ($x = $this->filterObj->getSetCriteria())

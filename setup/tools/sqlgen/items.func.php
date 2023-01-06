@@ -9,23 +9,13 @@ if (!CLI)
 
 SqlGen::register(new class extends SetupScript
 {
-    use TrCustomData;
+    use TrCustomData;                                       // import custom data from DB
 
     protected $command = 'items';
 
-    protected $tblDependancyAowow = ['icons'];
-    protected $tblDependancyTC    = ['item_template', 'item_template_locale', 'spell_group', 'game_event'];
+    protected $tblDependencyAowow = ['icons'];
+    protected $tblDependencyTC    = ['item_template', 'item_template_locale', 'spell_group', 'game_event'];
     protected $dbcSourceFiles     = ['gemproperties', 'itemdisplayinfo', 'spell', 'glyphproperties', 'durabilityquality', 'durabilitycosts'];
-
-    private $customData = array(
-       33147 => ['class' => 9, 'subClass' => 8],            // one stray enchanting recipe .. with a strange icon
-       7948  => ['itemset' => 221],                         // v   unsure if this should be fixed   v
-       7949  => ['itemset' => 221],
-       7950  => ['itemset' => 221],
-       7951  => ['itemset' => 221],
-       7952  => ['itemset' => 221],
-       7953  => ['itemset' => 221]
-    );
 
     private $skill2cat = array(
         773 => 11,                                          // inscription
@@ -252,6 +242,8 @@ SqlGen::register(new class extends SetupScript
                 ))
             WHERE
                 durability > 0 AND ((classBak = 4 AND subClassBak IN (1, 2, 3, 4, 6)) OR (classBak = 2 AND subClassBak <> 9))');
+
+        $this->reapplyCCFlags('items', Type::ITEM);
 
         return true;
     }

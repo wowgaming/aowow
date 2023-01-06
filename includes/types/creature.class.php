@@ -8,7 +8,7 @@ class CreatureList extends BaseType
 {
     use spawnHelper;
 
-    public static   $type      = TYPE_NPC;
+    public static   $type      = Type::NPC;
     public static   $brickFile = 'creature';
     public static   $dataTable = '?_creature';
 
@@ -81,10 +81,10 @@ class CreatureList extends BaseType
             $row3[] = '('.$_.')';
 
         $x  = '<table>';
-        $x .= '<tr><td><b class="q">'.$this->getField('name', true).'</b></td></tr>';
+        $x .= '<tr><td><b class="q">'.Util::htmlEscape($this->getField('name', true)).'</b></td></tr>';
 
         if ($sn = $this->getField('subname', true))
-            $x .= '<tr><td>'.$sn.'</td></tr>';
+            $x .= '<tr><td>'.Util::htmlEscape($sn).'</td></tr>';
 
         $x .= '<tr><td>'.implode(' ', $row3).'</td></tr>';
 
@@ -117,7 +117,7 @@ class CreatureList extends BaseType
         return !$data ? 0 : $data[array_rand($data)];
     }
 
-    public function getBaseStats($type)
+    public function getBaseStats(string $type) : array
     {
         // i'm aware of the BaseVariance/RangedVariance fields ... i'm just totaly unsure about the whole damage calculation
         switch ($type)
@@ -142,8 +142,14 @@ class CreatureList extends BaseType
                 $rngMin = ($this->getField('dmgMin')       + ($this->getField('rngAtkPwrMin') / 14)) * $this->getField('dmgMultiplier') * $this->getField('rngAtkSpeed');
                 $rngMax = ($this->getField('dmgMax') * 1.5 + ($this->getField('rngAtkPwrMax') / 14)) * $this->getField('dmgMultiplier') * $this->getField('rngAtkSpeed');
                 return [$rngMin, $rngMax];
+            case 'resistance':
+                $r = [];
+                for ($i = SPELL_SCHOOL_HOLY; $i < SPELL_SCHOOL_ARCANE+1; $i++)
+                    $r[$i] = $this->getField('resistance'.$i);
+
+                return $r;
             default:
-                return [0, 0];
+                return [];
         }
     }
 
@@ -246,7 +252,7 @@ class CreatureList extends BaseType
         $data = [];
 
         foreach ($this->iterate() as $__)
-            $data[TYPE_NPC][$this->id] = ['name' => $this->getField('name', true)];
+            $data[Type::NPC][$this->id] = ['name' => $this->getField('name', true)];
 
         return $data;
     }
@@ -259,7 +265,7 @@ class CreatureList extends BaseType
         {
             $data[$this->id] = array(
                 'n'  => $this->getField('parentId') ? $this->getField('parent', true) : $this->getField('name', true),
-                't'  => TYPE_NPC,
+                't'  => Type::NPC,
                 'ti' => $this->getField('parentId') ?: $this->id,
              // 'bd' => (int)($this->curTpl['cuFlags'] & NPC_CU_INSTANCE_BOSS || ($this->curTpl['typeFlags'] & 0x4 && $this->curTpl['rank']))
              // 'z'   where am i spawned
@@ -300,7 +306,7 @@ class CreatureListFilter extends Filter
         11 => [FILTER_CR_BOOLEAN,  'pickpocketLootId',                                        ], // pickpocketable
         12 => [FILTER_CR_CALLBACK, 'cbMoneyDrop',       null,                      null       ], // averagemoneydropped [op] [int]
         15 => [FILTER_CR_CALLBACK, 'cbSpecialSkinLoot', NPC_TYPEFLAG_HERBLOOT,     null       ], // gatherable [yn]
-        16 => [FILTER_CR_CALLBACK, 'cbSpecialSkinLoot', NPC_TYPEFLAG_ENGINEERLOOT, null       ], // minable [yn]
+        16 => [FILTER_CR_CALLBACK, 'cbSpecialSkinLoot', NPC_TYPEFLAG_MININGLOOT,   null       ], // minable [yn]
         18 => [FILTER_CR_FLAG,     'npcflag',           NPC_FLAG_AUCTIONEER                   ], // auctioneer
         19 => [FILTER_CR_FLAG,     'npcflag',           NPC_FLAG_BANKER                       ], // banker
         20 => [FILTER_CR_FLAG,     'npcflag',           NPC_FLAG_BATTLEMASTER                 ], // battlemaster
@@ -323,7 +329,7 @@ class CreatureListFilter extends Filter
         41 => [FILTER_CR_NYI_PH,   1,                   null                                  ], // haslocation [yn] [staff]
         42 => [FILTER_CR_CALLBACK, 'cbReputation',      '>',                       null       ], // increasesrepwith [enum]
         43 => [FILTER_CR_CALLBACK, 'cbReputation',      '<',                       null       ], // decreasesrepwith [enum]
-        44 => [FILTER_CR_CALLBACK, 'cbSpecialSkinLoot', NPC_TYPEFLAG_MININGLOOT,   null       ]  // salvageable [yn]
+        44 => [FILTER_CR_CALLBACK, 'cbSpecialSkinLoot', NPC_TYPEFLAG_ENGINEERLOOT, null       ]  // salvageable [yn]
     );
 
     // fieldId => [checkType, checkValue[, fieldIsArray]]

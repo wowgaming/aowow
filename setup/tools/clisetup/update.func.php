@@ -11,11 +11,25 @@ if (!CLI)
 /* automaticly apply sql-updates */
 /*********************************/
 
-function update()
+function update(?array &$sql = [], ?array &$build = []) : void
 {
     [$date, $part] = array_values(DB::Aowow()->selectRow('SELECT `date`, `part` FROM ?_dbversion'));
 
+    if (CLISetup::getOpt('help'))
+    {
+        CLI::write();
+        CLI::write('  usage: php aowow --update', -1, false);
+        CLI::write();
+        CLI::write('  Checks /setup/updates for new *.sql files and applies them. If required by an applied update, the --sql and --build command are triggered afterwards.', -1, false);
+        CLI::write('  Use this after fetching the latest rev. from Github.', -1, false);
+        CLI::write();
+        CLI::write('  Last Update: '.date(Util::$dateFormatInternal, $date).' (Part #'.$part.')', -1, false);
+        CLI::write();
+        return;
+    }
+
     CLI::write('checking sql updates');
+    CLISetup::siteLock(CLISetup::LOCK_ON);
 
     $nFiles = 0;
     foreach (glob('setup/updates/*.sql') as $file)
@@ -56,6 +70,7 @@ function update()
         CLI::write(' -> '.date('d.m.Y', $fDate).' #'.$fPart.': '.$nQuerys.' queries applied', CLI::LOG_OK);
     }
 
+    CLISetup::siteLock(CLISetup::LOCK_RESTORE);
     CLI::write($nFiles ? 'applied '.$nFiles.' update(s)' : 'db is already up to date', CLI::LOG_OK);
 
     // fetch sql/build after applying updates, as they may contain sync-prompts
@@ -63,16 +78,14 @@ function update()
 
     sleep(1);
 
-    $sql   = trim($sql)   ? array_unique(explode(' ', trim($sql)))   : [];
-    $build = trim($build) ? array_unique(explode(' ', trim($build))) : [];
+    $sql   = trim($sql)   ? array_unique(explode(' ', trim(preg_replace('/[^a-z]+/i', ' ', $sql))))   : [];
+    $build = trim($build) ? array_unique(explode(' ', trim(preg_replace('/[^a-z]+/i', ' ', $build)))) : [];
 
     if ($sql)
         CLI::write('The following table(s) require syncing: '.implode(', ', $sql));
 
     if ($build)
         CLI::write('The following file(s) require syncing: '.implode(', ', $build));
-
-    return [$sql, $build];
 }
 
 ?>

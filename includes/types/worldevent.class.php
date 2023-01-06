@@ -6,7 +6,7 @@ if (!defined('AOWOW_REVISION'))
 
 class WorldEventList extends BaseType
 {
-    public static   $type      = TYPE_WORLDEVENT;
+    public static   $type      = Type::WORLDEVENT;
     public static   $brickFile = 'event';
     public static   $dataTable = '?_events';
 
@@ -162,7 +162,7 @@ class WorldEventList extends BaseType
         $data = [];
 
         foreach ($this->iterate() as $__)
-            $data[TYPE_WORLDEVENT][$this->id] = ['name' => $this->getField('name', true), 'icon' => $this->curTpl['iconString']];
+            $data[Type::WORLDEVENT][$this->id] = ['name' => $this->getField('name', true), 'icon' => $this->curTpl['iconString']];
 
         return $data;
     }
@@ -175,7 +175,7 @@ class WorldEventList extends BaseType
         $x = '<table><tr><td>';
 
         // head                 v that extra % is nesecary because we are using sprintf later on
-        $x .= '<table width="100%%"><tr><td><b>'.Util::jsEscape($this->getField('name', true)).'</b></td><th><b class="q0">'.Lang::event('category', $this->getField('category')).'</b></th></tr></table>';
+        $x .= '<table width="100%%"><tr><td><b>'.$this->getField('name', true).'</b></td><th><b class="q0">'.Lang::event('category', $this->getField('category')).'</b></th></tr></table>';
 
         // use string-placeholder for dates
         // start
@@ -188,7 +188,7 @@ class WorldEventList extends BaseType
         // desc
         if ($this->getField('holidayId'))
             if ($_ = $this->getField('description', true))
-                $x .= '<table><tr><td><span class="q">'.Util::jsEscape($_).'</span></td></tr></table>';
+                $x .= '<table><tr><td><span class="q">'.$_.'</span></td></tr></table>';
 
         return $x;
     }

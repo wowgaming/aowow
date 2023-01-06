@@ -10,28 +10,30 @@ class SoundPage extends GenericPage
 {
     use TrDetailPage;
 
-    protected $type          = TYPE_SOUND;
+    protected $type          = Type::SOUND;
     protected $tpl           = 'sound';
     protected $path          = [0, 19];
     protected $tabId         = 0;
     protected $mode          = CACHE_TYPE_PAGE;
 
-    private   $cat           = 0;
     protected $special       = false;
+    protected $_get          = ['playlist' => ['filter' => FILTER_CALLBACK, 'options' => 'GenericPage::checkEmptySet']];
+
+    private   $cat           = 0;
 
     public function __construct($pageCall, $id)
     {
         parent::__construct($pageCall, $id);
 
         // special case
-        if (!$id && isset($_GET['playlist']))
+        if (!$id && $this->_get['playlist'])
         {
-            $this->special       = true;
-            $this->name          = Lang::sound('cat', 1000);
-            $this->cat           = 1000;
-            $this->articleUrl    = 'sound&playlist';
-            $this->hasComContent = false;
-            $this->mode          = CACHE_TYPE_NONE;
+            $this->special    = true;
+            $this->name       = Lang::sound('cat', 1000);
+            $this->cat        = 1000;
+            $this->articleUrl = 'sound&playlist';
+            $this->contribute = CONTRIBUTE_NONE;
+            $this->mode       = CACHE_TYPE_NONE;
         }
         // regular case
         else
@@ -76,7 +78,7 @@ class SoundPage extends GenericPage
         /* Main Content */
         /****************/
 
-        $this->addJS('?data=zones&locale='.User::$localeId.'&t='.$_SESSION['dataKey']);
+        $this->addScript([JS_FILE, '?data=zones&locale='.User::$localeId.'&t='.$_SESSION['dataKey']]);
 
         // get spawns
         $map = null;
@@ -96,7 +98,7 @@ class SoundPage extends GenericPage
             BUTTON_WOWHEAD  => true,
             BUTTON_PLAYLIST => true,
             BUTTON_LINKS    => array(
-                'type'   => TYPE_SOUND,
+                'type'   => Type::SOUND,
                 'typeId' => $this->typeId,
                 'sound'  => str_replace('\\', '\\\\', $fullpath) // escape for wow client
             )
@@ -269,39 +271,11 @@ class SoundPage extends GenericPage
             }
         }
 
-        $ssQuery = '
-            SELECT
-                source_type AS ARRAY_KEY,
-                entryorguid AS ARRAY_KEY2,
-                0
-            FROM
-                smart_scripts
-            WHERE
-                (action_type = 4 AND action_param1 = ?d AND source_type <> 9) {
-                OR (action_type = 80 AND (action_param1 IN (?a)))
-                OR (action_type = 87 AND (action_param1 IN (?a) OR action_param2 IN (?a) OR action_param3 IN (?a) OR action_param4 IN (?a) OR action_param5 IN (?a) OR action_param6 IN (?a)))
-                OR (action_type = 88 AND (action_param1 IN (?a) OR action_param2 IN (?a)))
-            }
-        ';
-
-        $ssActionLists = DB::World()->selectCol('SELECT entryorguid FROM smart_scripts WHERE action_type = 4 AND action_param1 = ?d AND source_type = 9', $this->typeId);
-        $smartScripts  = DB::World()->selectCol($ssQuery, $this->typeId, $ssActionLists ?: DBSIMPLE_SKIP, $ssActionLists, $ssActionLists, $ssActionLists, $ssActionLists, $ssActionLists, $ssActionLists, $ssActionLists, $ssActionLists);
-
         $creatureIds = DB::World()->selectCol('SELECT ct.CreatureID FROM creature_text ct LEFT JOIN broadcast_text bct ON bct.ID = ct.BroadCastTextId WHERE bct.SoundEntriesID = ?d OR ct.Sound = ?d', $this->typeId, $this->typeId);
-        foreach ($smartScripts as $source => $ids)
-        {
-            switch($source)
-            {
-                case 0:                                     // npc
-                    // filter for guids (id < 0)
-                    $creatureIds = array_merge($creatureIds, array_keys(array_filter($ids, function($x) { return $x > 0; })) );
-                    break;
-                case 1:                                     // gameobject
-                default:
-                    break;
-            }
-        }
 
+        // can objects or areatrigger play sound...?
+        if ($goosp = SmartAI::getOwnerOfSoundPlayed($this->typeId, Type::NPC))
+            $creatureIds = array_merge($creatureIds, $goosp[Type::NPC]);
 
         // tab: NPC (dialogues...?, generic creature sound)
         // skipping (always empty): transforms, footsteps
@@ -357,7 +331,7 @@ class SoundPage extends GenericPage
             $npcs = new CreatureList($cnds);
             if (!$npcs->error)
             {
-                $this->addJS('?data=zones&locale='.User::$localeId.'&t='.$_SESSION['dataKey']);
+                $this->addScript([JS_FILE, '?data=zones&locale='.User::$localeId.'&t='.$_SESSION['dataKey']]);
 
                 $this->extendGlobalData($npcs->getJSGlobals(GLOBALINFO_SELF));
                 $this->lvTabs[] = ['creature', ['data' => array_values($npcs->getListviewData())]];

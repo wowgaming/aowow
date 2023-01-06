@@ -10,26 +10,30 @@ class CurrencyPage extends GenericPage
 {
     use TrDetailPage;
 
-    protected $type          = TYPE_CURRENCY;
+    protected $type          = Type::CURRENCY;
     protected $typeId        = 0;
     protected $tpl           = 'detail-page-generic';
     protected $path          = [0, 15];
     protected $tabId         = 0;
     protected $mode          = CACHE_TYPE_PAGE;
 
+    protected $_get          = ['domain' => ['filter' => FILTER_CALLBACK, 'options' => 'GenericPage::checkDomain']];
+
+    private   $powerTpl      = '$WowheadPower.registerCurrency(%d, %d, %s);';
+
     public function __construct($pageCall, $id)
     {
         parent::__construct($pageCall, $id);
 
         // temp locale
-        if ($this->mode == CACHE_TYPE_TOOLTIP && isset($_GET['domain']))
-            Util::powerUseLocale($_GET['domain']);
+        if ($this->mode == CACHE_TYPE_TOOLTIP && $this->_get['domain'])
+            Util::powerUseLocale($this->_get['domain']);
 
         $this->typeId = intVal($id);
 
         $this->subject = new CurrencyList(array(['id', $this->typeId]));
         if ($this->subject->error)
-            $this->notFound();
+            $this->notFound(Lang::game('currency'), Lang::currency('notFound'));
 
         $this->name = $this->subject->getField('name', true);
     }
@@ -46,7 +50,7 @@ class CurrencyPage extends GenericPage
 
     protected function generateContent()
     {
-        $this->addJS('?data=zones&locale='.User::$localeId.'&t='.$_SESSION['dataKey']);
+        $this->addScript([JS_FILE, '?data=zones&locale='.User::$localeId.'&t='.$_SESSION['dataKey']]);
 
         $_itemId = $this->subject->getField('itemId');
 
@@ -64,7 +68,7 @@ class CurrencyPage extends GenericPage
         if ($_ = $this->subject->getField('iconId'))
         {
             $infobox[] = Util::ucFirst(lang::game('icon')).Lang::main('colon').'[icondb='.$_.' name=true]';
-            $this->extendGlobalIds(TYPE_ICON, $_);
+            $this->extendGlobalIds(Type::ICON, $_);
         }
 
         /****************/
@@ -134,7 +138,7 @@ class CurrencyPage extends GenericPage
                             if (count($extraCols) == 3)             // not already pushed
                                 $extraCols[] = '$Listview.extraCols.condition';
 
-                            $this->extendGlobalIds(TYPE_WORLDEVENT, $vendors[$k][0]['event']);
+                            $this->extendGlobalIds(Type::WORLDEVENT, $vendors[$k][0]['event']);
                             $row['condition'][0][$this->typeId][] = [[CND_ACTIVE_EVENT, $vendors[$k][0]['event']]];
                         }
 
@@ -204,7 +208,7 @@ class CurrencyPage extends GenericPage
             if (!$boughtBy->error)
             {
                 $tabData = array(
-                    'data'      => array_values($boughtBy->getListviewData(ITEMINFO_VENDOR, [TYPE_CURRENCY => $this->typeId])),
+                    'data'      => array_values($boughtBy->getListviewData(ITEMINFO_VENDOR, [Type::CURRENCY => $this->typeId])),
                     'name'      => '$LANG.tab_currencyfor',
                     'id'        => 'currency-for',
                     'extraCols' => ["\$Listview.funcBox.createSimpleCol('stack', 'stack', '10%', 'stack')", '$Listview.extraCols.cost'],
@@ -220,43 +224,17 @@ class CurrencyPage extends GenericPage
         }
     }
 
-    protected function generateTooltip($asError = false)
+    protected function generateTooltip()
     {
-        if ($asError)
-            return '$WowheadPower.registerCurrency('.$this->typeId.', '.User::$localeId.', {});';
-
-        $x = '$WowheadPower.registerCurrency('.$this->typeId.', '.User::$localeId.", {\n";
-        $x .= "\tname_".User::$localeString.": '".Util::jsEscape($this->subject->getField('name', true))."',\n";
-        $x .= "\ticon: '".rawurlencode($this->subject->getField('iconString', true, true))."',\n";
-        $x .= "\ttooltip_".User::$localeString.": '".$this->subject->renderTooltip()."'\n";
-        $x .= "});";
-
-        return $x;
-    }
-
-    public function display($override = '')
-    {
-        if ($this->mode != CACHE_TYPE_TOOLTIP)
-            return parent::display($override);
-
-        if (!$this->loadCache($tt))
+        $power = new StdClass();
+        if (!$this->subject->error)
         {
-            $tt = $this->generateTooltip();
-            $this->saveCache($tt);
+            $power->{'name_'.User::$localeString}    = $this->subject->getField('name', true);
+            $power->icon                             = rawurlencode($this->subject->getField('iconString', true, true));
+            $power->{'tooltip_'.User::$localeString} = $this->subject->renderTooltip();
         }
 
-        header('Content-type: application/x-javascript; charset=utf-8');
-        die($tt);
-    }
-
-    public function notFound($title = '', $msg = '')
-    {
-        if ($this->mode != CACHE_TYPE_TOOLTIP)
-            return parent::notFound($title ?: Lang::game('currency'), $msg ?: Lang::currency('notFound'));
-
-        header('Content-type: application/x-javascript; charset=utf-8');
-        echo $this->generateTooltip(true);
-        exit();
+        return sprintf($this->powerTpl, $this->typeId, User::$localeId, Util::toJSON($power, JSON_AOWOW_POWER));
     }
 }
 

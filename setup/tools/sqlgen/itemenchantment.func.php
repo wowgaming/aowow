@@ -11,7 +11,7 @@ SqlGen::register(new class extends SetupScript
 {
     protected $command = 'itemenchantment';
 
-    protected $tblDependancyTC = ['spell_enchant_proc_data'];
+    protected $tblDependencyTC = ['spell_enchant_proc_data'];
     protected $dbcSourceFiles  = ['spellitemenchantment'];
 
     public function generate(array $ids = []) : bool
@@ -26,13 +26,15 @@ SqlGen::register(new class extends SetupScript
 
         DB::Aowow()->query($baseQuery);
 
-        $cuProcs = DB::World()->select('SELECT EnchantID AS ARRAY_KEY, Chance AS procChance, ProcsPerMinute AS ppmRate FROM spell_enchant_proc_data');
+        $cuProcs = DB::World()->select('SELECT `entry` AS ARRAY_KEY, customChance AS procChance, PPMChance AS ppmRate FROM spell_enchant_proc_data');
         foreach ($cuProcs as $id => $vals)
             DB::Aowow()->query('UPDATE ?_itemenchantment SET ?a WHERE id = ?d', $vals, $id);
 
         // hide strange stuff
         DB::Aowow()->query('UPDATE ?_itemenchantment SET cuFlags = ?d WHERE type1 = 0 AND type2 = 0 AND type3 = 0', CUSTOM_EXCLUDE_FOR_LISTVIEW);
         DB::Aowow()->query('UPDATE ?_itemenchantment SET cuFlags = ?d WHERE name_loc0 LIKE "%test%"', CUSTOM_EXCLUDE_FOR_LISTVIEW);
+
+        $this->reapplyCCFlags('itemenchantment', Type::ENCHANTMENT);
 
         return true;
     }

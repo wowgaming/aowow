@@ -8,7 +8,7 @@ class TitleList extends BaseType
 {
     use listviewHelper;
 
-    public static   $type      = TYPE_TITLE;
+    public static   $type      = Type::TITLE;
     public static   $brickFile = 'title';
     public static   $dataTable = '?_titles';
 
@@ -16,7 +16,7 @@ class TitleList extends BaseType
 
     protected       $queryBase = 'SELECT t.*, id AS ARRAY_KEY FROM ?_titles t';
     protected       $queryOpts = array(
-                        't'   => [['src']],                 //    11: TYPE_TITLE
+                        't'   => [['src']],                 //    11: Type::TITLE
                         'src' => ['j' => ['?_source src ON type = 11 AND typeId = t.id', true], 's' => ', src13, moreType, moreTypeId']
                     );
 
@@ -28,9 +28,9 @@ class TitleList extends BaseType
         foreach ($this->iterate() as $id => &$_curTpl)
         {
             // preparse sources - notice: under this system titles can't have more than one source (or two for achivements), which is enough for standard TC cases but may break custom cases
-            if ($_curTpl['moreType'] == TYPE_ACHIEVEMENT)
+            if ($_curTpl['moreType'] == Type::ACHIEVEMENT)
                 $this->sources[$this->id][12][] = $_curTpl['moreTypeId'];
-            else if ($_curTpl['moreType'] == TYPE_QUEST)
+            else if ($_curTpl['moreType'] == Type::QUEST)
                 $this->sources[$this->id][4][] = $_curTpl['moreTypeId'];
             else if ($_curTpl['src13'])
                 $this->sources[$this->id][13][] = $_curTpl['src13'];
@@ -81,10 +81,10 @@ class TitleList extends BaseType
 
         foreach ($this->iterate() as $__)
         {
-            $data[TYPE_TITLE][$this->id]['name'] = $this->getField('male', true);
+            $data[Type::TITLE][$this->id]['name'] = $this->getField('male', true);
 
             if ($_ = $this->getField('female', true))
-                $data[TYPE_TITLE][$this->id]['namefemale'] = $_;
+                $data[Type::TITLE][$this->id]['namefemale'] = $_;
         }
 
         return $data;
@@ -114,9 +114,6 @@ class TitleList extends BaseType
 
         if (!empty($sources[12]))
             $sources[12] = (new AchievementList(array(['id', $sources[12]])))->getSourceData();
-
-        if (!empty($sources[13]))
-            $sources[13] = DB::Aowow()->SELECT('SELECT *, Id AS ARRAY_KEY FROM ?_sourcestrings WHERE Id IN (?a)', $sources[13]);
 
         foreach ($this->sources as $Id => $src)
         {
@@ -148,7 +145,7 @@ class TitleList extends BaseType
 
             // other source (only one item possible, so no iteration needed)
             if (isset($src[13]))
-                $tmp[13] = [Util::localizedString($sources[13][$this->sources[$Id][13][0]], 'source')];
+                $tmp[13] = [Lang::game('pvpSources', $this->sources[$Id][13][0])];
 
             $this->templates[$Id]['source'] = $tmp;
         }
