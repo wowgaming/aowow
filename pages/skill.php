@@ -250,8 +250,8 @@ class SkillPage extends GenericPage
         if (in_array($this->cat, [-5, 6, 7, 8, 9, 11]))
         {
             $list = [];
-            if (!empty(Game::$trainerTemplates[TYPE_SKILL][$this->typeId]))
-                $list = DB::World()->selectCol('SELECT DISTINCT ID FROM npc_trainer WHERE SpellID IN (?a) AND ID < 200000', Game::$trainerTemplates[TYPE_SKILL][$this->typeId]);
+            if (!empty(Game::$trainerTemplates[Type::SKILL][$this->typeId]))
+                $list = DB::World()->selectCol('SELECT DISTINCT ID FROM npc_trainer WHERE SpellID IN (?a) AND ID < 200000', Game::$trainerTemplates[Type::SKILL][$this->typeId]);
             else
             {
                 $mask = 0;
