@@ -15,7 +15,7 @@ jobs:
     - name: FTP-Deploy-Action
       uses: SamKirkland/FTP-Deploy-Action@v4.3.5
       with:
-        server: ftp.wowgaming.altervista.org/aowow/
+        server: ftp.wowgaming.altervista.org
         username: wowgaming
         password: ${{ secrets.FTP_PASSWORD }}
         server-dir: aowow/
