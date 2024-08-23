@@ -511,7 +511,7 @@ class GuidePage extends GenericPage
         return $this->typeId > 0;
     }
 
-    protected function editorFields(string $field, bool $asInt = false) : string|int
+    protected function editorFields(string $field, bool $asInt = false) : string //|int
     {
         return $this->editorFields[$field] ?? ($asInt ? 0 : '');
     }
@@ -530,8 +530,9 @@ class GuidePage extends GenericPage
 
     protected function generatePath() : void
     {
-        if ($x = $this->subject?->getField('category'))
+        if ($x = $this->subject?->getField('category')) {
             $this->path[] = $x;
+        }
     }
 
     protected function generateTitle() : void
@@ -547,8 +548,9 @@ class GuidePage extends GenericPage
     protected function postCache() : void
     {
         // increment views of published guide; ignore caching
-        if ($this->subject?->getField('status') == GUIDE_STATUS_APPROVED)
+        if ($this->subject && $this->subject->getField('status') == GUIDE_STATUS_APPROVED) {
             DB::Aowow()->query('UPDATE ?_guides SET `views` = `views` + 1 WHERE `id` = ?d', $this->typeId);
+        }
     }
 }
 

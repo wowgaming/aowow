@@ -3,6 +3,23 @@
 if (!defined('AOWOW_REVISION'))
     die('illegal access');
 
+// debug START (disable this in production) // Qeme
+// ini_set('display_errors', 1);
+// ini_set('display_startup_errors', 1);
+// error_reporting(E_ALL);
+
+// echo "kernel.php is being executed.<br>";
+
+// // Add error and exception handlers
+// set_exception_handler(function($e) {
+//     echo 'Uncaught exception: ', $e->getMessage(), "\n";
+// });
+
+// set_error_handler(function($errno, $errstr, $errfile, $errline) {
+//     echo "Error: [$errno] $errstr - $errfile:$errline";
+//     return true;
+// });
+// debug END
 
 if (file_exists('config/config.php'))
     require_once 'config/config.php';

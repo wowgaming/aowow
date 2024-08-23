@@ -1,5 +1,13 @@
 <?php
 
+// debugging START (disable this in production) // Qeme
+// ini_set('display_errors', 1);
+// ini_set('display_startup_errors', 1);
+// error_reporting(E_ALL);
+
+// echo "index.php is being executed.<br>";
+// debugging END
+
 require 'includes/shared.php';
 
 if (CLI)

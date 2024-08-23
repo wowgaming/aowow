@@ -27,43 +27,62 @@ class SmartAI
     {
         if ($npcId <= 0)
             return [];
-
+    
         $lookup = array(
             SAI_ACTION_SUMMON_CREATURE         => [1 => $npcId],
             SAI_ACTION_MOUNT_TO_ENTRY_OR_MODEL => [1 => $npcId]
         );
-
+    
+        // Query pool_creature for AzerothCore
         if ($npcGuids = DB::Aowow()->selectCol('SELECT guid FROM ?_spawns WHERE `type` = ?d AND `typeId` = ?d', Type::NPC, $npcId))
-            if ($groups = DB::World()->selectCol('SELECT `groupId` FROM spawn_group WHERE `spawnType` = 0 AND `spawnId` IN (?a)', $npcGuids))
+        {
+            if ($groups = DB::World()->selectCol('SELECT `pool_entry` FROM pool_creature WHERE `guid` IN (?a)', $npcGuids))
+            {
                 foreach ($groups as $g)
+                {
                     $lookup[SAI_ACTION_SPAWN_SPAWNGROUP][1] = $g;
-
+                }
+            }
+        }
+    
         $result = self::getActionOwner($lookup, $typeFilter);
-
-        // can skip lookups for SAI_ACTION_SUMMON_CREATURE_GROUP as creature_summon_groups already contains summoner info
+    
+        // Skip lookups for SAI_ACTION_SUMMON_CREATURE_GROUP as creature_summon_groups already contains summoner info
         if ($sgs = DB::World()->select('SELECT `summonerType` AS "0", `summonerId` AS "1" FROM creature_summon_groups WHERE `entry` = ?d', $npcId))
+        {
             foreach ($sgs as [$type, $typeId])
+            {
                 $result[$type][] = $typeId;
-
+            }
+        }
+    
         return $result;
     }
-
+    
     public static function getOwnerOfObjectSummon(int $objectId, int $typeFilter = 0) : array
     {
         if ($objectId <= 0)
             return [];
-
+    
         $lookup = array(
             SAI_ACTION_SUMMON_GO => [1 => $objectId]
         );
-
+    
+        // Query pool_gameobject for AzerothCore
         if ($objGuids = DB::Aowow()->selectCol('SELECT guid FROM ?_spawns WHERE `type` = ?d AND `typeId` = ?d', Type::OBJECT, $objectId))
-            if ($groups = DB::World()->selectCol('SELECT `groupId` FROM spawn_group WHERE `spawnType` = 1 AND `spawnId` IN (?a)', $objGuids))
+        {
+            if ($groups = DB::World()->selectCol('SELECT `pool_entry` FROM pool_gameobject WHERE `guid` IN (?a)', $objGuids))
+            {
                 foreach ($groups as $g)
-                    $lookup[SAI_ACTION_SPAWN_SPAWNGROUP][1] = $g;
-
+                {
+                    $lookup[SAI_ACTION_SPAWNGROUP][1] = $g;
+                }
+            }
+        }
+    
         return self::getActionOwner($lookup, $typeFilter);
     }
+    
 
     public static function getOwnerOfSpellCast(int $spellId, int $typeFilter = 0) : array
     {
@@ -522,7 +541,7 @@ class SmartAI
         switch ($this->itr['target']['type'])
         {
             case SAI_TARGET_CREATURE_GUID:
-                if ($id = DB::World()->selectCell('SELECT id FROM creature WHERE guid = ?d', $this->itr['target']['param'][0]))
+                if ($id = DB::World()->selectCell('SELECT id1 FROM creature WHERE guid = ?d', $this->itr['target']['param'][0]))
                     return $id;
 
                 break;
@@ -730,7 +749,7 @@ class SmartAI
                 $t['param'][10] = $getDist($t['param'][1], $t['param'][2]);
                 break;
             case SAI_TARGET_CREATURE_GUID:                  // 10
-                if ($t['param'][10] = DB::World()->selectCell('SELECT id FROM creature WHERE guid = ?d', $t['param'][0]))
+                if ($t['param'][10] = DB::World()->selectCell('SELECT id1 FROM creature WHERE guid = ?d', $t['param'][0]))
                     $this->jsGlobals[Type::NPC][] = $t['param'][10];
                 else
                     trigger_error('SmartAI::resloveTarget - creature with guid '.$t['param'][0].' not in DB');
@@ -939,7 +958,7 @@ class SmartAI
                 break;
             case SAI_EVENT_DISTANCE_CREATURE:               // 75  -  On creature guid OR any instance of creature entry is within distance.
                 if ($e['param'][0])
-                    $e['param'][10] = DB::World()->selectCell('SELECT id FROM creature WHERE guid = ?d', $e['param'][0]);
+                    $e['param'][10] = DB::World()->selectCell('SELECT id1 FROM creature WHERE guid = ?d', $e['param'][0]);
                 // do not break;
             case SAI_EVENT_DISTANCE_GAMEOBJECT:             // 76  -  On gameobject guid OR any instance of gameobject entry is within distance.
                 if ($e['param'][0] && !$e['param'][10])

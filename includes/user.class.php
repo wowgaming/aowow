@@ -278,28 +278,72 @@ class User
                 $hash = $query['passHash'];
                 break;
             }
+
             case AUTH_MODE_REALM:
-            {
-                if (!DB::isConnectable(DB_AUTH))
-                    return AUTH_INTERNAL_ERR;
+                {
+                    if (!DB::isConnectable(DB_AUTH))
+                        return AUTH_INTERNAL_ERR;
 
-                $wow = DB::Auth()->selectRow('SELECT a.id, a.salt, a.verifier, ab.active AS hasBan FROM account a LEFT JOIN account_banned ab ON ab.id = a.id AND active <> 0 WHERE username = ? LIMIT 1', $name);
-                if (!$wow)
-                    return AUTH_WRONGUSER;
+                    $wow = DB::Auth()->selectRow('SELECT a.id, a.salt, a.verifier, ab.active AS hasBan FROM account a LEFT JOIN account_banned ab ON ab.id = a.id AND active <> 0 WHERE username = ? LIMIT 1', $name);
+                    if (!$wow)
+                        return AUTH_WRONGUSER;
 
-                if (!self::verifySRP6($name, $pass, $wow['salt'], $wow['verifier']))
-                    return AUTH_WRONGPASS;
+                    if (!self::verifySRP6($name, $pass, $wow['salt'], $wow['verifier']))
+                        return AUTH_WRONGPASS;
 
-                if ($wow['hasBan'])
-                    return AUTH_BANNED;
+                    if ($wow['hasBan'])
+                        return AUTH_BANNED;
 
-                if ($_ = self::checkOrCreateInDB($wow['id'], $name))
-                    $user = $_;
-                else
-                    return AUTH_INTERNAL_ERR;
+                    if ($_ = self::checkOrCreateInDB($wow['id'], $name))
+                        $user = $_;
+                    else
+                        return AUTH_INTERNAL_ERR;
 
-                break;
-            }
+                    break;
+                }
+                
+            // AzerothCore    
+            case AUTH_MODE_ACORE:
+                {
+                    try {
+                        // Check if the database connection is available
+                        if (!DB::isConnectable(DB_AUTH))
+                            throw new Exception('Database connection error', AUTH_INTERNAL_ERR);
+                
+                        // Query the database for user information
+                        $wow = DB::Auth()->selectRow('SELECT a.id, a.salt, a.verifier, ab.active AS hasBan 
+                                                        FROM account a 
+                                                        LEFT JOIN account_banned ab ON ab.id = a.id AND ab.active <> 0 
+                                                        WHERE a.username = ? LIMIT 1', $name);
+                        
+                        // Check if user exists
+                        if (!$wow)
+                            throw new Exception('User not found', AUTH_WRONGUSER);
+                
+                        // Verify password using SRP6
+                        if (!self::verifySRP6($name, $pass, $wow['salt'], $wow['verifier']))
+                            throw new Exception('Invalid password', AUTH_WRONGPASS);
+                
+                        // Check if the user is banned
+                        if ($wow['hasBan'])
+                            throw new Exception('User is banned', AUTH_BANNED);
+                
+                        // Check or create user in the database
+                        if (!($_ = self::checkOrCreateInDB($wow['id'], $name)))
+                            throw new Exception('Internal error', AUTH_INTERNAL_ERR);
+                
+                        $user = $_;
+                        
+                    } catch (Exception $e) {
+                        // Log error message
+                        error_log($e->getMessage());
+                
+                        // Return appropriate error code
+                        return $e->getCode();
+                    }
+                    break;
+                }                  
+                
             case AUTH_MODE_EXTERNAL:
             {
                 if (!file_exists('config/extAuth.php'))
@@ -415,6 +459,12 @@ class User
         {
             $min = 3;
             $max = 32;
+        }
+        // AzerothCore
+        else if (CFG_ACC_AUTH_MODE == AUTH_MODE_ACORE)
+        {
+            $min = 2;
+            $max = 16;
         }
 
         if (($min && mb_strlen($name) < $min) || ($max && mb_strlen($name) > $max))

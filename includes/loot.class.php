@@ -263,30 +263,29 @@ class Loot
     public function getByContainer(string $table, int $entry): bool
     {
         $this->entry = intVal($entry);
-
+    
         if (!in_array($table, $this->lootTemplates) || !$this->entry)
             return false;
-
+    
         /*
             todo (high): implement conditions on loot (and conditions in general)
-
+    
         also
-
+    
             // if (is_array($this->entry) && in_array($table, [LOOT_CREATURE, LOOT_GAMEOBJECT])
                 // iterate over the 4 available difficulties and assign modes
-
-
+    
             modes:{"mode":1,"1":{"count":4408,"outof":16013},"4":{"count":4408,"outof":22531}}
         */
         $handledRefs = [];
         $struct = self::getByContainerRecursive($table, $this->entry, $handledRefs);
         if (!$struct)
             return false;
-
+    
         $items = new ItemList(array(['i.id', $struct[1]], CFG_SQL_LIMIT_NONE));
         $this->jsGlobals = $items->getJSGlobals(GLOBALINFO_SELF | GLOBALINFO_RELATED);
         $foo = $items->getListviewData();
-
+    
         // assign listview LV rows to loot rows, not the other way round! The same item may be contained multiple times
         foreach ($struct[0] as $loot)
         {
@@ -294,31 +293,52 @@ class Loot
                 'percent' => round($loot['groupChance'] * $loot['realChanceMod'], 3),
                 'group'   => $loot['group'],
                 'quest'   => $loot['quest'],
-                'count'   => 1                              // satisfies the sort-script
+                'count'   => 1 // satisfies the sort-script
             );
-
+    
             if ($_ = $loot['mode'])
                 $base['mode'] = $_;
-
+    
             if ($_ = $loot['parentRef'])
                 $base['reference'] = $_;
-
+    
             if ($_ = self::createStack($loot))
                 $base['pctstack'] = $_;
-
-            if (empty($loot['reference']))                  // regular drop
+    
+            if (empty($loot['reference'])) // regular drop
             {
                 if (!User::isInGroup(U_GROUP_EMPLOYEE))
                 {
                     if (!isset($this->results[$loot['content']]))
-                        $this->results[$loot['content']] = array_merge($foo[$loot['content']], $base, ['stack' => [$loot['min'], $loot['max']]]);
+                    {
+                        // Check if $foo[$loot['content']] exists
+                        if (isset($foo[$loot['content']])) {
+                            $this->results[$loot['content']] = array_merge($foo[$loot['content']], $base, ['stack' => [$loot['min'], $loot['max']]]);
+                        } else {
+                            // Handle the case where $foo[$loot['content']] is not set
+                            error_log("Warning: Undefined array key {$loot['content']} in loot.class.php");
+                            // Optionally, we can provide a default value
+                            $this->results[$loot['content']] = array_merge($base, ['stack' => [$loot['min'], $loot['max']]]);
+                        }
+                    }
                     else
+                    {
                         $this->results[$loot['content']]['percent'] += $base['percent'];
+                    }
                 }
-                else                                        // in case of limited trash loot, check if $foo[<itemId>] exists
-                    $this->results[] = array_merge($foo[$loot['content']], $base, ['stack' => [$loot['min'], $loot['max']]]);
+                else // in case of limited trash loot, check if $foo[<itemId>] exists
+                {
+                    if (isset($foo[$loot['content']])) {
+                        $this->results[] = array_merge($foo[$loot['content']], $base, ['stack' => [$loot['min'], $loot['max']]]);
+                    } else {
+                        // Handle the case where $foo[$loot['content']] is not set
+                        error_log("Warning: Undefined array key {$loot['content']} in loot.class.php");
+                        // Optionally, we can provide a default value
+                        $this->results[] = array_merge($base, ['stack' => [$loot['min'], $loot['max']]]);
+                    }
+                }
             }
-            else if (User::isInGroup(U_GROUP_EMPLOYEE))     // create dummy for ref-drop
+            else if (User::isInGroup(U_GROUP_EMPLOYEE)) // create dummy for ref-drop
             {
                 $data = array(
                     'id'    => $loot['reference'],
@@ -327,11 +347,11 @@ class Loot
                     'stack' => [$loot['multiplier'], $loot['multiplier']]
                 );
                 $this->results[] = array_merge($base, $data);
-
+    
                 $this->jsGlobals[Type::ITEM][$loot['reference']] = $data;
             }
         }
-
+    
         // move excessive % to extra loot
         if (!User::isInGroup(U_GROUP_EMPLOYEE))
         {
@@ -339,14 +359,14 @@ class Loot
             {
                 if ($_['percent'] <= 100)
                     continue;
-
+    
                 while ($_['percent'] > 200)
                 {
                     $_['stack'][0]++;
                     $_['stack'][1]++;
                     $_['percent'] -= 100;
                 }
-
+    
                 $_['stack'][1]++;
                 $_['percent'] = 100;
             }
@@ -366,20 +386,20 @@ class Loot
                     else if ($base[$idx] != $val)
                         $set |= 1 << $idx;
                 }
-
+    
                 if ($set == (pow(2, count($fields)) - 1))
                     break;
             }
-
+    
             $this->extraCols[] = "\$Listview.funcBox.createSimpleCol('group', 'Group', '7%', 'group')";
             foreach ($fields as $idx => $field)
                 if ($set & (1 << $idx))
                     $this->extraCols[] = "\$Listview.funcBox.createSimpleCol('".$field."', '".Util::ucFirst($field)."', '7%', '".$field."')";
         }
-
+    
         return true;
     }
-
+    
     public function getByItem(int $entry, int $maxResults = CFG_SQL_LIMIT_DEFAULT, array $lootTableList = []) : bool
     {
         $this->entry = intVal($entry);

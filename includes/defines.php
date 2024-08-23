@@ -110,6 +110,7 @@ define('AUTH_INTERNAL_ERR',                 6);
 define('AUTH_MODE_SELF',                    0);             // uses ?_accounts
 define('AUTH_MODE_REALM',                   1);             // uses given realm-table
 define('AUTH_MODE_EXTERNAL',                2);             // uses external script
+define('AUTH_MODE_ACORE',                   3);             // uses azerothcore auth database
 
 // Times
 define('MINUTE',                            60);

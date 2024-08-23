@@ -1758,7 +1758,7 @@ abstract class Type
         if (!self::exists($type))
             return null;
 
-        return new (self::$data[$type][self::IDX_LIST_OBJ])($conditions);
+        return new self::$data[$type][self::IDX_LIST_OBJ]($conditions);
     }
 
     public static function getFileString(int $type) : string

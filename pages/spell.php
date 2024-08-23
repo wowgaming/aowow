@@ -1546,7 +1546,7 @@ class SpellPage extends GenericPage
     private function createEffects(&$infobox, &$redButtons)
     {
         // proc data .. maybe use more information..?
-        $procData = DB::World()->selectRow('SELECT IF(ratePerMinute  > 0, -ratePerMinute, Chance) AS chance, Cooldown AS cooldown FROM spell_proc WHERE ABS(SpellId) = ?d', $this->firstRank);
+        $procData = DB::World()->selectRow('SELECT IF(ppmRate  > 0, -ppmRate, CustomChance) AS chance, Cooldown AS cooldown FROM spell_proc_event WHERE ABS(`entry`) = ?d', $this->firstRank);
         if (!isset($procData['cooldown']))
             $procData['cooldown'] = 0;
 
