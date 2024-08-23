@@ -18,3 +18,4 @@ jobs:
         server: ftp.wowgaming.altervista.org/aowow/
         username: wowgaming
         password: ${{ secrets.FTP_PASSWORD }}
+        server-dir: aowow/
