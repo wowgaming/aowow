@@ -1,21 +1,21 @@
-name: Publish Website
-on:
-  push:
-    branches:
-      - master
+# name: Publish Website
+# on:
+#   push:
+#     branches:
+#       - master
 
-jobs:
-  FTP-Deploy-Action:
-    name: FTP-Deploy-Action
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-      with:
-        fetch-depth: 2
-    - name: FTP-Deploy-Action
-      uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-      with:
-        server: ftp.wowgaming.altervista.org
-        username: wowgaming
-        password: ${{ secrets.FTP_PASSWORD }}
-        server-dir: aowow/
+# jobs:
+#   FTP-Deploy-Action:
+#     name: FTP-Deploy-Action
+#     runs-on: ubuntu-latest
+#     steps:
+#     - uses: actions/checkout@v4
+#       with:
+#         fetch-depth: 2
+#     - name: FTP-Deploy-Action
+#       uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+#       with:
+#         server: ftp.wowgaming.altervista.org
+#         username: wowgaming
+#         password: ${{ secrets.FTP_PASSWORD }}
+#         server-dir: aowow/
