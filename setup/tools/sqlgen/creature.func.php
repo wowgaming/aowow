@@ -22,7 +22,7 @@ SqlGen::register(new class extends SetupScript
                 IF(ie.entry IS NULL, 0, ?d) AS cuFlags,          -- cuFlags
                 difficulty_entry_1, difficulty_entry_2, difficulty_entry_3,
                 KillCredit1, KillCredit2,
-                0 AS modelid1, 0 AS modelid2, 0 AS modelid3, 0 AS modelid4,
+                IFNULL(ctm1.CreatureDisplayID, 0), IFNULL(ctm2.CreatureDisplayID, 0), IFNULL(ctm3.CreatureDisplayID, 0), IFNULL(ctm4.CreatureDisplayID, 0),
                 "" AS textureString,                            -- textureString
                 0 AS modelId,                                   -- modelId
                 0 AS humanoid,                                  -- uses creaturedisplayinfoextra
@@ -118,6 +118,14 @@ SqlGen::register(new class extends SetupScript
                 creature_template_resistance ctr5 ON ct.entry = ctr5.CreatureID AND ctr5.School = 5
             LEFT JOIN
                 creature_template_resistance ctr6 ON ct.entry = ctr6.CreatureID AND ctr6.School = 6
+            LEFT JOIN
+                creature_template_model ctm1 ON ct.entry = ctm1.CreatureID AND ctm1.Idx = 0
+            LEFT JOIN
+                creature_template_model ctm2 ON ct.entry = ctm2.CreatureID AND ctm2.Idx = 1
+            LEFT JOIN
+                creature_template_model ctm3 ON ct.entry = ctm3.CreatureID AND ctm3.Idx = 2
+            LEFT JOIN
+                creature_template_model ctm4 ON ct.entry = ctm4.CreatureID AND ctm4.Idx = 3
             WHERE
                 ct.entry > ?d
             {

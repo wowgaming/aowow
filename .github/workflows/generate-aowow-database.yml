@@ -1,0 +1,28 @@
+name: generate-aowow-database
+on:
+  workflow_dispatch:
+
+jobs:
+  generate-aowow-db:
+    permissions: write-all
+    runs-on: ubuntu-24.04
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+      
+      - name: "run scripts"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git clone https://github.com/azerothcore/acore-docker
+          cd acore-docker
+          docker compose up -d
+          cd ../setup/
+
+          bash generate-db.sh
+
+          cd ..
+
+          release_name=$(date '+%Y-%m-%d_%H-%M-%S')
+          gh release create $release_name
+          gh release upload $release_name "aowow_db.sql.zip"
