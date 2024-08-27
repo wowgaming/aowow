@@ -1012,15 +1012,15 @@ var mn_reputation = [
     [17, "AoWoW Premium", "?privilege=17"]
 ];
 var mn_community = [
-    [3,"Форум","http://forums.battle.net",null,{tinyIcon: g_staticUrl + "/images/icons/forum.png"}],
-    [7,"Блог","http://worldpress.com",null,{tinyIcon: g_staticUrl + "/images/icons/blog.png"}],
-    [4,"Канал IRC","http://webchat.quakenet.org/",null,{tinyIcon: g_staticUrl + "/images/icons/irc.png"}],
+    [3,"Форум","https://discord.com/invite/gkt4y2x",null,{tinyIcon: g_staticUrl + "/images/icons/discord.png"}],
+    // [7,"Блог","http://worldpress.com",null,{tinyIcon: g_staticUrl + "/images/icons/blog.png"}],
+    // [4,"Канал IRC","http://webchat.quakenet.org/",null,{tinyIcon: g_staticUrl + "/images/icons/irc.png"}],
     [,"Сообщество"],
     [10, "Репутация на сайте", "?reputation", mn_reputation],
     [11, "Лучшие пользователи", "?top-users"],
-    [,"Социальные сети"],
-    [6,"Facebook","http://facebook.com",null,{tinyIcon: g_staticUrl + "/images/icons/facebook.png"}],
-    [5,"Twitter","http://twitter.com",null,{tinyIcon: g_staticUrl + "/images/icons/twitter.png"}]
+    // [,"Социальные сети"],
+    // [6,"Facebook","http://facebook.com",null,{tinyIcon: g_staticUrl + "/images/icons/facebook.png"}],
+    // [5,"Twitter","http://twitter.com",null,{tinyIcon: g_staticUrl + "/images/icons/twitter.png"}]
 ];
 var mn_more = [
     [,"О AoWoW"],
