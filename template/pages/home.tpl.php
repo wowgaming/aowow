@@ -88,7 +88,7 @@ endif;
             &#12484; 2024 Aowow<br />
             rev. <?=AOWOW_REVISION; ?>
             <br>
-            AzerothCore rev: <a href="https://github.com/azerothcore/azerothcore-wotlk/commit/c0b6eae0e1b4">c0b6eae0e1b4</a>
+            AzerothCore rev: <a href="https://github.com/azerothcore/azerothcore-wotlk/commit/804769400bcb">804769400bcb</a>
         </div>
     </div>
 
