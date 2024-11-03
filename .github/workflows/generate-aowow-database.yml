@@ -34,9 +34,12 @@ jobs:
 
           cd ../setup/
 
-          bash generate-db.sh
+          # bash generate-db.sh
 
           cd ..
+
+          touch aowow_update.sql
+          touch acore_world.sql
 
           mv setup/auto-update.py  ./auto-update.py
 
