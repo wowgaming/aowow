@@ -6,8 +6,34 @@ from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as ec
 from selenium.webdriver.common.by import By
+import chromedriver_autoinstaller
+from pyvirtualdisplay import Display
 import os
 import sys
+
+display = Display(visible=0, size=(800, 800))
+display.start()
+
+chromedriver_autoinstaller.install()  # Check if the current version of chromedriver exists
+                                      # and if it doesn't exist, download it automatically,
+                                      # then add chromedriver to path
+
+chrome_options = webdriver.ChromeOptions()
+options = [
+   "--window-size=1200,1200",
+    "--ignore-certificate-errors"
+    #"--headless",
+    #"--disable-gpu",
+    #"--window-size=1920,1200",
+    #"--ignore-certificate-errors",
+    #"--disable-extensions",
+    #"--no-sandbox",
+    #"--disable-dev-shm-usage",
+    #'--remote-debugging-port=9222'
+]
+
+for option in options:
+    chrome_options.add_argument(option)
 
 password = sys.argv[1]
 
@@ -18,7 +44,7 @@ def wait_until(value, byval=By.ID) -> None:
     except TimeoutException:
         print("error connection")
 
-driver = webdriver.Chrome()
+driver = webdriver.Chrome(options=chrome_options)
 
 driver.get("https://aa.altervista.org/index.php?client_id=altervista&response_type=code&lang=it&redirect_uri=http%3A%2F%2Fit.altervista.org%2Fcplogin.php")
 
