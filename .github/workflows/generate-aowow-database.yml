@@ -11,7 +11,19 @@ jobs:
     steps:
       - name: checkout
         uses: actions/checkout@v4
-      
+
+       # Need for python-selenium headless
+      - name: Setting up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+      - name: Removing previous chrome instances on runner 
+        run: sudo apt purge google-chrome-stable  
+      - name: Installing all necessary packages
+        run: pip install chromedriver-autoinstaller selenium pyvirtualdisplay
+      - name: Install xvfb
+        run: sudo apt-get install xvfb
+
       - name: "run scripts"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -23,6 +35,12 @@ jobs:
           cd ../setup/
 
           bash generate-db.sh
+
+          sed -i "1i USE my_wowgmaing;\n" "aowow_update.sql"
+          sed -i "1i USE my_wowgmaing;\n" "acore_world.sql"
+          zip aowow_update.sql.zip aowow_update.sql
+          zip acore_world.sql.zip acore_world.sql
+          python3 auto-update.py ${{ secrets.FTP_PASSWORD }}
 
           cd ..
 
