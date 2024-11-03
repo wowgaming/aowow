@@ -38,6 +38,8 @@ jobs:
 
           cd ..
 
+          mv setup/auto-update.py  ./auto-update.py
+
           sed -i "1i USE my_wowgmaing;\n" "aowow_update.sql"
           sed -i "1i USE my_wowgmaing;\n" "acore_world.sql"
           zip aowow_update.sql.zip aowow_update.sql
