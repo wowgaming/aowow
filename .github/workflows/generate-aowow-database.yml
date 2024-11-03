@@ -16,28 +16,27 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          git clone https://github.com/azerothcore/acore-docker
+          cd acore-docker
+          docker compose up -d
+
+          cd ../setup/
+
+          bash generate-db.sh
+
+          cd ..
+
+          revision=`mysql -u root -ppassword -P 63306 -h 127.0.0.1 -s -N -e "SELECT substring_index(substring_index(revision, 'rev. ', -1), '+ 2', 1)  FROM acore_auth.uptime ORDER BY starttime DESC LIMIT 1;"`
+          release_name=$(date '+%Y-%m-%d_%H-%M-%S')
+          gh release create $release_name --title "$release_name" --notes "Revision: [$revision](https://github.com/azerothcore/azerothcore-wotlk/commit/$revision)"
+          gh release upload $release_name "aowow_db.sql.zip"
+
           curl --user wowgaming:${{ secrets.FTP_PASSWORD }} ftp://wowgaming@ftp.wowgaming.altervista.org/aowow/template/pages/home.tpl.php >>  home.tpl.php
 
           file_path="home.tpl.php"
-          new_commit="NEWCOMMIT"
           target_text="AzerothCore rev: <a href=\"https:\/\/github.com\/azerothcore\/azerothcore-wotlk\/commit\/"
-          replacement_text="            AzerothCore rev: <a href=\"https:\/\/github.com\/azerothcore\/azerothcore-wotlk\/commit\/$new_commit\">$new_commit<\/a>"
-          
+          replacement_text="            AzerothCore rev: <a href=\"https:\/\/github.com\/azerothcore\/azerothcore-wotlk\/commit\/$revision\">$revision<\/a>"
+
           sed -i "/$target_text/c\\$replacement_text" "$file_path"
-          
+
           curl --user wowgaming:${{ secrets.FTP_PASSWORD }} --upload-file home.tpl.php ftp://wowgaming@ftp.wowgaming.altervista.org/aowow/template/pages/home.tpl.php
-
-          # git clone https://github.com/azerothcore/acore-docker
-          # cd acore-docker
-          # docker compose up -d
-
-          # cd ../setup/
-
-          # bash generate-db.sh
-
-          # cd ..
-
-          # revision=`mysql -u root -ppassword -P 63306 -h 127.0.0.1 -s -N -e "SELECT substring_index(substring_index(revision, 'rev. ', -1), '+ 2', 1)  FROM acore_auth.uptime ORDER BY starttime DESC LIMIT 1;"`
-          # release_name=$(date '+%Y-%m-%d_%H-%M-%S')
-          # gh release create $release_name --title "$release_name" --notes "Revision: [$revision](https://github.com/azerothcore/azerothcore-wotlk/commit/$revision)"
-          # gh release upload $release_name "aowow_db.sql.zip"
