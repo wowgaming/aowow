@@ -2,7 +2,7 @@ name: generate-aowow-database
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 0 1 * *'
+    - cron: '0 8 * * 1'
 
 jobs:
   generate-aowow-db:
