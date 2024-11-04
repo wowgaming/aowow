@@ -34,7 +34,7 @@ jobs:
 
           cd ../setup/
 
-          bash generate-db.sh
+          # bash generate-db.sh
 
           cd ..
 
