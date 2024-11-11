@@ -288,7 +288,7 @@ if (!CLI)
     $pageCall  = $_[0];
     $pageParam = $_[1] ?? '';
 
-    Util::$wowheadLink = 'http://'.Util::$subDomains[User::$localeId].'.wowhead.com/'.$str;
+    Util::$wowheadLink = 'http://'.Util::$subDomains[User::$localeId].'.wowhead.com/wotlk/'.$str;
 }
 else if (!empty($AoWoWconf['aowow']))
     Lang::load('enus');

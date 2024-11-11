@@ -300,7 +300,7 @@ class EventPage extends GenericPage
         else
         {
             if ($this->hId)
-                Util::$wowheadLink = 'http://'.Util::$subDomains[User::$localeId].'.wowhead.com/event='.$this->hId;
+                Util::$wowheadLink = 'http://'.Util::$subDomains[User::$localeId].'.wowhead.com/wotlk/event='.$this->hId;
 
             /********************/
             /* finalize infobox */
