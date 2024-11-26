@@ -50,9 +50,9 @@ jobs:
           python auto-update.py ${{ secrets.FTP_PASSWORD }}
 
           revision=`mysql -u root -ppassword -P 63306 -h 127.0.0.1 -s -N -e "SELECT substring_index(substring_index(revision, 'rev. ', -1), '+ 2', 1)  FROM acore_auth.uptime ORDER BY starttime DESC LIMIT 1;"`
-          # release_name=$(date '+%Y-%m-%d_%H-%M-%S')
-          # gh release create $release_name --title "$release_name" --notes "Revision: [$revision](https://github.com/azerothcore/azerothcore-wotlk/commit/$revision)"
-          # gh release upload $release_name "aowow_db.sql.zip"
+          release_name=$(date '+%Y-%m-%d_%H-%M-%S')
+          gh release create $release_name --title "$release_name" --notes "Revision: [$revision](https://github.com/azerothcore/azerothcore-wotlk/commit/$revision)"
+          gh release upload $release_name "aowow_db.sql.zip"
 
           curl --user wowgaming:${{ secrets.FTP_PASSWORD }} ftp://wowgaming@ftp.wowgaming.altervista.org/aowow/template/pages/home.tpl.php >>  home.tpl.php
 
