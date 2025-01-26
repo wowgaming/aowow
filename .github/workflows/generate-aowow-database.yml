@@ -24,7 +24,7 @@ jobs:
       - name: Install xvfb
         run: sudo apt-get install xvfb
 
-      - name: "run scripts"
+      - name: "run docker"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -32,12 +32,17 @@ jobs:
           cd acore-docker
           docker compose up -d
 
-          cd ../setup/
-
+      - name: "generate the new aowow db updates"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd setup
           bash generate-db.sh
 
-          cd ..
-
+      - name: "deploy the updated db to altervista"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
           touch aowow_update.sql
           touch acore_world.sql
 
@@ -45,14 +50,19 @@ jobs:
 
           sed -i "1i USE my_wowgmaing;\n" "aowow_update.sql"
           sed -i "1i USE my_wowgmaing;\n" "acore_world.sql"
+
           zip aowow_update.sql.zip aowow_update.sql
           zip acore_world.sql.zip acore_world.sql
+
           python auto-update.py ${{ secrets.FTP_PASSWORD }}
 
+      - name: "update the homepage rev"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
           revision=`mysql -u root -ppassword -P 63306 -h 127.0.0.1 -s -N -e "SELECT substring_index(substring_index(revision, 'rev. ', -1), '+ 2', 1)  FROM acore_auth.uptime ORDER BY starttime DESC LIMIT 1;"`
-          # release_name=$(date '+%Y-%m-%d_%H-%M-%S')
-          # gh release create $release_name --title "$release_name" --notes "Revision: [$revision](https://github.com/azerothcore/azerothcore-wotlk/commit/$revision)"
-          # gh release upload $release_name "aowow_db.sql.zip"
+
+          echo "REVISION: $revision";
 
           curl --user wowgaming:${{ secrets.FTP_PASSWORD }} ftp://wowgaming@ftp.wowgaming.altervista.org/aowow/template/pages/home.tpl.php >>  home.tpl.php
 
