@@ -15,10 +15,13 @@ jobs:
         run: |
           find . -type f -name "*.php" | while read file; do
               # Get the relative path
-              remote_path="/aowow//${file#./}"
+              remote_path="aowow/${file#./}"
               
               remote_dir=$(dirname "$remote_path")
-              echo "$file"
-              echo "ftp://wowgaming@ftp.wowgaming.altervista.org/$remote_path"
-              # curl --user wowgaming:${{ secrets.FTP_PASSWORD }} --upload-file "$file" "ftp://wowgaming@ftp.wowgaming.altervista.org/$remote_path"
+              # echo "$file"
+              # echo "ftp://wowgaming@ftp.wowgaming.altervista.org/$remote_path"
+              curl --user wowgaming:${{ secrets.FTP_PASSWORD }} --upload-file "$file" "ftp://wowgaming@ftp.wowgaming.altervista.org/$remote_path"
           done
+
+          echo "All PHP files updated!"
+
