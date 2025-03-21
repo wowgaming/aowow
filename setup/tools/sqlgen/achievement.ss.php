@@ -75,7 +75,7 @@ CLISetup::registerSetup('sql', new class extends SetupScript
         CLI::write('[achievement] - serverside achievement data');
 
         // $serverAchievements = DB::World()->select('SELECT `ID` AS "id", IF(`Faction` = -1, 3, IF(`Faction` = 0, 2, 1)) AS "faction", `mapID` AS "map", `points`, `flags`, `count` AS "reqCriteriaCount", `refAchievement` FROM achievement_dbc{ WHERE `id` IN (?a)}', // TC
-        $serverAchievements = DB::World()->select('SELECT ID, IF(Faction = -1, 3, IF(Faction = 0, 2, 1)) AS "faction", Supercedes AS mapID, Points AS points, Flags AS flags, Minimum_Criteria AS count, Shares_Criteria AS refAchievement FROM achievement_dbc{ WHERE id IN (?a)}', // AC
+        $serverAchievements = DB::World()->select('SELECT `ID` AS "id", IF(Faction = -1, 3, IF(Faction = 0, 2, 1)) AS "faction", Supercedes AS "map", Points AS points, Flags AS flags, Minimum_Criteria AS reqCriteriaCount, Shares_Criteria AS refAchievement FROM achievement_dbc{ WHERE id IN (?a)}', // AC
             $ids ?: DBSIMPLE_SKIP
         );
 

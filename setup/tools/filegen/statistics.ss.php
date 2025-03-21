@@ -79,9 +79,24 @@ CLISetup::registerSetup("build", new class extends SetupScript
     // { str, agi, sta, int, spi, raceMod1, raceMod2 }
     private function race() : array
     {
-        $raceData = DB::World()->select('SELECT `race` AS ARRAY_KEY, MIN(`str`), MIN(`agi`), MIN(`sta`), MIN(`inte`), MIN(`spi`) FROM player_levelstats WHERE `level` = 1 GROUP BY `race` ORDER BY `race` ASC');
-        foreach ($raceData as &$rd)
-            $rd = array_values($rd + [[], []]);
+        // $raceData = DB::World()->select('SELECT `race` AS ARRAY_KEY, MIN(`str`), MIN(`agi`), MIN(`sta`), MIN(`inte`), MIN(`spi`) FROM player_levelstats WHERE `level` = 1 GROUP BY `race` ORDER BY `race` ASC');
+        // foreach ($raceData as &$rd)
+        //     $rd = array_values($rd + [[], []]);
+
+        // where did i get this data again..?
+        // { str, agi, sta, int, spi, raceMod1, raceMod2 }
+        $raceData = array(
+            1 => [20, 20, 20, 20, 20, [], []],
+            2 => [23, 17, 22, 17, 23, [], []],
+            3 => [22, 16, 23, 19, 19, [], []],
+            4 => [17, 25, 19, 20, 20, [], []],
+            5 => [19, 18, 21, 18, 25, [], []],
+            6 => [25, 15, 22, 15, 22, [], []],
+            7 => [15, 23, 19, 24, 20, [], []],
+            8 => [21, 22, 21, 16, 21, [], []],
+            10 => [17, 22, 18, 24, 19, [], []],
+            11 => [21, 17, 19, 21, 22, [], []]
+        );
 
         $racials = new SpellList(array(['typeCat', -4], ['reqClassMask', 0]));
         $allMods = $racials->getProfilerMods();
@@ -123,10 +138,18 @@ CLISetup::registerSetup("build", new class extends SetupScript
         foreach ($critToDodge as $class => $mod)
         {
             // humans can't be hunter, shaman, druids (use tauren here)
+
+            // TC
+            // if (in_array($class, [3, 7, 11]))
+            //     $offset = array_values(DB::World()->selectRow('SELECT MIN(`str`), MIN(`agi`), MIN(`sta`), MIN(`inte`), MIN(`spi`) FROM player_levelstats WHERE `level` = 1 AND `race` = 6'));
+            // else
+            //     $offset = array_values(DB::World()->selectRow('SELECT MIN(`str`), MIN(`agi`), MIN(`sta`), MIN(`inte`), MIN(`spi`) FROM player_levelstats WHERE `level` = 1 AND `race` = 1'));
+
+            // AC
             if (in_array($class, [3, 7, 11]))
-                $offset = array_values(DB::World()->selectRow('SELECT MIN(`str`), MIN(`agi`), MIN(`sta`), MIN(`inte`), MIN(`spi`) FROM player_levelstats WHERE `level` = 1 AND `race` = 6'));
+                $offset = [25, 15, 22, 15, 22];
             else
-                $offset = array_values(DB::World()->selectRow('SELECT MIN(`str`), MIN(`agi`), MIN(`sta`), MIN(`inte`), MIN(`spi`) FROM player_levelstats WHERE `level` = 1 AND `race` = 1'));
+                $offset = [20, 20, 20, 20, 20];
 
             $gtData = DB::Aowow()->select(
                'SELECT mlecrt.idx - ?d AS ARRAY_KEY, mlecrt.chance * 100, splcrt.chance * 100, mlecrt.chance * 100 * ?f, baseHP5.ratio * 1, extraHP5.ratio * 1

@@ -25,7 +25,6 @@ require_once __DIR__.'/Database.php';
 class DbSimple_Mysqli extends DbSimple_Database
 {
     public $attributes = [];    // declare global property to avoid PHP > 8.0 warning
-    public $_lastQuery;         // --//--
     var $link;
 
     private $_lastQuery;
