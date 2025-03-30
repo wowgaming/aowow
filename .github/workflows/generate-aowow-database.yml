@@ -1,13 +1,13 @@
 name: generate-aowow-database
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '0 8 * * 1'
+  # schedule:
+  #   - cron: '0 8 * * 1'
 
 jobs:
   generate-aowow-db:
     permissions: write-all
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - name: checkout
         uses: actions/checkout@v4
@@ -54,7 +54,7 @@ jobs:
           zip aowow_update.sql.zip aowow_update.sql
           zip acore_world.sql.zip acore_world.sql
 
-          python auto-update.py ${{ secrets.FTP_PASSWORD }}
+          # python auto-update.py ${{ secrets.FTP_PASSWORD }}
 
       - name: "update the homepage rev"
         env:
