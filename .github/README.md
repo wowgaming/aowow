@@ -18,34 +18,30 @@ Also, this project is not meant to be used for commercial puposes of any kind!
 
 ## Requirements
 
-+ Webserver running PHP ≥ 8.0 including extensions:
-  + SimpleXML
-  + GD
-  + Mysqli
-  + mbString
-+ MySQL ≥ 5.6
-+ Tools require cmake: Please refer to the individual repositories for detailed information
-  + [MPQExtractor](https://github.com/Sarjuuk/MPQExtractor) / [FFmpeg](https://ffmpeg.org/download.html) / [BLPConverter](https://github.com/Sarjuuk/BLPConverter) (optional)
-  + WIN users may find it easier to use these alternatives
-     + [MPQEditor](http://www.zezula.net/en/mpq/download.html) / [FFmpeg](http://ffmpeg.zeranoe.com/builds/) / [BLPConverter](https://github.com/PatrickCyr/BLPConverter) (optional)
+- Webserver running PHP ≥ 8.2 including extensions:
+  - SimpleXML
+  - GD
+  - Mysqli
+  - mbString
+- MySQL ≥ 5.7.0 OR MariaDB ≥ 10.6.4 OR similar
+- Tools require cmake: Please refer to the individual repositories for detailed information
+  - [MPQExtractor](https://github.com/Sarjuuk/MPQExtractor) / [FFmpeg](https://ffmpeg.org/download.html) / [BLPConverter](https://github.com/Sarjuuk/BLPConverter) (optional)
+  - WIN users may find it easier to use these alternatives
+    - [MPQEditor](http://www.zezula.net/en/mpq/download.html) / [FFmpeg](http://ffmpeg.zeranoe.com/builds/) / [BLPConverter](https://github.com/PatrickCyr/BLPConverter) (optional)
 
 Audio processing may require [lame](https://sourceforge.net/projects/lame/files/lame/3.99/) or [vorbis-tools](https://www.xiph.org/downloads/) (which may require libvorbis (which may require libogg))
 
 On Linux (debian-based) you can install the requirements with the following command:
 
-```
-sudo apt install php-gd php-xml php-mbstring -y
-```
-
-```
+```bash
 apt install php-gd php-xml php-mbstring -y
 ```
 
 #### Highly Recommended
-+ setting the following configuration values on your AzerothCore server will greatly increase the accuracy of spawn points
+
+- setting the following configuration values on your AzerothCore server will greatly increase the accuracy of spawn points
   > Calculate.Creature.Zone.Area.Data = 1
   > Calculate.Gameoject.Zone.Area.Data = 1
-
 
 ## Install
 
@@ -55,6 +51,7 @@ apt install php-gd php-xml php-mbstring -y
 - `git clone https://github.com/Sarjuuk/MPQExtractor.git MPQExtractor`
 
 #### 2. Prepare the database
+
 Ensure that the account you are going to use has **full** access on the database AoWoW is going to occupy and ideally only **read** access on the world database you are going to reference.
 
 Import `setup/db_structure.sql` into the AoWoW database `mysql -p {your-db-here} < setup/db_structure.sql`
@@ -65,39 +62,42 @@ Import to your AzerothCore database the table `spell_learn_spell`, import it fro
 
 See to it, that the web server is able to write the following directories and their children. If they are missing, the setup will create them with appropriate permissions
 
- * `cache/`
- * `config/`
- * `static/download/`
- * `static/widgets/`
- * `static/js/`
- * `static/uploads/`
- * `static/images/wow/`
- * `datasets/`  
- 
+- `cache/`
+- `config/`
+- `static/download/`
+- `static/widgets/`
+- `static/js/`
+- `static/uploads/`
+- `static/images/wow/`
+- `datasets/`
+
 #### 4. Extract the client archives (MPQs)
 
 Extract the following directories from the client archives into `setup/mpqdata/`, while maintaining patch order (base mpq -> patch-mpq: 1 -> 9 -> A -> Z). The required paths are scattered across the archives. Overwrite older files if asked to.
 
-   .. for every locale you are going to use:
-   > \<localeCode>/DBFilesClient/
-   > \<localeCode>/Interface/WorldMap/
-   > \<localeCode>/Interface/FrameXML/GlobalStrings.lua
+.. for every locale you are going to use:
 
-   .. once is enough (still apply the localeCode though):
-   > \<localeCode>/Interface/TalentFrame/
-   > \<localeCode>/Interface/Glues/Credits/
-   > \<localeCode>/Interface/Icons/
-   > \<localeCode>/Interface/Spellbook/
-   > \<localeCode>/Interface/PaperDoll/
-   > \<localeCode>/Interface/GLUES/CHARACTERCREATE/
-   > \<localeCode>/Interface/Pictures
-   > \<localeCode>/Interface/PvPRankBadges
-   > \<localeCode>/Interface/FlavorImages
-   > \<localeCode>/Interface/Calendar/Holidays/
-   > \<localeCode>/Sound/
+> \<localeCode>/DBFilesClient/
+> \<localeCode>/Interface/WorldMap/
+> \<localeCode>/Interface/FrameXML/GlobalStrings.lua
 
-   .. optionaly (not used in AoWoW):
-   > \<localeCode>/Interface/GLUES/LOADINGSCREENS/
+.. once is enough (still apply the localeCode though):
+
+> \<localeCode>/Interface/TalentFrame/
+> \<localeCode>/Interface/Icons/
+> \<localeCode>/Interface/Spellbook/
+> \<localeCode>/Interface/PaperDoll/
+> \<localeCode>/Interface/Glues/CharacterCreate/
+> \<localeCode>/Interface/Pictures
+> \<localeCode>/Interface/PvPRankBadges
+> \<localeCode>/Interface/FlavorImages
+> \<localeCode>/Interface/Calendar/Holidays/
+> \<localeCode>/Sound/
+
+.. optionaly (not used in AoWoW):
+
+> \<localeCode>/Interface/Glues/Loadingscreens/
+> \<localeCode>/Interface/Glues/Credits/
 
 **PAY ATTENTION:** you have to create a directory in `setup/mpqdata/` like `enus` (LOWERCASE) containing the data listed above.
 
@@ -111,8 +111,8 @@ You can use MPQExtractor to extract the data, once you installed it succesfully 
 
 WAV-files need to be reencoded as `ogg/vorbis` and some MP3s may identify themselves as `application/octet-stream` instead of `audio/mpeg`.
 
- * [example for WIN](https://gist.github.com/Sarjuuk/d77b203f7b71d191509afddabad5fc9f)
- * [example for \*nix](https://gist.github.com/Sarjuuk/1f05ef2affe49a7e7ca0fad7b01c081d)
+- [example for WIN](https://gist.github.com/Sarjuuk/d77b203f7b71d191509afddabad5fc9f)
+- [example for \*nix](https://gist.github.com/Sarjuuk/1f05ef2affe49a7e7ca0fad7b01c081d)
 
 Note: it will take a long time.
 
@@ -120,7 +120,7 @@ Note: it will take a long time.
 
 `php aowow --setup`.
 
-This should guide you through with minimal input required from your end, but will take some time though, especially compiling the zone-images. Use it to familiarize yourself with the other functions this setup has. Yes, I'm dead serious: *Go read the code!* It will help you understand how to configure AoWoW and keep it in sync with your world database.
+This should guide you through with minimal input required from your end, but will take some time though, especially compiling the zone-images. Use it to familiarize yourself with the other functions this setup has. Yes, I'm dead serious: _Go read the code!_ It will help you understand how to configure AoWoW and keep it in sync with your world database.
 
 When you've created your admin account you are done.
 
@@ -167,7 +167,7 @@ When you've created your admin account you are done.
 
 **Q: Failed to connect to database.**
 
-- A: check your file config in `aowow/config/config.php`, if everything is correct, check if your password has **"#"** character contained in the password and replace it with the *encoded (URL) character* correspondent **"%23"**, do the same for special characters if you still get this error.
+- A: check your file config in `aowow/config/config.php`, if everything is correct, check if your password has **"#"** character contained in the password and replace it with the _encoded (URL) character_ correspondent **"%23"**, do the same for special characters if you still get this error.
 - If you do not resolve, try to don't use **"#"** in your password.
 
 **Q: I cannot see the Quick Facts, Console error "Markup.js" not found**
