@@ -24,7 +24,7 @@ class NpcPage extends GenericPage
     protected $mode          = CACHE_TYPE_PAGE;
     protected $scripts       = [[SC_JS_FILE, 'js/swfobject.js'], [SC_CSS_FILE, 'css/Profiler.css']];
 
-    protected $_get          = ['domain' => ['filter' => FILTER_CALLBACK, 'options' => 'Locale::tryFromDomain']];
+    protected $_get          = ['domain' => ['filter' => FILTER_CALLBACK, 'options' => 'WoWLocale::tryFromDomain']];
 
     private   $soundIds      = [];
     private   $powerTpl      = '$WowheadPower.registerNpc(%d, %d, %s);';
@@ -749,7 +749,7 @@ class NpcPage extends GenericPage
                 if ($note)
                     $tabData['note'] = $note;
                 else if ($lootTpl == LOOT_SKINNING)
-                    $tabData['note'] = '<b>'.Lang::formatSkillBreakpoints(Game::getBreakpointsForSkill($skinTab[2], $this->subject->getField('maxLevel')), Lang::FMT_HTML).'</b>';
+                    $tabData['note'] = '<b>'.Lang::formatSkillBreakpoints(Game::getBreakpointsForSkill($skinTab[2], $this->subject->getField('maxLevel') * 5), Lang::FMT_HTML).'</b>';
 
                 if ($hiddenCols)
                     $tabData['hiddenCols'] = $hiddenCols;
