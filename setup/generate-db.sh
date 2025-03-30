@@ -49,8 +49,8 @@ cd ..
 
 mkdir -p setup/mpqdata/enus/DBFilesClient/
 
-wget https://github.com/wowgaming/client-data/releases/download/v16/data.zip
-unzip data.zip "dbc/*" -d ./
+wget https://github.com/wowgaming/client-data/releases/download/v16/data.zip > /dev/null 2>&1
+unzip data.zip "dbc/*" -d ./ > /dev/null 2>&1
 mv dbc/* "setup/mpqdata/enus/DBFilesClient/"
 
 php aowow --sql
