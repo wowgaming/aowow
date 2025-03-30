@@ -289,4 +289,4 @@ if (!CLI) {
     $pageCall  = mb_strtolower($_[0]);
     $pageParam = $_[1] ?? '';
 } else if (DB::isConnected(DB_AOWOW))
-    Lang::load(Locale::EN);
+    Lang::load(WoWLocale::EN);
