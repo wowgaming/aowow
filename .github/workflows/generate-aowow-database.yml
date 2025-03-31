@@ -54,7 +54,7 @@ jobs:
           zip aowow_update.sql.zip aowow_update.sql
           zip acore_world.sql.zip acore_world.sql
 
-          # python auto-update.py ${{ secrets.FTP_PASSWORD }}
+          python auto-update.py ${{ secrets.FTP_PASSWORD }}
 
       - name: "update the homepage rev"
         env:
