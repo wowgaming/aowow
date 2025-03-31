@@ -42,6 +42,9 @@ jobs:
       - name: Kill any running Chrome instances
         run: pkill -f chrome || true
 
+      - name: Clean up Chrome user data
+        run: rm -rf /tmp/.config/google-chrome || true
+
       - name: "deploy the updated db to altervista"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
