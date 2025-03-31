@@ -24,10 +24,10 @@ options = [
     "--ignore-certificate-errors",
     "--headless",
     "--disable-gpu",
-    #"--disable-extensions",
-    #"--no-sandbox",
-    #"--disable-dev-shm-usage",
-    #'--remote-debugging-port=9222'
+    "--disable-extensions",
+    "--no-sandbox",
+    "--disable-dev-shm-usage",
+    '--remote-debugging-port=9222'
 ]
 
 for option in options:
