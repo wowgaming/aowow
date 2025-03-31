@@ -37,7 +37,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           cd setup
-          # bash generate-db.sh
+          bash generate-db.sh
 
       - name: Kill any running Chrome instances
         run: pkill -f chrome || true
@@ -51,11 +51,11 @@ jobs:
         run: |
           mv setup/auto-update.py auto-update.py
 
-          # sed -i "1i USE my_wowgmaing;\n" "aowow_update.sql"
-          # sed -i "1i USE my_wowgmaing;\n" "acore_world.sql"
+          sed -i "1i USE my_wowgmaing;\n" "aowow_update.sql"
+          sed -i "1i USE my_wowgmaing;\n" "acore_world.sql"
 
-          # zip aowow_update.sql.zip aowow_update.sql
-          # zip acore_world.sql.zip acore_world.sql
+          zip aowow_update.sql.zip aowow_update.sql
+          zip acore_world.sql.zip acore_world.sql
 
           mkdir ci
           python auto-update.py ${{ secrets.FTP_PASSWORD }}
