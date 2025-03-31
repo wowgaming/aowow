@@ -39,6 +39,9 @@ jobs:
           cd setup
           # bash generate-db.sh
 
+      - name: Kill any running Chrome instances
+        run: pkill -f chrome || true
+
       - name: "deploy the updated db to altervista"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

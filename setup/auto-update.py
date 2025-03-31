@@ -25,8 +25,6 @@ options = [
     "--user-data-dir=ci",
     "--headless",
     "--disable-gpu",
-    #"--window-size=1920,1200",
-    #"--ignore-certificate-errors",
     #"--disable-extensions",
     #"--no-sandbox",
     #"--disable-dev-shm-usage",
