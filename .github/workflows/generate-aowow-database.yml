@@ -12,13 +12,13 @@ jobs:
       - name: checkout
         uses: actions/checkout@v4
 
-       # Need for python-selenium headless
+        # Need for python-selenium headless
       - name: Setting up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.9'
-      - name: Removing previous chrome instances on runner 
-        run: sudo apt purge google-chrome-stable  
+          python-version: "3.9"
+      - name: Removing previous chrome instances on runner
+        run: sudo apt purge google-chrome-stable
       - name: Installing all necessary packages
         run: pip install chromedriver-autoinstaller selenium pyvirtualdisplay
       - name: Install xvfb
@@ -37,16 +37,13 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           cd setup
-          bash generate-db.sh
+          # bash generate-db.sh
 
       - name: "deploy the updated db to altervista"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          touch aowow_update.sql
-          touch acore_world.sql
-
-          mv setup/auto-update.py  ./auto-update.py
+          mv setup/auto-update.py ./auto-update.py
 
           sed -i "1i USE my_wowgmaing;\n" "aowow_update.sql"
           sed -i "1i USE my_wowgmaing;\n" "acore_world.sql"
@@ -54,6 +51,7 @@ jobs:
           zip aowow_update.sql.zip aowow_update.sql
           zip acore_world.sql.zip acore_world.sql
 
+          mkdir ci
           python auto-update.py ${{ secrets.FTP_PASSWORD }}
 
       - name: "update the homepage rev"
