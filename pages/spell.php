@@ -2286,7 +2286,8 @@ class SpellPage extends GenericPage
                 'icon'        => $_icon,
                 'perfectItem' => $_perfItem,
                 'name'        => $_header,
-                'footer'      => $_footer
+                'footer'      => $_footer,
+                'markup'      => $_markup
             );
         }
 
