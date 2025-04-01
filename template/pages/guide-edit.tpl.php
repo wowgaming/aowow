@@ -53,7 +53,7 @@ $this->brick('pageTemplate');
                     <th><label for="locale"><?=Lang::main('language');?></label></th>
                     <td><select name="locale" id="locale" required="required" size="1">
 <?php
-foreach (Locale::cases() as $l):
+foreach (WoWLocale::cases() as $l):
     if ($l->validate()):
         echo '                    <option value="'.$l->value.'"'.($this->editorFields('locale', true) == $l->value ? ' selected="selected"' : '').'>'.$l->title()."</option>\n";
     endif;
