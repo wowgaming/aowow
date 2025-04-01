@@ -53,6 +53,11 @@ wget https://github.com/wowgaming/client-data/releases/download/v16/data.zip > /
 unzip data.zip "dbc/*" -d ./ > /dev/null 2>&1
 mv dbc/* "setup/mpqdata/enus/DBFilesClient/"
 
+mysql -u root -ppassword -h 127.0.0.1 -P 63306 tmp_aowow -e "SET GLOBAL range_optimizer_max_mem_size=0;"
+mysql -u root -ppassword -h 127.0.0.1 -P 63306 acore_world -e "SET GLOBAL range_optimizer_max_mem_size=0;"
+mysql -u root -ppassword -h 127.0.0.1 -P 63306 tmp_aowow -e "UPDATE aowow_config SET value='3' WHERE \`key\`='debug';"
+mysql -u root -ppassword -h 127.0.0.1 -P 63306 tmp_aowow -e "UPDATE aowow_config SET value='1' WHERE \`key\`='locales';" # EN locale
+
 php aowow --sql
 
 mysqldump -u root -ppassword -h 127.0.0.1 -P 63306 tmp_aowow --ignore-table=tmp_aowow.aowow_config > aowow_update.sql
