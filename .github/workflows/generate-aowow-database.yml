@@ -54,10 +54,16 @@ jobs:
           sed -i "1i USE my_wowgmaing;\n" "aowow_update.sql"
           sed -i "1i USE my_wowgmaing;\n" "acore_world.sql"
 
+          echo "zipping aowow_update.sql"
           zip aowow_update.sql.zip aowow_update.sql
+
+          echo "zipping acore_world.sql"
           zip acore_world.sql.zip acore_world.sql
 
+          echo "creating ci"
           mkdir ci
+
+          echo "run auto-update.py"
           python auto-update.py ${{ secrets.FTP_PASSWORD }}
 
       - name: "update the homepage rev"
