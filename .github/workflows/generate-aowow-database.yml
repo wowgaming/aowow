@@ -64,7 +64,7 @@ jobs:
           mkdir ci
 
           echo "run auto-update.py"
-          python auto-update.py ${{ secrets.FTP_PASSWORD }}
+          python3 auto-update.py ${{ secrets.FTP_PASSWORD }}
 
       - name: "update the homepage rev"
         env:
