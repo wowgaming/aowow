@@ -89,8 +89,8 @@ for a in a_elements:
 print("Wait until dump")
 wait_until("dump", By.NAME)
 
-# print("Wait until start")
-# wait_until("start")
+print("Wait until start")
+wait_until("start")
 
 # print("Uploading aowow_update.sql")
 # driver.find_element(By.NAME, "dump").send_keys(os.getcwd()+"/aowow_update.sql.zip")
