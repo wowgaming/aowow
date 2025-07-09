@@ -92,13 +92,13 @@ wait_until("dump", By.NAME)
 print("Wait until start")
 wait_until("start")
 
-print("Uploading aowow_update.sql")
-driver.find_element(By.NAME, "dump").send_keys(os.getcwd()+"/aowow_update.sql.zip")
-sleep(3)
-driver.find_element(By.ID, "start").click()
+# print("Uploading aowow_update.sql")
+# driver.find_element(By.NAME, "dump").send_keys(os.getcwd()+"/aowow_update.sql.zip")
+# sleep(3)
+# driver.find_element(By.ID, "start").click()
 
-print("Waiting 300s")
-sleep(300)
+# print("Waiting 300s")
+# sleep(300)
 
 # print("aowow_update.sql loaded!")
 
