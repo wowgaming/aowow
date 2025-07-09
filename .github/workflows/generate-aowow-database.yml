@@ -28,16 +28,16 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          git clone https://github.com/azerothcore/acore-docker
-          cd acore-docker
-          docker compose up -d
+          # git clone https://github.com/azerothcore/acore-docker
+          # cd acore-docker
+          # docker compose up -d
 
       - name: "generate the new aowow db updates"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           cd setup
-          bash generate-db.sh
+          # bash generate-db.sh
 
       - name: Kill any running Chrome instances
         run: pkill -f chrome || true
@@ -51,20 +51,19 @@ jobs:
         run: |
           mv setup/auto-update.py auto-update.py
 
-          sed -i "1i USE my_wowgmaing;\n" "aowow_update.sql"
-          sed -i "1i USE my_wowgmaing;\n" "acore_world.sql"
+          # sed -i "1i USE my_wowgmaing;\n" "aowow_update.sql"
+          # sed -i "1i USE my_wowgmaing;\n" "acore_world.sql"
 
-          echo "zipping aowow_update.sql"
-          zip aowow_update.sql.zip aowow_update.sql
+          # echo "zipping aowow_update.sql"
+          # zip aowow_update.sql.zip aowow_update.sql
 
-          echo "zipping acore_world.sql"
-          zip acore_world.sql.zip acore_world.sql
+          # echo "zipping acore_world.sql"
+          # zip acore_world.sql.zip acore_world.sql
 
-          echo "creating ci"
           mkdir ci
 
           echo "run auto-update.py"
-          python3 auto-update.py ${{ secrets.FTP_PASSWORD }}
+          python auto-update.py ${{ secrets.FTP_PASSWORD }}
 
       - name: "update the homepage rev"
         env:
