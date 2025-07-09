@@ -25,37 +25,37 @@ chromedriver_autoinstaller.install()  # Check if the current version of chromedr
                                       # and if it doesn't exist, download it automatically,
                                       # then add chromedriver to path
 
-# print("chromedriver options")
+print("chromedriver options")
 
-# chrome_options = webdriver.ChromeOptions()
-# options = [
-#    "--window-size=1200,1200",
-#     "--ignore-certificate-errors",
-#     "--headless",
-#     "--disable-gpu",
-#     "--disable-extensions",
-#     "--no-sandbox",
-#     "--disable-dev-shm-usage",
-#     '--remote-debugging-port=9222'
-# ]
+chrome_options = webdriver.ChromeOptions()
+options = [
+   "--window-size=1200,1200",
+    "--ignore-certificate-errors",
+    "--headless",
+    "--disable-gpu",
+    "--disable-extensions",
+    "--no-sandbox",
+    "--disable-dev-shm-usage",
+    '--remote-debugging-port=9222'
+]
 
-# for option in options:
-#     chrome_options.add_argument(option)
+for option in options:
+    chrome_options.add_argument(option)
 
-# password = sys.argv[1]
+password = sys.argv[1]
 
-# def wait_until(value, byval=By.ID) -> None:
-#     try:
-#         WebDriverWait(driver, 5000).until(
-#             ec.presence_of_element_located((byval, value)))
-#     except TimeoutException:
-#         print("error connection")
+def wait_until(value, byval=By.ID) -> None:
+    try:
+        WebDriverWait(driver, 5000).until(
+            ec.presence_of_element_located((byval, value)))
+    except TimeoutException:
+        print("error connection")
 
-# print("Starting chrome")
-# driver = webdriver.Chrome(options=chrome_options)
+print("Starting chrome")
+driver = webdriver.Chrome(options=chrome_options)
 
-# print("Visiting altervista")
-# driver.get("https://aa.altervista.org/index.php?client_id=altervista&response_type=code&lang=it&redirect_uri=http%3A%2F%2Fit.altervista.org%2Fcplogin.php")
+print("Visiting altervista")
+driver.get("https://aa.altervista.org/index.php?client_id=altervista&response_type=code&lang=it&redirect_uri=http%3A%2F%2Fit.altervista.org%2Fcplogin.php")
 
 # print("Login")
 # wait_until("username", By.NAME)
