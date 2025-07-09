@@ -1,4 +1,7 @@
 # encoding: utf-8
+
+print("Starting auto-update.py")
+
 from time import sleep
 from selenium import webdriver
 from selenium.webdriver.support.ui import WebDriverWait
@@ -11,12 +14,18 @@ from pyvirtualdisplay import Display
 import os
 import sys
 
+print("Starting virtual display")
+
 display = Display(visible=0, size=(800, 800))
 display.start()
+
+print("Installing chromedriver via autoinstaller")
 
 chromedriver_autoinstaller.install()  # Check if the current version of chromedriver exists
                                       # and if it doesn't exist, download it automatically,
                                       # then add chromedriver to path
+
+print("chromedriver options")
 
 chrome_options = webdriver.ChromeOptions()
 options = [
