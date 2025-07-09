@@ -86,8 +86,8 @@ for a in a_elements:
         a.click()
         break
 
-# print("Wait until dump")
-# wait_until("dump", By.NAME)
+print("Wait until dump")
+wait_until("dump", By.NAME)
 
 # print("Wait until start")
 # wait_until("start")
