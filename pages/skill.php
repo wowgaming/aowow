@@ -250,8 +250,17 @@ class SkillPage extends GenericPage
         if (in_array($this->cat, [-5, 6, 7, 8, 9, 11]))
         {
             $list = [];
+
             if (!empty(Game::$trainerTemplates[Type::SKILL][$this->typeId]))
-                $list = DB::World()->selectCol('SELECT DISTINCT ID FROM npc_trainer WHERE SpellID IN (?a) AND ID < 200000', Game::$trainerTemplates[Type::SKILL][$this->typeId]);
+            {
+                $list = DB::World()->selectCol('
+                    SELECT DISTINCT cdt.CreatureId
+                    FROM creature_default_trainer cdt
+                    JOIN trainer t ON t.Id = cdt.TrainerId
+                    JOIN trainer_spell ts ON ts.TrainerId = t.Id
+                    WHERE ts.SpellId IN (?a) AND cdt.CreatureId < 200000
+                ', Game::$trainerTemplates[Type::SKILL][$this->typeId]);
+            }
             else
             {
                 $mask = 0;
@@ -267,12 +276,14 @@ class SkillPage extends GenericPage
                 );
 
                 $list = $spellIds ? DB::World()->selectCol('
-                    SELECT    IF(t1.ID > 200000, t2.ID, t1.ID)
-                    FROM      npc_trainer t1
-                    LEFT JOIN npc_trainer t2 ON t2.SpellID = -t1.ID
-                    WHERE     t1.SpellID IN (?a)',
-                    $spellIds
-                ) : [];
+                    SELECT IFNULL(cdt2.CreatureId, cdt1.CreatureId)
+                    FROM creature_default_trainer cdt1
+                    JOIN trainer t1 ON t1.Id = cdt1.TrainerId
+                    JOIN trainer_spell ts1 ON ts1.TrainerId = t1.Id
+                    LEFT JOIN trainer_spell ts2 ON ts2.TrainerId = t1.Id AND ts2.SpellId < 0 AND ts2.SpellId = -ts1.SpellId
+                    LEFT JOIN creature_default_trainer cdt2 ON cdt2.TrainerId = t1.Id
+                    WHERE ts1.SpellId IN (?a)
+                ', $spellIds) : [];
             }
 
             if ($list)

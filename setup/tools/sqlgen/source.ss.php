@@ -1038,8 +1038,13 @@ CLISetup::registerSetup("sql", new class extends SetupScript
     {
         CLI::write('[source] * #6  Trainer', CLI::LOG_BLANK, true, true);
 
-        // $tNpcs = DB::World()->select('SELECT `SpellID` AS ARRAY_KEY, cdt.`CreatureId` AS `entry`, COUNT(1) AS `qty` FROM trainer_spell ts JOIN creature_default_trainer cdt ON cdt.`TrainerId` = ts.`TrainerId` GROUP BY ARRAY_KEY'); // TC
-        $tNpcs = DB::World()->select('SELECT SpellID AS ARRAY_KEY, ID AS entry, COUNT(1) AS qty FROM npc_trainer WHERE SpellID > 0 GROUP BY ARRAY_KEY'); // AC
+        $tNpcs = DB::World()->select('
+            SELECT ts.SpellId AS ARRAY_KEY, cdt.CreatureId AS entry, COUNT(1) AS qty
+            FROM trainer_spell ts
+            JOIN creature_default_trainer cdt ON cdt.TrainerId = ts.TrainerId
+            WHERE ts.SpellId > 0
+            GROUP BY ARRAY_KEY
+        ');
         if (!$tNpcs)
         {
             CLI::write('[source] spelltrainer() - trainer_spell contained no spell or creature_default_trainer no trainer.', CLI::LOG_WARN);

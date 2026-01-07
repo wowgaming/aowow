@@ -1096,15 +1096,17 @@ class SpellPage extends GenericPage
         {
             $src  = $this->subject->sources[$this->typeId][6];
             $list = [];
-            if (count($src) == 1 && $src[0] == 1)           // multiple trainer
+            if (count($src) == 1 && $src[0] == 1) // multiple trainer
             {
                 $list = DB::World()->selectCol('
-                    SELECT    IF(t1.ID > 200000, t2.ID, t1.ID)
-                    FROM      npc_trainer t1
-                    LEFT JOIN npc_trainer t2 ON t2.SpellID = -t1.ID
-                    WHERE     t1.SpellID = ?d',
-                    $this->typeId
-                );
+                    SELECT IFNULL(cdt2.CreatureId, cdt1.CreatureId)
+                    FROM creature_default_trainer cdt1
+                    JOIN trainer t1 ON t1.Id = cdt1.TrainerId
+                    JOIN trainer_spell ts1 ON ts1.TrainerId = t1.Id
+                    LEFT JOIN trainer_spell ts2 ON ts2.TrainerId = t1.Id AND ts2.SpellId < 0 AND ts2.SpellId = -ts1.SpellId
+                    LEFT JOIN creature_default_trainer cdt2 ON cdt2.TrainerId = t1.Id
+                    WHERE ts1.SpellId = ?d
+                ', $this->typeId);
             }
             else if ($src)
                 $list = array_values($src);
