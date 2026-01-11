@@ -572,19 +572,15 @@ class NpcPage extends GenericPage
         if ($this->subject->getField('npcflag') & NPC_FLAG_TRAINER)
         {
             $teachQuery = '
-                SELECT IFNULL(ts2.SpellId, ts1.SpellId) AS ARRAY_KEY,
-                       IFNULL(ts2.MoneyCost, ts1.MoneyCost) AS cost,
-                       IFNULL(ts2.ReqSkillLine, ts1.ReqSkillLine) AS reqSkillId,
-                       IFNULL(ts2.ReqSkillRank, ts1.ReqSkillRank) AS reqSkillValue,
-                       IFNULL(ts2.ReqLevel, ts1.ReqLevel) AS reqLevel,
-                       IFNULL(ts2.ReqAbility1, ts1.ReqAbility1) AS reqSpellId1,
-                       IFNULL(ts2.ReqAbility2, ts1.ReqAbility2) AS reqSpellId2,
-                       IFNULL(ts2.ReqAbility3, ts1.ReqAbility3) AS reqSpellId3
-                FROM creature_default_trainer cdt
-                JOIN trainer t ON t.Id = cdt.TrainerId
-                JOIN trainer_spell ts1 ON ts1.TrainerId = t.Id
-                LEFT JOIN trainer_spell ts2 ON ts2.TrainerId = t.Id AND ts2.SpellId < 0 AND ts2.SpellId = -ts1.SpellId
-                WHERE cdt.CreatureId = ?d
+                SELECT    IFNULL(t2.SpellID, t1.SpellID) AS ARRAY_KEY,
+                          IFNULL(t2.MoneyCost, t1.MoneyCost) AS cost,
+                          IFNULL(t2.ReqSkillLine, t1.ReqSkillLine) AS reqSkillId,
+                          IFNULL(t2.ReqSkillRank, t1.ReqSkillRank) AS reqSkillValue,
+                          IFNULL(t2.ReqLevel, t1.ReqLevel) AS reqLevel,
+                          IFNULL(t2.ReqSpell, t1.ReqSpell) AS reqSpellId
+                FROM      npc_trainer t1
+                LEFT JOIN npc_trainer t2 ON t2.ID = IF(t1.SpellID < 0, -t1.SpellID, null)
+                WHERE     t1.ID = ?d
             ';
 
             if ($tSpells = DB::World()->select($teachQuery, $this->typeId))
